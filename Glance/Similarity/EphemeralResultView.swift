@@ -210,22 +210,16 @@ struct EphemeralResultView: View {
         }
     }
 
-    /// chip 形态 section header（mirror SmartFolderGridView c5b048a 形态）。
+    /// chip 形态 section header（mirror SmartFolderGridView 形态，含反色实底 fill）。
     @ViewBuilder
     private func sectionHeader(_ section: URLBucketSection) -> some View {
         HStack {
             Text("\(section.bucket.displayName) · \(section.items.count) 张")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(DS.SectionHeader.chipText)
                 .padding(.horizontal, DS.Spacing.sm)
                 .padding(.vertical, DS.Spacing.xs)
-                .background(.thickMaterial, in: Capsule())
-                .overlay(
-                    Capsule().strokeBorder(
-                        .primary.opacity(DS.SectionHeader.chipBorderOpacity),
-                        lineWidth: DS.SectionHeader.chipBorderWidth
-                    )
-                )
+                .background(DS.SectionHeader.chipFill, in: Capsule())
             Spacer()
         }
         .padding(.horizontal, DS.Spacing.md)

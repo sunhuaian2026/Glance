@@ -153,26 +153,17 @@ struct SmartFolderGridView: View {
     /// 时间分段 sticky header — chip 形态。row 自身完全透明（无 background），
     /// pinned 时只看到左上角一个 Capsule chip 浮着，row 其余区域 cell 透过显示。
     /// 破"全宽横条"视觉感（前两次修法 #141419 不透明 / .regularMaterial 半透明 row 都失败的根因）。
-    /// codex:rescue 5 项 review 通过（Q1 行高 ✓ / Q3 material+Capsule ✓ / Q4 idiom ✓ / Q5 无 LazyVGrid 不兼容 ✓ /
-    /// Q2 ⚠ pinned header 透明区域 hit-test 穿透无强保证，实测后兜底）。
+    /// chip fill 用反色实底（DS.SectionHeader.chipFill/chipText）：dark 浅底 / light 深底，
+    /// 跟背景永远拉开整级明度差，解决半透明 material 在同明度背景上撞色糊边的问题。
     @ViewBuilder
     private func sectionHeader(_ section: TimeBucketSection) -> some View {
         HStack {
             Text("\(section.bucket.displayName) · \(section.images.count) 张")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(DS.SectionHeader.chipText)
                 .padding(.horizontal, DS.Spacing.sm)
                 .padding(.vertical, DS.Spacing.xs)
-                .background(.thickMaterial, in: Capsule())
-                // strokeBorder 0.5pt 给 chip 永远可见边界（Round 3 实测 light cell 上
-                // .regularMaterial 撞色边界融，靠 material 厚度补不来 — 系统 widget/menu
-                // hairline 同模式：macOS Calendar.app / Mail.app sidebar items）
-                .overlay(
-                    Capsule().strokeBorder(
-                        .primary.opacity(DS.SectionHeader.chipBorderOpacity),
-                        lineWidth: DS.SectionHeader.chipBorderWidth
-                    )
-                )
+                .background(DS.SectionHeader.chipFill, in: Capsule())
             Spacer()
         }
         .padding(.vertical, DS.Spacing.xs)

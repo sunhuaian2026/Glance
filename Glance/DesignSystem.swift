@@ -99,10 +99,23 @@ enum DS {
     // MARK: - SectionHeader（V2 时间分段 chip）
 
     enum SectionHeader {
-        // chip strokeBorder hairline（参考 macOS Calendar.app / Mail.app sidebar items）
+        // chip strokeBorder hairline — 现仅供进度/错误 chip（IndexingProgress / FeaturePrint / 错误 banner）复用；
+        // 时间分段 chip 已改反色实底（chipFill/chipText），实底自带边界不再用 hairline。
         // 0.5pt 在 HiDPI 下对应 1 物理像素；opacity 0.12 跟系统 separator 视觉强度一致
         static let chipBorderWidth: CGFloat = 0.5
         static let chipBorderOpacity: Double = 0.12
+
+        // 时间分段 chip 反色实底：dark 模式浅底 / light 模式深底，跟背景永远拉开整级明度差，
+        // 解决同明度撞色（dark+dark / light+light）下半透明 material chip 边界糊的问题。
+        // 参考 macOS Photos.app 日期 pill：告别 material 透感，用不透明实底。
+        static let chipFill = AdaptiveColor(
+            light: SwiftUI.Color(red: 0.30, green: 0.30, blue: 0.33),  // 中深灰实底，压浅色背景（比近黑收敛，克制不抢）
+            dark:  SwiftUI.Color(red: 0.84, green: 0.84, blue: 0.86)   // 米白实底，压深色背景（比纯白收敛亮度/锐度）
+        )
+        static let chipText = AdaptiveColor(
+            light: SwiftUI.Color(red: 0.97, green: 0.97, blue: 0.98),  // 浅字配深底
+            dark:  SwiftUI.Color(red: 0.11, green: 0.11, blue: 0.13)   // 深字配浅底
+        )
     }
 
     // MARK: - IndexingProgress（V2 Slice I.1 进度 chip + Slice I.2 错误 banner）

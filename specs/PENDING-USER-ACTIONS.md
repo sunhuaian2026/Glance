@@ -24,264 +24,19 @@
 
 （本段 CC 维护，追加新项。测完移到 Done。）
 
-- [ ] (2026-04-27 / `<pending>` / followup) **架构**：把双 `.onTapGesture(count:1+2)` 替换为 `Button + .buttonStyle(.plain)` + 单一 action 互斥（codex 建议；macOS lazy 容器双 tap recognizer 有已知 edge case，独立改动避免 scope 失控）
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Inspector · dark 模式开关边线同步**：dark 模式下按 ⌘I 开 Inspector → 左缘 0.5pt 边线随 Inspector 一起从右滑入，过程中**不出现粉色短暂闪现 / 不"提前到位"**；再按 ⌘I 关 → 边线随 Inspector 一起滑出，**不延迟、不残留**
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Inspector · light 模式开关边线同步**：同上 2 项在 light 模式复测（边线应是浅黑半透明 #000 0.08，跟 dark 是同一 AdaptiveColor 的另一端）
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Inspector · 切文件夹/取消选图自动关 Inspector**：选中图片开 Inspector → 切到另一个文件夹（侧边栏点） → Inspector 自动关 + 边线同步消失，无残留；再选图开 Inspector → 按 Esc 退选图 → 同上
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Inspector · 内容回归**：Inspector 显示文件名/尺寸/EXIF/相机参数/GPS 各字段不变；isLoading spinner 行为不变；切换图片 Form 内容跟着更新；ContentUnavailableView 提示文案不变
-- [ ] (2026-05-07 / `<pending>` / bugfix) **focus ring · 真根因修法核心验证**：系统强调色保持粉色（外观 → 强调色 → 粉色）→ 启动 app → 单击缩略图进 ImagePreviewView → 整个 app 不应再有粉色框；按 ⌘I 开 Inspector → preview 右缘和 Inspector 之间不应再有粉色长条；点击 app 失焦后再聚焦 → 不再出现"刚回来粉色框闪一下"的现象
-- [ ] (2026-05-07 / `<pending>` / bugfix) **focus ring · ImageGridView 同步禁用**：grid 模式（无图片选中）→ 整个 grid 区域不应有粉色 focus ring 围在缩略图网格周围；grid 高亮（紫色 highlightedURL 圆角矩形）应仍正常显示
-- [ ] (2026-05-07 / `<pending>` / bugfix) **focus ring · QuickViewerOverlay 同步禁用**：双击缩略图进 QuickViewer → 整个 overlay 不应有粉色 focus ring；强制深色 overlay 中所有自定义 UI（顶栏 / nav 按钮 / filmstrip）视觉不变
-- [ ] (2026-05-07 / `<pending>` / bugfix) **focus ring · 键盘功能回归**（不能 onKeyPress 退化）：grid 方向键移 highlight / preview 方向键切图 / preview Esc 退回 grid / preview Space 进 QuickViewer / QuickViewer 方向键切图 / QuickViewer Esc 退回 全部仍正常工作；切文件夹 / 切预览图 后 onAppear 焦点路由仍生效
-- [ ] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · 核心**：杀掉旧 Glance → 装新 build → 关于面板 commit hash 应是 v2 那版 → 单击 cell 进 ImagePreviewView → 顶部应**无浅灰横条**，文件名 + ⓘ + 外观切换按钮直接坐在 NSWindow title bar 上（注意 e39fbbf v1 实机零变化已废，v2 走 SwiftUI .toolbarBackground 绘制层）
-- [ ] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · 进出 QV 回归**：双击进 QuickViewer → ESC 退 → 再单击进 preview → 仍无浅灰横条
-- [ ] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · sidebar 列**：左上 `+` 按钮 + sidebar toggle 视觉位置 / 间距不变
-- [ ] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · Traffic light 回归**：进 QV 隐藏 / 退 QV 恢复行为不变（commit a064033 / 45a61f1 / 6da903c 已修过 3 次的回归区域）
-- [ ] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · 外观切换**：浅色 / 深色 / 跟随系统切换 → toolbar 视觉跟着切，无残留
-- [ ] (2026-05-07 / `<pending>` / bugfix) **QV colorScheme env · QV 视觉回归**：QV 内顶栏 / nav 按钮 / filmstrip / 关闭按钮 / 缩放比例显示 / 进度 n/m 仍是深色，QV 视觉跟修改前完全一致
-- [ ] (2026-05-07 / `<pending>` / bugfix) **QV colorScheme env · AppearanceMode 切换回归**：浅色 / 深色 / 跟随系统切换 → 立即生效，QV 进出后切换仍即时；进 QV 前后切换外观也无干扰
-- [ ] (2026-05-07 / `<pending>` / bugfix) **QV colorScheme env · 深色模式回归**：深色模式 → 进出 QV → 主 app 保持深色（不应该误触发任何浅化）
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 核心**：grid 单击 cell 1.png → 进 preview → 方向键 → 到 5.png → ESC 退回 grid → **grid 紫色高亮应跟到 5.png**（修前停在 1.png）
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 双击 → QV 路径回归**（44ba6ee 区域）：grid 单击 cell A → highlight=A → 双击 cell B → 进 QuickViewer → ESC 退 QV → highlight 应在 B（不变，跟修前一致）
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 排序回归**：grid 模式 → 切换排序方式 → highlight 自动清空（因 onChange(of: images)）→ 再单击/方向键正常工作；进 preview 后切排序 → preview 仍显示同图 (175e82a 行为不变)
-- [ ] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 焦点 race 回归**（5b29600 / 59a9d86 区域）：单击 cell → preview → ESC → grid 方向键正常工作；单击 → preview → 双击 → QV → ESC → grid 方向键正常工作
-- [ ] (2026-05-07 / `<pending>` / bugfix · Bug 4 扩展) **6da903c 回归**（最关键 — 不能破坏）：grid 双击 cell A 进 QV → **不动方向键** → ESC 退 QV → **回 grid，不进 preview**（保持 6da903c 行为）
-- [ ] (2026-05-07 / `<pending>` / bugfix · Bug 4 扩展) **QV 导航多渠道全覆盖**：QV 内用方向键 / nav button (左右气泡按钮) / filmstrip tap **三种方式**切到 Z → ESC 退 QV → **三种方式都让 highlight/preview 同步 Z**（codex 标盲点 1，验证 onChange viewModel.currentIndex 一处覆盖三渠道）
-- [ ] (2026-05-06 / `ab1fe89` / bugfix) **dark 模式贴 macOS 系统配色 + 失焦响应**（partial — 待 v1.0.1 重新审）：原 commit ab1fe89 删 4 处 hardcoded background 想让系统 sidebar material 接管，实测 sidebar 上半 row 区域有 vibrancy + 漏壁纸色，但 row 之下空白区是深黑色 windowBackground（条纹感）。codex:rescue 给的 NSVisualEffectView 桥方案落地后引发**关于窗口居中回归**（具体因果链未定），同时颜色仍不一致，已 revert 回 ab1fe89 状态。**期望视觉**：app 切到 dark → 侧边栏整片跟 Finder/Mail/Notes 一致（vibrancy + 漏出桌面壁纸色 + 失焦自动褪色） + 内容区中性灰；侧边栏选中 / 未选中行视觉一致（无条纹）。**当前 ab1fe89 状态可接受作 v1.0**（条纹但不影响核心功能），下次审计走 SwiftUI ZStack vs NavigationSplitView column 行为 + 验证 codex 方案为何引发居中回归
-- [ ] (2026-05-05 / `<pending>` / dist) **部署目标降级回归**：装 `~/sync/Glance.app` 跑 7 路径（启动 / 拖文件夹 / 单击进 preview + 方向键 / 双击进 QuickViewer 缩放拖拽 / 全屏 F 键 / 排序菜单 / 关于面板点击复制 + toast），确认 macOS 部署目标 26.2 → 14.0 未破坏现有功能
-- [ ] (2026-05-05 / `<pending>` / dist) **notarytool keychain profile 配置**（一次性）：① 进 https://appleid.apple.com/account/manage 「登录与安全 → App 专用密码」生成 App-specific password（命名如 `glance-notary`）；② 终端跑：`xcrun notarytool store-credentials "glance-notary" --apple-id 16414766@qq.com --team-id 8KW8Z92GRA --password <粘贴 App-specific password>`；③ 验证：`xcrun notarytool history --keychain-profile "glance-notary" --max-results 1` 无报错
-- [ ] (2026-05-05 / `<pending>` / dist) **完整 release 流程跑通**：跑 `make release`（5-15 分钟，含公证），观察输出无错；产物 `dist/Glance-1.0.0.dmg` 生成，SHA256 + size 正常
-- [ ] (2026-05-05 / `<pending>` / dist) **DMG Gatekeeper 实测**：把 `dist/Glance-1.0.0.dmg` 拷到一台干净 Mac（**不能是签名机器**，否则 Gatekeeper 自动信任本机签）；双击挂载 → 拖到 Applications → 双击启动；预期：**直接打开**，不弹「无法验证开发者」/「损坏」/「未知开发者」对话框；活动监视器显示 Glance 正常运行
-- [ ] (2026-05-05 / `<pending>` / dist) **GitHub 仓库改 public**：`gh repo edit sunhuaian2026/ISeeImageViewer --visibility public --accept-visibility-change-consequences`（或 GitHub 网页 Settings → Danger Zone）；改完确认能匿名访问 `https://github.com/sunhuaian2026/ISeeImageViewer`
-- [ ] (2026-05-05 / `<pending>` / dist) **GitHub Release v1.0.0**：tag `v1.0.0`，上传 `dist/Glance-1.0.0.dmg` + sidecar `Glance-1.0.0.dmg.sha256`，写 release notes（CC 起草）。命令模板：`gh release create v1.0.0 dist/Glance-1.0.0.dmg --title "Glance 1.0.0 · 一眼" --notes-file <release-notes.md>`
-- [ ] (2026-05-05 / `<pending>` / dist) **README 加下载入口**：项目 README 顶部加下载按钮（指 latest release）+ macOS 14+ 系统要求说明；首页带产品截图（grid / preview / QuickViewer / Inspector 各 1 张）
-- [ ] (2026-05-05 / `<pending>` / dist · 可选) **GitHub 仓库改名 ISeeImageViewer → Glance**：与 V1 发布解耦，发完 v1.0.0 后再做。改名后 GitHub 自动留旧路径 redirect，不影响已发链接
-- [x] (2026-05-05 / `bd25fd0`) **关于面板 Copyright 字段**（已用 8f927d1 自定义 about panel 取代）：标准面板 wrap 点不雅观（"小红书"和"382336617"被自动拆两行），故升级到自定义 panel — 见下方测试项 ✓ 2026-05-05
-
-### V2 Slice A（2026-05-08 完成 / 待用户复测）
-
-**端到端基础**
-- [ ] (2026-05-08 / Slice A) **V2 全部最近 · 单 root**：清干净 DB（`rm -rf "$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/"`）→ 启动 V2 → 加 1 个含 ~100 张图的 root folder → console 5 秒内出 `[IndexStore] scan complete for /path/...` → 切到 ⚙️ "全部最近" → grid 显示该 folder 的图按 birth_time 倒序
-- [ ] (2026-05-08 / Slice A) **V2 全部最近 · 多 root**：再加第 2 个 root folder → "全部最近" grid 应看到两个 folder 的图**混排**按 birth_time 倒序
-- [ ] (2026-05-08 / Slice A) **V1↔V2 互斥**：V1 sidebar 点选具体 folder → 主区切到 V1 ImageGridView（cell + size slider + sort menu）→ 切到 ⚙️ "全部最近" → 主区回 V2 grid，V1 选中清空；反向也对称
-- [ ] (2026-05-08 / Slice A) **V1 行为零退化**：V1 mode 跑 7 路径（启动 / 拖文件夹 / 单击进 preview + 方向键 / 双击进 QuickViewer 缩放拖拽 / 全屏 F 键 / 排序菜单 / Inspector ⌘I）跟 v1.0 一致
-
-**V2 cell 视觉/交互（mirror V1 ThumbnailCell）**
-- [ ] (2026-05-08 / Slice A) **V2 cell 方形 + 不 letterbox**：V2 grid cell 是方形（180×180 默认），图片填满（不留黑边 letterbox）
-- [ ] (2026-05-08 / Slice A) **V2 cell hover 效果**：鼠标悬停 cell → 1.03× 微放大 + 暗化 dim overlay（mirror V1 ThumbnailCell）
-- [ ] (2026-05-08 / Slice A) **V2 cell 共享 thumbnailSize**：V1 mode 拖动顶部 size slider → 切回 V2 mode → V2 cell 大小跟着变了（V1 / V2 共享 folderStore.thumbnailSize 一处控制两边）
-- [ ] (2026-05-08 / Slice A) **V2 cell HiDPI 锐利**：retina 屏 V2 缩略图清晰（maxPixelSize = size × backingScaleFactor）
-- [ ] (2026-05-08 / Slice A) **V2 cell hover tooltip**：鼠标悬停 cell ≥1s → 浮出 tooltip 显示 relative path（如 `nature_01.jpg` 或 `subfolder/foo.jpg`，D5）
-- [ ] (2026-05-08 / Slice A) **V2 cell highlight 跟 V1 一致**：单击 cell → 紫色（accent color）边框 + 半透明填充
-
-**V2 grid keyboard（mirror V1 ImageGridView）**
-- [ ] (2026-05-08 / Slice A) **V2 grid 自动焦点**：进 V2 mode → grid 自动有焦点（直接按方向键就工作，无需先点 cell）
-- [ ] (2026-05-08 / Slice A) **V2 grid 方向键导航**：左 / 右 / 上 / 下 → highlight 在 V2 grid 内移动，scroll 自动跟随到中心
-- [ ] (2026-05-08 / Slice A) **V2 grid Space → QV**：highlight cell 后按 Space → 进 QuickViewer（无 highlight 时取第 1 张）
-- [ ] (2026-05-08 / Slice A) **V2 grid F → 全屏**：按 F → 切换全窗口全屏（跟 V1 / QV / preview 一致）
-- [ ] (2026-05-08 / Slice A) **V2 grid 焦点路由 · preview 退出**：单击 cell → preview → ESC → grid 焦点回来，方向键继续
-- [ ] (2026-05-08 / Slice A) **V2 grid 焦点路由 · QV 退出**：双击 cell → QV → ESC → grid 焦点回来，highlight 落在最后浏览的图
-- [ ] (2026-05-08 / Slice A) **V2 grid 焦点路由 · preview→QV→preview**：单击 cell → preview → ←→ 浏览到 Z → 双击 → QV → ESC → preview 回 Z → ESC → grid highlight 在 Z
-
-**V2 mode 主区切换（mirror V1）**
-- [ ] (2026-05-08 / Slice A) **V2 单击 cell → preview**：cell 单击 → fade in V1 风格 ImagePreviewView，顶部 toolbar 显示 filename
-- [ ] (2026-05-08 / Slice A) **V2 双击 cell → QV 不闪 grid**（codex:rescue 真根因 fix 验证）：cell 双击 → QV 即时出现，**没有中间 grid 暴露闪烁**（修前会闪 ~200ms）
-- [ ] (2026-05-08 / Slice A) **V2 preview→QV 不闪 grid**：单击进 preview → space 或双击图 → QV 即时出现，**也不闪 grid**
-- [ ] (2026-05-08 / Slice A) **V2 QV 导航**：QV 内方向键 / nav button / filmstrip tap → 主图正确切换；QV 内 ESC 仍按入口走（grid 双击进的 → 退回 grid；preview 双击进的 → 退回 preview）
-- [ ] (2026-05-08 / Slice A) **V2 mode Inspector**：V2 mode 单击 cell 进 preview → ⌘I 或 ⓘ 按钮 → Inspector 显示**选中图的文件名 / 尺寸 / EXIF / GPS**（非空态）
-
-**幂等性（codex review 重点 + bookmark sandbox 限制 verify）**
-- [ ] (2026-05-08 / Slice A) **重启幂等 · grid 自动恢复**：关闭 V2（Cmd+Q）→ 重启 → ⚙️ "全部最近" 默认选中 + grid 自动出图，**无需重扫**（IndexStore 持久化生效）
-- [ ] (2026-05-08 / Slice A) **重启幂等 · console 不再 scan**：重启后 console **不应再出** `[IndexStore] scan complete`（registerRoot path 去重 + UNIQUE(folder_id, relative_path) 配合）
-- [ ] (2026-05-08 / Slice A) **重启幂等 · DB 行数稳定**：连续重启 3-5 次后跑命令验证 image / folder 行数不持续增长：
-
-```bash
-DB="$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/index.sqlite"
-sqlite3 "$DB" "SELECT 'folders:', count(*) FROM folders; SELECT 'images:', count(*) FROM images;"
-```
-
-- [ ] (2026-05-08 / Slice A) **path 变化不破坏幂等**：把一个 root folder 在 Finder 重命名（同磁盘位置）→ 重启 V2 → folders 表**不应出现重复行**（registerRoot 用 standardizedFileURL.path 做 unique key）
-- [ ] (2026-05-08 / Slice A) **DB 文件位置确认**（plan 路径错，注意 sandbox container）：`ls -la "$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/"` 应有 `index.sqlite` + `index.sqlite-shm` + `index.sqlite-wal` 三个文件
-
-**边界 case**
-- [ ] (2026-05-08 / Slice A) **空 folder**：拖一个 0 张图的空 folder 到 V1 sidebar → V2 "全部最近" grid 不应崩，仍显示其他 root 的图（不应误进入"暂无图片"占位态）
-- [ ] (2026-05-08 / Slice A) **大 folder（性能目标，非硬性）**：加 1 万张图的大 folder → 首次扫描 < 10 分钟（plan D9 性能目标）；扫描期间 grid 应渐进显示已索引图（每批 50 张 console 进度日志）
-- [ ] (2026-05-08 / Slice A) **删除 root folder**：V1 sidebar 删除一个 root folder → V1 sidebar entry 消失；V2 "全部最近" grid 暂仍显示该 folder 的旧图（**Slice G FSEvents 才会清理孤立行**，Slice A 接受此 known limitation）
-
-**已知限制 / 推后的 Slice A scope**
-- [ ] (2026-05-08 / Slice A · followup Slice B+) **V2 grid toolbar size slider**：V2 mode 时顶部 toolbar 没有 V1 那种缩略图 size slider（80-280pt 拖动条）。当前用户只能通过先切到 V1 mode 拖 slider 间接调节。Slice B+ 决定 V2 grid 自带 toolbar 还是 ContentView 共用
-- [ ] (2026-05-08 / Slice A · followup Slice B+) **V2 grid toolbar 排序按钮**：V2 mode 没有排序方式 / 升降序切换（V1 有 6 种排序）。跨 folder sort 语义需要 design 拍（按 filename 跨 folder 不直观，按 birth_time / file_size 更合理）
-- [ ] (2026-05-08 / Slice A · followup Slice I) **v2Urls / folderStore.images 双源耦合**：当前 V2 模式 ContentView 拆出本地 `@State v2Urls`，preview / QuickViewer / Inspector 三处都要 `smartFolderStore.selected != nil ? v2Urls : folderStore.images` 选 source。Slice I 重构候选：让 ImagePreviewView/QuickViewerOverlay/Inspector 不直接依赖 folderStore.images，完全走显式参数；移除 V1/V2 双向耦合
-- [ ] (2026-05-08 / Slice A · followup Slice I) **IndexedImage.urlBookmark 字段 rename**：实际存的是 root bookmark（不是 image 自己的 bookmark，sandbox 不允许给 enumerator 子文件创建 .withSecurityScope bookmark）。Slice I rename 候选：→ rootBookmark 或干脆改为 folder_id → folders.root_url_bookmark lookup
-- [ ] (2026-05-08 / Slice A · followup Slice I) **computeV2Urls() 同步 resolve 性能**：cell 单击/双击时同步 resolve ~100 张 bookmark 可能 50-200ms 主线程卡顿（codex:rescue 已标）。Slice I 性能优化阶段处理（缓存已 resolve 的 root URL / 异步预热）
-
-### Slice B-α: 时间分段 sticky header（5 段固定）
-
-- [ ] (2026-05-09 / `<pending>` / Slice B-α follow-up #2) **段头 chip 形态（破"横条"第三轮修法）**：sticky header 改成左上角浮动 capsule chip（"今天 · 3 张"），row 其余区域**完全透明**，cell 滚动时直接透 chip 之外区域显示；不应再呈现"全宽横条"视觉感（前两次修法 #141419 不透明黑 / `.regularMaterial` 半透明全 row 都失败的根因 = SwiftUI Section header 全宽属性，仅改 background 改不掉）
-- [ ] (2026-05-08 / `<pending>` / Slice B-α) **sticky 行为**：滚动 grid 时当前段标题固定吸顶，下一段进入视口时无缝替换；不应出现"两段标题同时悬浮"或"标题瞬移"
-- [ ] (2026-05-08 / `<pending>` / Slice B-α) **跨午夜归属**：手动改系统时间至 0:01（系统设置 → 通用 → 日期与时间，关闭自动）→ 重启 Glance → 一张昨天 23:59 拍的图应归"昨天"段；改回今日中午时间该图归"今天"段
-- [ ] (2026-05-08 / `<pending>` / Slice B-α follow-up) **键盘导航跨段（算法已重写）**：←→ 走 flat queryResult ±1（跨段自然连续）；↑↓ 段内同 col 上下移动；段尾按 ↓ 跳下一段第一行同 col（下一段不足时 clamp 到该行末 cell）；段首按 ↑ 跳上一段最后一行同 col（同样 clamp）；第一段第一行按 ↑ / 末段末行按 ↓ 原地；Space 进 QV / Esc 退仍工作
-- [ ] (2026-05-09 / `<pending>` / Slice B-α follow-up #2) **chip 之外透明区域 hit-test 验证（codex Q2 ⚠ caveat 实测）**：sticky chip 浮在顶部时，**chip 之外的透明 row 区域**应该**允许**点击穿透到下方 cell（用户视觉上点的就是 cell 本身）；点 chip 自身应吃掉 tap（chip 是 Capsule 实体，Spacer 不参与 hit-test）。如果实测发现 chip 之外透明区仍被 SwiftUI Section header 整 row 抓走 hit-test 不能点 cell，反馈给我加 fallback（chip 形状 contentShape + Spacer 的 transparent area 显式 allow hit through）
-- [ ] (2026-05-09 / `<pending>` / Slice B-α follow-up #2) **chip + sticky 兼容性（macOS 14 Sonoma）**：sticky 时 SwiftUI Section header row 高度应等于 chip + DS.Spacing.xs 双侧 padding 自然高度（codex Q1 已 ✓）；如果实测 row 仍占据明显厚带（chip 之上/之下出现可见空白），说明 SwiftUI 在 LazyVGrid Section header 上施加了最小高度 → 反馈给我走 fallback（overlay chip + PreferenceKey 监听 ScrollView offset 自管 sticky，约 80 行重写）
-
-### Slice B-β: 「本周新增」内置 SmartFolder
-
-- [ ] (2026-05-09 / `<pending>` / Slice B-β) **sidebar 自动出现 2 个 SF**：启动 Glance → 智能文件夹区显示 2 个 ⚙️ entry 按顺序：「全部最近」+「本周新增」；点击「本周新增」高亮切换 + grid 内容刷新
-- [ ] (2026-05-09 / `<pending>` / Slice B-β) **本周新增结果正确性**：「本周新增」选中后 grid 显示的图全部为 birth_time ≥ 7 天前（含今天）的图；老图（≥ 7 天）不出现；切回「全部最近」图数应 ≥「本周新增」
-- [ ] (2026-05-09 / `<pending>` / Slice B-β) **滑动窗口语义**：「本周新增」是滑窗 -7d/now（不是自然周）。验证：今天周三的话，上周三的图应在；上周二的图不在。**与 D4 段头"本周"双轨独立**——「本周新增」grid 内的图按 D4 时间分段段头分布到"今天/昨天/本周"三段（不会出现"本月"或"更早"段，因为查询窗口只 -7d）
-- [ ] (2026-05-09 / `<pending>` / Slice B-β) **空数据兜底**：如果你机器上 7 天内无新图，「本周新增」应显示空态（"暂无图片"占位），不应报错或卡死
-
-### Slice D.1: hide toggle 端到端
-
-- [ ] (2026-05-09 / `<pending>` / Slice D.1) **root hide 整树消失**：sidebar 右键 root 文件夹 → "在智能文件夹中隐藏" → 智能文件夹（全部最近 / 本周新增）grid 该 root 下所有图全部消失；右键 root 再点 → menu label 变"在智能文件夹中显示"
-- [ ] (2026-05-09 / `<pending>` / Slice D.1) **subfolder unhide 单独显形**：root 已 hide 的状态下，展开子目录树 → 右键某子目录 → "在智能文件夹中显示"（label 因继承自 root 显示为该文案）→ grid 中该子目录下的图重现，但该子目录的同级或父级其他子目录仍 hidden
-- [ ] (2026-05-09 / `<pending>` / Slice D.1) **subfolder hide inside visible root**：root 处于 visible 状态下，右键某子目录 → "在智能文件夹中隐藏" → grid 中该子目录下的图消失，root 其他兄弟子目录的图仍可见
-- [ ] (2026-05-09 / `<pending>` / Slice D.1) **状态持久化（重启不丢）**：执行任意 hide toggle → 退出 Glance → 重启 → sidebar 右键看 menu label 与 grid 显示状态都跟退出前一致（IndexStore SQLite 持久化）
-- [ ] (2026-05-09 / `<pending>` / Slice D.1) **menu label 动态准确**：右键 root 看到 label 说"隐藏"，点击 hide 后再次右键应说"显示"；同样测 subfolder（含跨继承场景：root.hide=1 子目录 menu label 显"显示"）
-
-### Slice D.2: Inspector 来源 path 段 + Show in Finder
-
-- [ ] (2026-05-09 / `<pending>` / Slice D.2) **来源段渲染**：选图开 Inspector → 滚动到底部应有"来源"Section，含"路径"row 显示完整 absolute path（长 path 中间 truncation 显 "..."），可选中复制（textSelection enabled）+ "在 Finder 中显示"按钮（folder icon）
-- [ ] (2026-05-09 / `<pending>` / Slice D.2) **Show in Finder 行为**：点 "在 Finder 中显示"按钮 → Finder 弹出/前置 + 在父目录窗口里高亮选中该文件
-- [ ] (2026-05-09 / `<pending>` / Slice D.2) **V1 / V2 双模式生效**：V1 单文件夹模式选图 / V2 智能文件夹（全部最近 / 本周新增）选图，Inspector 来源段都正确显示对应图的真实 path（不是 root path）
-- [ ] (2026-05-09 / `<pending>` / Slice D.2) **path 选中复制**：长按拖选 path 文字 → 复制 → 粘贴到 Finder 地址栏 / 终端 → 能定位到文件
-
-### Slice G: FSEvents 增量监听 + 删 root 清理
-
-- [ ] (2026-05-09 / `<pending>` / Slice G.1) **删 root 整树清理**：V1 sidebar 右键 root → "移除文件夹" → 智能文件夹 grid 立即不再显示该 root 下的图（不应 stale）。退出 + 重启验证 IndexStore 也已清干净（重启后 sidebar 不出现该 root，"全部最近"也不含其图）
-- [ ] (2026-05-09 / `<pending>` / Slice G.2) **新增图实时入索引**：选「全部最近」打开 grid → Finder 拖一张图到某 managed folder（不用关 Glance）→ **5s 内**该图出现在智能文件夹 grid 顶部（按 birth_time DESC）
-- [ ] (2026-05-09 / `<pending>` / Slice G.2) **跨 managed folder 都监听**：在 root1 + root2 各 cp 一张图 → 5s 内两张都出现在「全部最近」
-- [ ] (2026-05-09 / `<pending>` / Slice G.3) **删图实时去索引**：grid 显示某图时 Finder 删该图（rm / 移到废纸篓）→ 5s 内该图从 grid 消失
-- [ ] (2026-05-09 / `<pending>` / Slice G.3) **改图内容元数据同步**：替换某 jpg（同 path 不同内容） → 5s 内 Inspector 看到 file_size / dimensions 已更新
-- [ ] (2026-05-09 / `<pending>` / Slice G.3) **改名 = delete + insert**：rename 某图（same folder，新文件名）→ 5s 内 grid 老 cell 消失，新 filename cell 出现（按新 birth 时间归段；Slice H 之前不会自动 dedup link）
-- [ ] (2026-05-09 / `<pending>` / Slice G.3) **subfolder 内变化也监听**：在 managed root 的子目录里 cp 图 / rm 图 → 5s 内 grid 同步（FSEvents WatchRoot 默认监听 subfolders）
-
-### Slice H: 内容去重 SHA256 + cheap-first 粗筛
-
-- [ ] (2026-05-09 / `<pending>` / Slice H.1) **dedup canonical 跨 root**：在 root1 + root2 两个 managed folder 各 cp 一张相同图（确保 same file_size + same format） → 等扫描 + dedup pass 完成 → 智能文件夹 grid 应**只显示 1 张**（earliest birth_time 那张），不应两张都显示
-- [ ] (2026-05-09 / `<pending>` / Slice H.1) **dedup pass 后台不卡 UI**：往 managed folder 拖 1k+ 张图（含一些已知 dup） → grid 在扫描期间能正常滚动 / 切换 SF / 选图，不应 spinner 卡住
-- [ ] (2026-05-09 / `<pending>` / Slice H.1) **FSEvents 增量去重**：grid 已显示某图 → cp 一份到第二个 root（同 file_size+format）→ 5s 内 grid 不应出现"两张同图"（dedup pass on FSEvents 应识别副本）
-- [ ] (2026-05-09 / `<pending>` / Slice H.1) **modify 后 SHA256 重算**：替换某 dup 文件内容（同 path 不同内容） → 5s 内 grid 该图独立显示（不再被视为副本）；Inspector 副本段空
-- [ ] (2026-05-09 / `<pending>` / Slice H.1) **删 canonical 后 promote**：3 张 dup 图 A/B/C，A 是 canonical → rm A → 剩下 B/C 中 earliest 自动 promote canonical → grid 仍显示 1 张（B 或 C），不应 grid 空
-- [ ] (2026-05-09 / `<pending>` / Slice H.2) **Inspector 副本段渲染**：选 canonical 图打开 Inspector → 滚动到底部应有"副本（N 个）"Section，列出其他 path（truncation .middle 中间省略）+ 每条行末有 folder icon 按钮可点 → 在 Finder 中跳转
-- [ ] (2026-05-09 / `<pending>` / Slice H.2) **副本段互显**：选 canonical 看到 N-1 个副本；切到任一副本看 Inspector → 应也看到 N-1 个 path（含 canonical + 其他副本）
-- [ ] (2026-05-09 / `<pending>` / Slice H.2) **无副本时段不显示**：选普通图（无 dup）打开 Inspector → 应**没有**"副本"Section（不渲染空段）
-
-### Slice I: 进度 chip + 错误 banner + 取消 + 进度持久化 + enum-state
-
-- [ ] (2026-05-09 / `<pending>` / Slice I.1) **大库扫描进度 chip 显示**：拖一个含 5k+ 张图的 root 加入 → mainContent 顶部应出现"正在索引「root_name」 · X 已扫 / Y 入库"chip → 数字每 50 张更新一次 → 扫完 chip 自动消失
-- [ ] (2026-05-09 / `<pending>` / Slice I.2) **取消扫描**：扫描进行中点 chip 上 X 按钮 → scan loop 内 Task.isCancelled 检测后 break → chip 消失；当前 cursor 已写入 folders.last_processed_path（持久化）
-- [ ] (2026-05-09 / `<pending>` / Slice I.2) **重启 resume from cursor**：扫描中途 cancel 或杀进程 → 重启 Glance → 该 root 自动 resume，从 lastProcessedPath 之后继续扫，不重头（依赖 macOS DirectoryEnumerator 字典序稳定遍历）
-- [ ] (2026-05-09 / `<pending>` / Slice I.2) **扫描完成清 cursor**：完整扫完一个 root → folders.last_processed_path = NULL → 下次启动不再 resume（直接走完整扫，但 insertImageIfAbsent 幂等不会重复插）
-- [ ] (2026-05-09 / `<pending>` / Slice I.2) **错误 banner**：模拟扫描失败（如某文件 IO error）→ mainContent 顶部出现红色 capsule banner "「root_name」扫描失败：..." → 点 X 按钮 dismiss → banner 消失，主 UI 仍可滚动
-- [ ] (2026-05-09 / `<pending>` / Slice I.3) **enum-state 重构无回归**：所有 V2 grid 行为（query 切换 / 重 query / 空态 / preview 方向键 navigate / Inspector 同步）跟 Slice H 一致，没有 race / stale-write / 重复刷新等异常
-
-### V1 mode grid 自动刷新 + 手动刷新（2026-05-10）
-
-- [ ] (2026-05-10 / `3256733` / V1 refresh) **V1 自动 FSEvents · 增**：V1 mode 选某 folder → grid 显示 → 用 Finder 拖一张图到该 folder → 5s 内 grid 自动出现新图（不用手动刷新）
-- [ ] (2026-05-10 / `3256733` / V1 refresh) **V1 自动 FSEvents · 删**：V1 mode 选某 folder → 用 Finder 删该 folder 内某图 → 5s 内 grid 自动消失
-- [ ] (2026-05-10 / `3256733` / V1 refresh) **V1 自动 FSEvents · 改**：V1 mode 选某 folder → 用 Finder 替换某图（cp 覆盖）→ 5s 内 grid 同步（缩略图重新加载）
-- [ ] (2026-05-10 / `3256733` / V1 refresh) **手动刷新**：右键当前选中的 folder → 出现"刷新"菜单项 → 点 → grid reload。**右键非选中的 folder** → 不应出现"刷新"项（避免歧义刷哪个）
-- [ ] (2026-05-10 / `3256733` / V1 refresh) **切 folder watcher 切换**：选 folderA → 拖图进 folderA 验证 grid 出现 → 切到 folderB → 拖图进 folderA → folderB grid **不应**响应（folderA watcher 已 stop，selectedFolder guard 也防漏）→ 切回 folderA grid 显示新图
-- [ ] (2026-05-10 / `3256733` / V1 refresh) **删 folder 停 watcher**：选 folderA → 右键移除 folderA → watcher 应自动停（无 leak），不再有事件触发；之后选别的 folder 正常工作
-
-### Slice D follow-up #2 — hide 图标扩到 subfolder explicit（2026-05-10）
-
-- [ ] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **subfolder 单独 hide 显图标**：root visible 状态下 → 右键某 subfolder → "在智能文件夹中隐藏" → **该 subfolder 行**应出现 eye.slash 图标 + tooltip"在智能文件夹中隐藏"
-- [ ] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **root hide 整树 subfolder 不显图标**：右键 root → "在智能文件夹中隐藏" → root 行显图标 ✓；展开 root → 各 subfolder 行**不应**显图标（继承非 explicit，避免视觉噪音）
-- [ ] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **subfolder 单独 unhide 不显图标**：root hide 状态下 → 右键某 subfolder → "在智能文件夹中显示"（subfolder 行 explicit hide=0）→ subfolder 行**不应**显图标（explicit unhide ≠ hide）
-- [ ] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **explicit + 继承双层冗余场景**：root hide → 右键某 subfolder → "在智能文件夹中隐藏"（冗余 explicit）→ root 显 / 该 subfolder 也显（双图标 — explicit 表达一致，冗余但不错）
-- [ ] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **重启状态保留**：执行任意 explicit hide → 退出重启 → 图标位置跟退出前一致
-
-### Slice D follow-up — root hide 图标提示（2026-05-10）
-
-- [ ] (2026-05-10 / `3cd463c` / Slice D follow-up) **root hide 显示 eye.slash**：sidebar 右键 root → "在智能文件夹中隐藏" → 该 root 行 folder 名右侧应出现灰色 `eye.slash` 图标；hover 该图标 → 浮 tooltip "在智能文件夹中隐藏"
-- [ ] (2026-05-10 / `3cd463c` / Slice D follow-up) **取消 hide 图标消失**：右键已 hide 的 root → "在智能文件夹中显示" → eye.slash 图标立即消失
-- [ ] (2026-05-10 / `3cd463c` / Slice D follow-up) **subfolder hide 不显图标**：root visible 状态下，右键某 subfolder → "在智能文件夹中隐藏" → subfolder 行**不应**出现图标（仅 root 层显，子目录靠 contextMenu label 表达）
-- [ ] (2026-05-10 / `3cd463c` / Slice D follow-up) **重启状态保留**：hide 某 root → 退出 Glance → 重启 → 该 root 仍带 eye.slash 图标（IndexStore 持久化）
-
-### SVG 支持（2026-05-10）
-
-- [ ] (2026-05-10 / `c88c7ae` / SVG support) **V2 grid SVG 缩略图渲染**：装新 build → 重启 → 拖 `.svg` 文件到 managed folder → 「全部最近」grid 应**正常显示 SVG 缩略图**，不再卡 spinner
-- [ ] (2026-05-10 / `c88c7ae` / SVG support) **V1 grid SVG 显示**：选 V1 mode 某个含 SVG 的具体 folder → 该 SVG 应在缩略图网格里出现（之前 supportedExtensions 不含 svg → V1 完全过滤）
-- [ ] (2026-05-10 / `c88c7ae` / SVG support) **ImagePreviewView SVG**：单击 SVG cell → 进 preview → SVG 应正常显示；方向键切换到下一张非 SVG 图也正常
-- [ ] (2026-05-10 / `c88c7ae` / SVG support) **QuickViewer SVG**：双击 SVG cell → 进 QV → SVG 应能正常显示 + 滚轮缩放无糊（vector 无限缩放）；方向键切换其他格式正常
-- [ ] (2026-05-10 / `c88c7ae` / SVG support) **混合格式排序**：folder 内有 svg + png + jpg 混合 → 排序菜单切换（按修改时间 / 名字等）→ SVG 正确排序，缩略图不消失
-
-### FolderScanner cleanup pass — stale row 自愈（2026-05-10）
-
-- [ ] (2026-05-10 / `3914a01` / scan cleanup) **离线移动 stale row 自动清**：装新 build → 重启 Glance → 等首次 scan 完 → console 应有 `[FolderScanner] cleanup folderId=N: removed M stale rows (offline delete/move)` log → 「全部最近」原本卡 spinner 的 `00-cover.png` / `05-card-05.png` 等 cell 应消失（被 cleanup pass 删了 stale row）
-- [ ] (2026-05-10 / `3914a01` / scan cleanup) **当前用户库直接修复**：你目前库里的 stale row（id=42 / id=43 等）应在重启后第一次 scan 完成时被清掉；不需要手动跑 SQL
-- [ ] (2026-05-10 / `3914a01` / scan cleanup) **离线删除文件 → 重启清行**：app 关闭状态下在 Finder 删某 managed folder 里的图 → 重启 Glance → 等 scan 完 → grid 应不再显示该图（cleanup pass 删 row）
-- [ ] (2026-05-10 / `3914a01` / scan cleanup) **resume 场景不误删**：扫描中途 Cmd+Q（cursor 写入）→ 重启自动 resume → 完成 resume 后**不应**触发 cleanup（resumeFrom != nil 时跳过 cleanup pass）；已 indexed 的图保留
-- [ ] (2026-05-10 / `3914a01` / scan cleanup) **dedup canonical 自动重定位**：cleanup 删了 stale row 后 `triggerDedupFullPass` 自动重跑（registerAndScan 末尾已挂）→ canonical 在剩余 row 间重新决策，grid 正确显示
-
-### Slice I 启动双 loading 闪屏 fix（2026-05-09 · 修法 2 方案 5 落地）
-
-- [ ] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **启动 grid 不闪 · 核心**：冷启动 Glance（多 root 已索引场景）→ 主区显示 grid 后**不应再消失/重新出现**。允许 progress chip 短暂出现（FSEvents 增量），但 grid 本身始终保留旧数据，无空白闪烁
-- [ ] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **手动切 SF 立即清空**：在「全部最近」grid 浏览中 → 点 sidebar「本周新增」→ grid 应**立刻清空 + loading**（不 carry「全部最近」的 stale 数据），新 SF 数据出来后填充。验证 select(不同 SF) 时不 carry stale 的语义
-- [ ] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **同 SF refresh 不闪**：选中某 SF → 后台触发 refresh（如 Finder 拖图进 managed folder 触发 FSEvents → onIndexChanged → refreshSelected）→ grid 中旧 cell **不应消失**，新数据回来后无缝替换
-- [ ] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **空库首启动仍走 emptyState**：`rm -rf` DB → 启动 → 加首个 root → 空库阶段 SmartFolderGridView 应正常显示 emptyState（"暂无图片"）；扫完后 grid 出图。验证 stale=`[]` + loaded([]) 两条空路径都触发 emptyState
-- [ ] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **stale cell 点击行为**：grid loading 期间快速点 stale cell（启动后 1 秒内）→ 行为应是预览旧 image（不崩、不 nil 错误），即使该 image 在 refresh 后已被 dedup 清除。trade-off 验证：codex 标的 race 接受度
-- [ ] (2026-05-09 / `<pending>` / Slice I bugfix) **启动单次 loading**：冷启动 Glance（不要 `rm -rf` DB，确保有 root + 已索引数据）→ 主区只看到 1 次 loading 过渡（idle → loading → loaded）就显示 grid，不应再"loading 完→消失→又 loading 一下→出图"两次循环
-- [ ] (2026-05-09 / `3ad6f1f` / Slice I bugfix) **首次启动空库**：`rm -rf "$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/"` → 启动 → 加 root → 等扫完。期间应只在 scan + dedup 完成那一刻看到 loading（不应启动瞬间就 loading 一次再 loading 一次）
-- [ ] (2026-05-09 / `3ad6f1f` / Slice I bugfix) **添加 root 后 grid 自动出图**：app 已启动且选中"全部最近"→ Cmd+O 或拖 Finder 文件夹添加新 root → 等扫完（含 dedup pass）→ grid 自动反映新 root 的图。验证 onIndexChanged → refreshSelected 链路在添加路径仍工作（修法删了手动 refresh，全靠 bridge 内部 triggerDedupFullPass 的回调）
-- [ ] (2026-05-09 / `3ad6f1f` / Slice I bugfix) **删除 root 后 grid 自动清理**：删 root（V1 sidebar 右键移除）→ grid 自动从"全部最近"清掉该 root 的图。验证 unregister → triggerDedupFullPass → onIndexChanged 链路仍工作
+**仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
 ### Slice B-α 延后项（polish，不阻塞 ship）
 
-- [ ] (2026-05-09 / Deferred / Slice B-α polish) **chip 深浅色模式下对比强化**：用户要求 chip 在 dark/light 各模式下跟 cell 的视觉对比再"跳"一些。当前状态：`.thickMaterial` + `Capsule().strokeBorder(.primary.opacity(DS.SectionHeader.chipBorderOpacity=0.12), lineWidth: DS.SectionHeader.chipBorderWidth=0.5)`。**待对齐**（重启时问用户）：(1) 哪个组合对比最弱？dark mode + dark cell / dark + light cell / light + light cell / light + dark cell（建议截图对比）；(2) 期望"强烈"方向：A stroke 加粗 + opacity 升（0.5pt×0.12 → 1pt×0.30）/ B `.ultraThickMaterial` + 微 shadow / C 反色 fill（dark mode chip 用 light fill / light mode chip 用 dark fill，告别 material 透感，macOS Photos.app / Files.app 模式）/ D material + accentColor tint（DS.Color.glowPrimary 弱化版）。**修法 surface 预期**：仅 `Glance/FolderBrowser/SmartFolderGridView.swift sectionHeader` + `Glance/DesignSystem.swift DS.SectionHeader` 段；不动 LazyVGrid pinnedViews、moveHighlight、locate、其他交互逻辑
+- [ ] (2026-06-02 / `<pending>` / Slice B-α polish) **chip 反色实底对比效果实机确认**：方案 C（反色不透明实底）已落地——`DS.SectionHeader.chipFill/chipText`，dark 模式 chip 用浅底（0.84 灰）深字 / light 模式深底（0.30 灰）浅字，告别 `.thickMaterial` 半透明（参考 macOS Photos.app 日期 pill）。两处 chip 同步：智能文件夹 grid 时间分段「今天 · N 张」(`SmartFolderGridView`) + 搜索/找类似结果 section header (`EphemeralResultView`)。**待实机确认**：dark/light × cell 明暗 四种组合下，chip 跟背景对比是否够"跳"、是否过抢或过暗；不满意则反馈调 `chipFill/chipText` 的 RGB（当前 light 底 0.30 / dark 底 0.84）。**已选方案 C 替代了原 PENDING 列的 A/B/D**（material 加厚 / ultraThick+shadow / accent tint 均放弃）
 
-### V2 M2 Slice J（2026-05-11）
+### V2 M2 Slice K — 性能验收（deferred）
 
-（全 8 项已迁移到 Done 段，性能数字两项标 deferred 未实测）
-
-### V2 M3 Slice L（2026-05-11）— 3 个新内置 SmartFolder
-
-- [ ] (2026-05-11 / `<pending>` / Slice L) **Sidebar 显示 5 个内置 SF**：app 启动 → sidebar 顶部智能文件夹区按顺序看到「全部最近」/「本周新增」/「上个月」/「截图」/「大图」5 条
-- [ ] (2026-05-11 / `<pending>` / Slice L) **「上个月」自然月边界**：点击「上个月」→ grid 显示库里所有 birth_time 落在上个自然月（1 号 00:00 到本月 1 号 -1s）的图；跨年场景：1 月点开看到上年 12 月的图（如有）
-- [ ] (2026-05-11 / `<pending>` / Slice L) **「截图」筛选**：库里有任一 filename 含 "Screenshot" 或 "截图" 的图 → 点开看到，按 birth_time 倒序；不含这两个 keyword 的图不在结果里
-- [ ] (2026-05-11 / `<pending>` / Slice L) **「大图」筛选**：库里有任一文件 >5MB 或 width>4000 且 height>4000 的图 → 点开看到，按 birth_time 倒序
-- [ ] (2026-05-11 / `<pending>` / Slice L) **空结果空态**：3 个新 SF 任一在小库下可能空结果 → 显示已有 SmartFolderGridView emptyState，不崩
-
-### V2 M2 Slice K（2026-05-11）— V2.1 GA polish
-
-- [ ] (2026-05-11 / `<pending>` / Slice K.1) **Vision revision 迁移正常启动**：app 启动正常进 grid，不应弹出"Vision 模型已更新"banner（除非真的 macOS Vision revision 变了）；启动延迟无感知（≤200ms 额外开销）
-- [ ] (2026-05-11 / `<pending>` / Slice K.1) **Vision revision 迁移 mock 测**：终止 app → `sqlite3 ~/Library/Containers/com.sunhongjun.glance/.../index.sqlite "UPDATE images SET feature_print_revision = 0 WHERE feature_print IS NOT NULL LIMIT 5;"` 改 5 行 stale revision → 重启 app → 应看到 banner "Vision 模型已更新，正在重新索引 5 张图片"；fp progress chip 应出现并完成
-- [ ] (2026-05-11 / `<pending>` / Slice K.2) **失败重试 polish**：临时让某张图不可读（`chmod 000`）→ FeaturePrintIndexer 应不立刻把它标 supports_feature_print=0；改回 `chmod 644` → 同 session 内能恢复索引；超过 3 次仍失败 → 标 unsupported（找类似按钮 disable）
-- [ ] (2026-05-11 / `<pending>` / Slice K.3) **错误 banner 文案**：触发任一 fp 错误（mock SQLite IO 失败 / Vision 不支持等）→ banner 文案是"类似图特征索引...失败"风格，不是旧"feature print"技术 jargon
 - [ ] (2026-05-11 / `<pending>` / Slice K.4 / deferred) **性能验收 — 索引时长**：1 万图大库首次扫完入 IndexStore 后启动 fp 索引 → indexing 总时长 < 20min（电池机可放宽至 30min）
 - [ ] (2026-05-11 / `<pending>` / Slice K.4 / deferred) **性能验收 — 查询响应**：1 万图全索引完后，QV 内点找类似 → 从 click 到 EphemeralResultView 显示结果时长 < 500ms
 
-### Focus 架构父持有重构（2026-05-11）
+### V2 M3 Slice M — 性能验收（deferred）
 
-D15 终态落地（共享 `@FocusState focusTarget: AppFocus?` enum）。下列 7 条覆盖所有焦点路径，**任何一条** 方向键 / Space / ESC 静默 = 焦点 race，回滚。
-
-**首测发现的关键回归 + follow-up fix（已修，需重测）**：bdb8307 后 preview 第二次方向键失焦（rebuild + @FocusState binding 时序 race），followup 删 ContentView 上 ImagePreviewView 的 `.id(idx)` 修复（codex:rescue 验证）。**重点验证**：preview 内连续按方向键 ≥ 10 次切图，每次都应即时切换无静默；同时 ESC 在任意切图后仍能退出。
-
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 1 — V1 grid 双击 → QV → ESC**：V1 单文件夹 grid → 双击 cell A → QV → ESC → 焦点回 grid，按方向键能移 highlight，按 Space 能再进 QV
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 2 — V1 grid 单击 → preview → ESC**：单击 cell A → preview → ESC → 焦点回 grid，方向键 / Space 能用
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 3 — V1 grid → preview → 双击 → QV → ESC ×2**：单击 cell A → preview → 双击 → QV → ESC → 焦点回 preview，方向键能切预览；再 ESC → 焦点回 grid，方向键能用（关键回归点：5b29600 / 59a9d86 race）
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 4 — Ephemeral → QV → ESC ×2**：QV → 找类似 → ephemeral → 双击 → QV → ESC → 焦点回 ephemeral，方向键能在 ephemeral grid 切 highlight；再 ESC → 焦点回 baseGrid（D8 amendment 分层 modal 行为）
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 5 — Ephemeral → preview → ESC**：ephemeral → 单击 cell → preview → ESC → 焦点回 ephemeral，方向键能在 ephemeral 切 highlight
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 6 — V2 SmartFolder 全路径重测**：sidebar 选「全部最近」→ 重测路径 1-5（V2 grid 走 SmartFolderGridView 路径）
-- [ ] (2026-05-11 / `<pending>` / refactor) **Focus 路径 7 — 切文件夹强关 QV**：QV 打开 → sidebar 点其他文件夹 → QV 自动关闭 → 焦点应回新文件夹的 grid，方向键能用
-
-### V2 M3 Slice M（2026-05-11）— 全局搜索
-
-- [ ] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — baseGrid**：sidebar 选「全部最近」grid 状态按 ⌘F → SearchOverlayView 顶部滑入，input 自动 active，可立即输入
-- [ ] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — preview**：单击 cell 进 preview 后按 ⌘F → overlay 出，preview 仍 visible（z-index 区分）
-- [ ] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — ephemeral**：找类似 ephemeral 状态按 ⌘F → overlay 替换显示，ephemeral 转换为 search ephemeral
-- [ ] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — QV**：双击 cell 进 QV 后按 ⌘F → QV 同帧关 + overlay 出（视觉一帧切换）
-- [ ] (2026-05-11 / `d315c78` / Slice M) **keyword 基础搜索**：输入 "screen" → 200ms 后 EphemeralResultView 出结果，filename + relative_path LIKE 命中均显示，按 birth_time 倒序 + 时间分段 chip header
-- [ ] (2026-05-11 / `d315c78` / Slice M) **modifier type**：输入 "type:png" → 仅 PNG 文件结果
-- [ ] (2026-05-11 / `d315c78` / Slice M) **modifier size**：输入 "size:>1mb" → 仅 >1MB 文件结果
-- [ ] (2026-05-11 / `d315c78` / Slice M) **modifier birth**：输入 "birth:>2026-04-01" → 仅 birth_time > 2026-04-01 文件结果
-- [ ] (2026-05-11 / `d315c78` / Slice M) **modifier 混合 AND**：输入 "screen type:png size:>500k" → 三条件 AND 命中
-- [ ] (2026-05-11 / `d315c78` / Slice M) **Silent partial fallback**：输入 "screen type:invalidext" → 整 token "screen type:invalidext" 当 keyword LIKE（结果可能 0，不报错）；输入 "foo size:abc" → 整 token fallback keyword（结果可能 0）
-- [ ] (2026-05-11 / `d315c78` / Slice M) **Hidden 继承**：右键 hide 某 folder → 搜索其内 filename 应不出现（D18）
-- [ ] (2026-05-11 / `d315c78` / Slice M) **焦点回归**：ESC overlay → baseGrid 立即响应方向键 / Space（D15 单仲裁回归 .grid）
-- [ ] (2026-05-11 / `d315c78` / Slice M) **M2 找类似回归**：QV 内点找类似 → EphemeralResultView showTimeBuckets=false 维持 flat LazyVGrid + "无结果" 文案（如空结果），cell 单击/双击行为不变
 - [ ] (2026-05-11 / `d315c78` / Slice M / deferred) **性能验收**：1 万图库典型 keyword 搜索响应时间 < 200ms（实测数字记录此处）
 
 ---
@@ -289,6 +44,261 @@ D15 终态落地（共享 `@FocusState focusTarget: AppFocus?` enum）。下列 
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### 2026-05-22 批量补录（V1 早期遗留 + V2 M1-M3 全部）
+
+用户 2026-05-22 确认"全部测过了"，批量挪 ~120 项到 Done。下列内容按原 H3 分组保留（前缀的无 H3 V1 早期项归入 "V1 早期遗留"），每项 [ ] → [x] + ✓ 2026-05-22 后缀。原 `<pending>` commit hash 占位保留（未测时如有真 hash 已嵌入项内容）。
+
+#### V1 早期遗留（原 Pending 段无 H3 头部，2026-04-27 ~ 2026-05-08）
+
+- [x] (2026-04-27 / `<pending>` / followup) **架构**：把双 `.onTapGesture(count:1+2)` 替换为 `Button + .buttonStyle(.plain)` + 单一 action 互斥（codex 建议；macOS lazy 容器双 tap recognizer 有已知 edge case，独立改动避免 scope 失控） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Inspector · dark 模式开关边线同步**：dark 模式下按 ⌘I 开 Inspector → 左缘 0.5pt 边线随 Inspector 一起从右滑入，过程中**不出现粉色短暂闪现 / 不"提前到位"**；再按 ⌘I 关 → 边线随 Inspector 一起滑出，**不延迟、不残留** ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Inspector · light 模式开关边线同步**：同上 2 项在 light 模式复测（边线应是浅黑半透明 #000 0.08，跟 dark 是同一 AdaptiveColor 的另一端） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Inspector · 切文件夹/取消选图自动关 Inspector**：选中图片开 Inspector → 切到另一个文件夹（侧边栏点） → Inspector 自动关 + 边线同步消失，无残留；再选图开 Inspector → 按 Esc 退选图 → 同上 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Inspector · 内容回归**：Inspector 显示文件名/尺寸/EXIF/相机参数/GPS 各字段不变；isLoading spinner 行为不变；切换图片 Form 内容跟着更新；ContentUnavailableView 提示文案不变 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **focus ring · 真根因修法核心验证**：系统强调色保持粉色（外观 → 强调色 → 粉色）→ 启动 app → 单击缩略图进 ImagePreviewView → 整个 app 不应再有粉色框；按 ⌘I 开 Inspector → preview 右缘和 Inspector 之间不应再有粉色长条；点击 app 失焦后再聚焦 → 不再出现"刚回来粉色框闪一下"的现象 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **focus ring · ImageGridView 同步禁用**：grid 模式（无图片选中）→ 整个 grid 区域不应有粉色 focus ring 围在缩略图网格周围；grid 高亮（紫色 highlightedURL 圆角矩形）应仍正常显示 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **focus ring · QuickViewerOverlay 同步禁用**：双击缩略图进 QuickViewer → 整个 overlay 不应有粉色 focus ring；强制深色 overlay 中所有自定义 UI（顶栏 / nav 按钮 / filmstrip）视觉不变 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **focus ring · 键盘功能回归**（不能 onKeyPress 退化）：grid 方向键移 highlight / preview 方向键切图 / preview Esc 退回 grid / preview Space 进 QuickViewer / QuickViewer 方向键切图 / QuickViewer Esc 退回 全部仍正常工作；切文件夹 / 切预览图 后 onAppear 焦点路由仍生效 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · 核心**：杀掉旧 Glance → 装新 build → 关于面板 commit hash 应是 v2 那版 → 单击 cell 进 ImagePreviewView → 顶部应**无浅灰横条**，文件名 + ⓘ + 外观切换按钮直接坐在 NSWindow title bar 上（注意 e39fbbf v1 实机零变化已废，v2 走 SwiftUI .toolbarBackground 绘制层） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · 进出 QV 回归**：双击进 QuickViewer → ESC 退 → 再单击进 preview → 仍无浅灰横条 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · sidebar 列**：左上 `+` 按钮 + sidebar toggle 视觉位置 / 间距不变 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · Traffic light 回归**：进 QV 隐藏 / 退 QV 恢复行为不变（commit a064033 / 45a61f1 / 6da903c 已修过 3 次的回归区域） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · 真解 v2) **toolbar background hidden · 外观切换**：浅色 / 深色 / 跟随系统切换 → toolbar 视觉跟着切，无残留 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **QV colorScheme env · QV 视觉回归**：QV 内顶栏 / nav 按钮 / filmstrip / 关闭按钮 / 缩放比例显示 / 进度 n/m 仍是深色，QV 视觉跟修改前完全一致 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **QV colorScheme env · AppearanceMode 切换回归**：浅色 / 深色 / 跟随系统切换 → 立即生效，QV 进出后切换仍即时；进 QV 前后切换外观也无干扰 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **QV colorScheme env · 深色模式回归**：深色模式 → 进出 QV → 主 app 保持深色（不应该误触发任何浅化） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 核心**：grid 单击 cell 1.png → 进 preview → 方向键 → 到 5.png → ESC 退回 grid → **grid 紫色高亮应跟到 5.png**（修前停在 1.png） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 双击 → QV 路径回归**（44ba6ee 区域）：grid 单击 cell A → highlight=A → 双击 cell B → 进 QuickViewer → ESC 退 QV → highlight 应在 B（不变，跟修前一致） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 排序回归**：grid 模式 → 切换排序方式 → highlight 自动清空（因 onChange(of: images)）→ 再单击/方向键正常工作；进 preview 后切排序 → preview 仍显示同图 (175e82a 行为不变) ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix) **Bug 4 · 焦点 race 回归**（5b29600 / 59a9d86 区域）：单击 cell → preview → ESC → grid 方向键正常工作；单击 → preview → 双击 → QV → ESC → grid 方向键正常工作 ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · Bug 4 扩展) **6da903c 回归**（最关键 — 不能破坏）：grid 双击 cell A 进 QV → **不动方向键** → ESC 退 QV → **回 grid，不进 preview**（保持 6da903c 行为） ✓ 2026-05-22
+- [x] (2026-05-07 / `<pending>` / bugfix · Bug 4 扩展) **QV 导航多渠道全覆盖**：QV 内用方向键 / nav button (左右气泡按钮) / filmstrip tap **三种方式**切到 Z → ESC 退 QV → **三种方式都让 highlight/preview 同步 Z**（codex 标盲点 1，验证 onChange viewModel.currentIndex 一处覆盖三渠道） ✓ 2026-05-22
+- [x] (2026-05-06 / `ab1fe89` / bugfix) **dark 模式贴 macOS 系统配色 + 失焦响应**（partial — 待 v1.0.1 重新审）：原 commit ab1fe89 删 4 处 hardcoded background 想让系统 sidebar material 接管，实测 sidebar 上半 row 区域有 vibrancy + 漏壁纸色，但 row 之下空白区是深黑色 windowBackground（条纹感）。codex:rescue 给的 NSVisualEffectView 桥方案落地后引发**关于窗口居中回归**（具体因果链未定），同时颜色仍不一致，已 revert 回 ab1fe89 状态。**期望视觉**：app 切到 dark → 侧边栏整片跟 Finder/Mail/Notes 一致（vibrancy + 漏出桌面壁纸色 + 失焦自动褪色） + 内容区中性灰；侧边栏选中 / 未选中行视觉一致（无条纹）。**当前 ab1fe89 状态可接受作 v1.0**（条纹但不影响核心功能），下次审计走 SwiftUI ZStack vs NavigationSplitView column 行为 + 验证 codex 方案为何引发居中回归 ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **部署目标降级回归**：装 `~/sync/Glance.app` 跑 7 路径（启动 / 拖文件夹 / 单击进 preview + 方向键 / 双击进 QuickViewer 缩放拖拽 / 全屏 F 键 / 排序菜单 / 关于面板点击复制 + toast），确认 macOS 部署目标 26.2 → 14.0 未破坏现有功能 ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **notarytool keychain profile 配置**（一次性）：① 进 https://appleid.apple.com/account/manage 「登录与安全 → App 专用密码」生成 App-specific password（命名如 `glance-notary`）；② 终端跑：`xcrun notarytool store-credentials "glance-notary" --apple-id 16414766@qq.com --team-id 8KW8Z92GRA --password <粘贴 App-specific password>`；③ 验证：`xcrun notarytool history --keychain-profile "glance-notary" --max-results 1` 无报错 ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **完整 release 流程跑通**：跑 `make release`（5-15 分钟，含公证），观察输出无错；产物 `dist/Glance-1.0.0.dmg` 生成，SHA256 + size 正常 ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **DMG Gatekeeper 实测**：把 `dist/Glance-1.0.0.dmg` 拷到一台干净 Mac（**不能是签名机器**，否则 Gatekeeper 自动信任本机签）；双击挂载 → 拖到 Applications → 双击启动；预期：**直接打开**，不弹「无法验证开发者」/「损坏」/「未知开发者」对话框；活动监视器显示 Glance 正常运行 ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **GitHub 仓库改 public**：`gh repo edit sunhuaian2026/ISeeImageViewer --visibility public --accept-visibility-change-consequences`（或 GitHub 网页 Settings → Danger Zone）；改完确认能匿名访问 `https://github.com/sunhuaian2026/ISeeImageViewer` ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **GitHub Release v1.0.0**：tag `v1.0.0`，上传 `dist/Glance-1.0.0.dmg` + sidecar `Glance-1.0.0.dmg.sha256`，写 release notes（CC 起草）。命令模板：`gh release create v1.0.0 dist/Glance-1.0.0.dmg --title "Glance 1.0.0 · 一眼" --notes-file <release-notes.md>` ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist) **README 加下载入口**：项目 README 顶部加下载按钮（指 latest release）+ macOS 14+ 系统要求说明；首页带产品截图（grid / preview / QuickViewer / Inspector 各 1 张） ✓ 2026-05-22
+- [x] (2026-05-05 / `<pending>` / dist · 可选) **GitHub 仓库改名 ISeeImageViewer → Glance**：与 V1 发布解耦，发完 v1.0.0 后再做。改名后 GitHub 自动留旧路径 redirect，不影响已发链接 ✓ 2026-05-22
+- [x] (2026-05-05 / `bd25fd0`) **关于面板 Copyright 字段**（已用 8f927d1 自定义 about panel 取代）：标准面板 wrap 点不雅观（"小红书"和"382336617"被自动拆两行），故升级到自定义 panel — 见下方测试项 ✓ 2026-05-05
+
+### V2 Slice A（2026-05-08 完成 / 待用户复测）
+
+**端到端基础**
+- [x] (2026-05-08 / Slice A) **V2 全部最近 · 单 root**：清干净 DB（`rm -rf "$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/"`）→ 启动 V2 → 加 1 个含 ~100 张图的 root folder → console 5 秒内出 `[IndexStore] scan complete for /path/...` → 切到 ⚙️ "全部最近" → grid 显示该 folder 的图按 birth_time 倒序 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 全部最近 · 多 root**：再加第 2 个 root folder → "全部最近" grid 应看到两个 folder 的图**混排**按 birth_time 倒序 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V1↔V2 互斥**：V1 sidebar 点选具体 folder → 主区切到 V1 ImageGridView（cell + size slider + sort menu）→ 切到 ⚙️ "全部最近" → 主区回 V2 grid，V1 选中清空；反向也对称 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V1 行为零退化**：V1 mode 跑 7 路径（启动 / 拖文件夹 / 单击进 preview + 方向键 / 双击进 QuickViewer 缩放拖拽 / 全屏 F 键 / 排序菜单 / Inspector ⌘I）跟 v1.0 一致 ✓ 2026-05-22
+
+**V2 cell 视觉/交互（mirror V1 ThumbnailCell）**
+- [x] (2026-05-08 / Slice A) **V2 cell 方形 + 不 letterbox**：V2 grid cell 是方形（180×180 默认），图片填满（不留黑边 letterbox） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 cell hover 效果**：鼠标悬停 cell → 1.03× 微放大 + 暗化 dim overlay（mirror V1 ThumbnailCell） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 cell 共享 thumbnailSize**：V1 mode 拖动顶部 size slider → 切回 V2 mode → V2 cell 大小跟着变了（V1 / V2 共享 folderStore.thumbnailSize 一处控制两边） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 cell HiDPI 锐利**：retina 屏 V2 缩略图清晰（maxPixelSize = size × backingScaleFactor） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 cell hover tooltip**：鼠标悬停 cell ≥1s → 浮出 tooltip 显示 relative path（如 `nature_01.jpg` 或 `subfolder/foo.jpg`，D5） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 cell highlight 跟 V1 一致**：单击 cell → 紫色（accent color）边框 + 半透明填充 ✓ 2026-05-22
+
+**V2 grid keyboard（mirror V1 ImageGridView）**
+- [x] (2026-05-08 / Slice A) **V2 grid 自动焦点**：进 V2 mode → grid 自动有焦点（直接按方向键就工作，无需先点 cell） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 grid 方向键导航**：左 / 右 / 上 / 下 → highlight 在 V2 grid 内移动，scroll 自动跟随到中心 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 grid Space → QV**：highlight cell 后按 Space → 进 QuickViewer（无 highlight 时取第 1 张） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 grid F → 全屏**：按 F → 切换全窗口全屏（跟 V1 / QV / preview 一致） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 grid 焦点路由 · preview 退出**：单击 cell → preview → ESC → grid 焦点回来，方向键继续 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 grid 焦点路由 · QV 退出**：双击 cell → QV → ESC → grid 焦点回来，highlight 落在最后浏览的图 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 grid 焦点路由 · preview→QV→preview**：单击 cell → preview → ←→ 浏览到 Z → 双击 → QV → ESC → preview 回 Z → ESC → grid highlight 在 Z ✓ 2026-05-22
+
+**V2 mode 主区切换（mirror V1）**
+- [x] (2026-05-08 / Slice A) **V2 单击 cell → preview**：cell 单击 → fade in V1 风格 ImagePreviewView，顶部 toolbar 显示 filename ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 双击 cell → QV 不闪 grid**（codex:rescue 真根因 fix 验证）：cell 双击 → QV 即时出现，**没有中间 grid 暴露闪烁**（修前会闪 ~200ms） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 preview→QV 不闪 grid**：单击进 preview → space 或双击图 → QV 即时出现，**也不闪 grid** ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 QV 导航**：QV 内方向键 / nav button / filmstrip tap → 主图正确切换；QV 内 ESC 仍按入口走（grid 双击进的 → 退回 grid；preview 双击进的 → 退回 preview） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **V2 mode Inspector**：V2 mode 单击 cell 进 preview → ⌘I 或 ⓘ 按钮 → Inspector 显示**选中图的文件名 / 尺寸 / EXIF / GPS**（非空态） ✓ 2026-05-22
+
+**幂等性（codex review 重点 + bookmark sandbox 限制 verify）**
+- [x] (2026-05-08 / Slice A) **重启幂等 · grid 自动恢复**：关闭 V2（Cmd+Q）→ 重启 → ⚙️ "全部最近" 默认选中 + grid 自动出图，**无需重扫**（IndexStore 持久化生效） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **重启幂等 · console 不再 scan**：重启后 console **不应再出** `[IndexStore] scan complete`（registerRoot path 去重 + UNIQUE(folder_id, relative_path) 配合） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **重启幂等 · DB 行数稳定**：连续重启 3-5 次后跑命令验证 image / folder 行数不持续增长： ✓ 2026-05-22
+
+```bash
+DB="$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/index.sqlite"
+sqlite3 "$DB" "SELECT 'folders:', count(*) FROM folders; SELECT 'images:', count(*) FROM images;"
+```
+
+- [x] (2026-05-08 / Slice A) **path 变化不破坏幂等**：把一个 root folder 在 Finder 重命名（同磁盘位置）→ 重启 V2 → folders 表**不应出现重复行**（registerRoot 用 standardizedFileURL.path 做 unique key） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **DB 文件位置确认**（plan 路径错，注意 sandbox container）：`ls -la "$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/"` 应有 `index.sqlite` + `index.sqlite-shm` + `index.sqlite-wal` 三个文件 ✓ 2026-05-22
+
+**边界 case**
+- [x] (2026-05-08 / Slice A) **空 folder**：拖一个 0 张图的空 folder 到 V1 sidebar → V2 "全部最近" grid 不应崩，仍显示其他 root 的图（不应误进入"暂无图片"占位态） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **大 folder（性能目标，非硬性）**：加 1 万张图的大 folder → 首次扫描 < 10 分钟（plan D9 性能目标）；扫描期间 grid 应渐进显示已索引图（每批 50 张 console 进度日志） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A) **删除 root folder**：V1 sidebar 删除一个 root folder → V1 sidebar entry 消失；V2 "全部最近" grid 暂仍显示该 folder 的旧图（**Slice G FSEvents 才会清理孤立行**，Slice A 接受此 known limitation） ✓ 2026-05-22
+
+**已知限制 / 推后的 Slice A scope**
+- [x] (2026-05-08 / Slice A · followup Slice B+) **V2 grid toolbar size slider**：V2 mode 时顶部 toolbar 没有 V1 那种缩略图 size slider（80-280pt 拖动条）。当前用户只能通过先切到 V1 mode 拖 slider 间接调节。Slice B+ 决定 V2 grid 自带 toolbar 还是 ContentView 共用 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A · followup Slice B+) **V2 grid toolbar 排序按钮**：V2 mode 没有排序方式 / 升降序切换（V1 有 6 种排序）。跨 folder sort 语义需要 design 拍（按 filename 跨 folder 不直观，按 birth_time / file_size 更合理） ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A · followup Slice I) **v2Urls / folderStore.images 双源耦合**：当前 V2 模式 ContentView 拆出本地 `@State v2Urls`，preview / QuickViewer / Inspector 三处都要 `smartFolderStore.selected != nil ? v2Urls : folderStore.images` 选 source。Slice I 重构候选：让 ImagePreviewView/QuickViewerOverlay/Inspector 不直接依赖 folderStore.images，完全走显式参数；移除 V1/V2 双向耦合 ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A · followup Slice I) **IndexedImage.urlBookmark 字段 rename**：实际存的是 root bookmark（不是 image 自己的 bookmark，sandbox 不允许给 enumerator 子文件创建 .withSecurityScope bookmark）。Slice I rename 候选：→ rootBookmark 或干脆改为 folder_id → folders.root_url_bookmark lookup ✓ 2026-05-22
+- [x] (2026-05-08 / Slice A · followup Slice I) **computeV2Urls() 同步 resolve 性能**：cell 单击/双击时同步 resolve ~100 张 bookmark 可能 50-200ms 主线程卡顿（codex:rescue 已标）。Slice I 性能优化阶段处理（缓存已 resolve 的 root URL / 异步预热） ✓ 2026-05-22
+
+### Slice B-α: 时间分段 sticky header（5 段固定）
+
+- [x] (2026-05-09 / `<pending>` / Slice B-α follow-up #2) **段头 chip 形态（破"横条"第三轮修法）**：sticky header 改成左上角浮动 capsule chip（"今天 · 3 张"），row 其余区域**完全透明**，cell 滚动时直接透 chip 之外区域显示；不应再呈现"全宽横条"视觉感（前两次修法 #141419 不透明黑 / `.regularMaterial` 半透明全 row 都失败的根因 = SwiftUI Section header 全宽属性，仅改 background 改不掉） ✓ 2026-05-22
+- [x] (2026-05-08 / `<pending>` / Slice B-α) **sticky 行为**：滚动 grid 时当前段标题固定吸顶，下一段进入视口时无缝替换；不应出现"两段标题同时悬浮"或"标题瞬移" ✓ 2026-05-22
+- [x] (2026-05-08 / `<pending>` / Slice B-α) **跨午夜归属**：手动改系统时间至 0:01（系统设置 → 通用 → 日期与时间，关闭自动）→ 重启 Glance → 一张昨天 23:59 拍的图应归"昨天"段；改回今日中午时间该图归"今天"段 ✓ 2026-05-22
+- [x] (2026-05-08 / `<pending>` / Slice B-α follow-up) **键盘导航跨段（算法已重写）**：←→ 走 flat queryResult ±1（跨段自然连续）；↑↓ 段内同 col 上下移动；段尾按 ↓ 跳下一段第一行同 col（下一段不足时 clamp 到该行末 cell）；段首按 ↑ 跳上一段最后一行同 col（同样 clamp）；第一段第一行按 ↑ / 末段末行按 ↓ 原地；Space 进 QV / Esc 退仍工作 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice B-α follow-up #2) **chip 之外透明区域 hit-test 验证（codex Q2 ⚠ caveat 实测）**：sticky chip 浮在顶部时，**chip 之外的透明 row 区域**应该**允许**点击穿透到下方 cell（用户视觉上点的就是 cell 本身）；点 chip 自身应吃掉 tap（chip 是 Capsule 实体，Spacer 不参与 hit-test）。如果实测发现 chip 之外透明区仍被 SwiftUI Section header 整 row 抓走 hit-test 不能点 cell，反馈给我加 fallback（chip 形状 contentShape + Spacer 的 transparent area 显式 allow hit through） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice B-α follow-up #2) **chip + sticky 兼容性（macOS 14 Sonoma）**：sticky 时 SwiftUI Section header row 高度应等于 chip + DS.Spacing.xs 双侧 padding 自然高度（codex Q1 已 ✓）；如果实测 row 仍占据明显厚带（chip 之上/之下出现可见空白），说明 SwiftUI 在 LazyVGrid Section header 上施加了最小高度 → 反馈给我走 fallback（overlay chip + PreferenceKey 监听 ScrollView offset 自管 sticky，约 80 行重写） ✓ 2026-05-22
+
+### Slice B-β: 「本周新增」内置 SmartFolder
+
+- [x] (2026-05-09 / `<pending>` / Slice B-β) **sidebar 自动出现 2 个 SF**：启动 Glance → 智能文件夹区显示 2 个 ⚙️ entry 按顺序：「全部最近」+「本周新增」；点击「本周新增」高亮切换 + grid 内容刷新 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice B-β) **本周新增结果正确性**：「本周新增」选中后 grid 显示的图全部为 birth_time ≥ 7 天前（含今天）的图；老图（≥ 7 天）不出现；切回「全部最近」图数应 ≥「本周新增」 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice B-β) **滑动窗口语义**：「本周新增」是滑窗 -7d/now（不是自然周）。验证：今天周三的话，上周三的图应在；上周二的图不在。**与 D4 段头"本周"双轨独立**——「本周新增」grid 内的图按 D4 时间分段段头分布到"今天/昨天/本周"三段（不会出现"本月"或"更早"段，因为查询窗口只 -7d） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice B-β) **空数据兜底**：如果你机器上 7 天内无新图，「本周新增」应显示空态（"暂无图片"占位），不应报错或卡死 ✓ 2026-05-22
+
+### Slice D.1: hide toggle 端到端
+
+- [x] (2026-05-09 / `<pending>` / Slice D.1) **root hide 整树消失**：sidebar 右键 root 文件夹 → "在智能文件夹中隐藏" → 智能文件夹（全部最近 / 本周新增）grid 该 root 下所有图全部消失；右键 root 再点 → menu label 变"在智能文件夹中显示" ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.1) **subfolder unhide 单独显形**：root 已 hide 的状态下，展开子目录树 → 右键某子目录 → "在智能文件夹中显示"（label 因继承自 root 显示为该文案）→ grid 中该子目录下的图重现，但该子目录的同级或父级其他子目录仍 hidden ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.1) **subfolder hide inside visible root**：root 处于 visible 状态下，右键某子目录 → "在智能文件夹中隐藏" → grid 中该子目录下的图消失，root 其他兄弟子目录的图仍可见 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.1) **状态持久化（重启不丢）**：执行任意 hide toggle → 退出 Glance → 重启 → sidebar 右键看 menu label 与 grid 显示状态都跟退出前一致（IndexStore SQLite 持久化） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.1) **menu label 动态准确**：右键 root 看到 label 说"隐藏"，点击 hide 后再次右键应说"显示"；同样测 subfolder（含跨继承场景：root.hide=1 子目录 menu label 显"显示"） ✓ 2026-05-22
+
+### Slice D.2: Inspector 来源 path 段 + Show in Finder
+
+- [x] (2026-05-09 / `<pending>` / Slice D.2) **来源段渲染**：选图开 Inspector → 滚动到底部应有"来源"Section，含"路径"row 显示完整 absolute path（长 path 中间 truncation 显 "..."），可选中复制（textSelection enabled）+ "在 Finder 中显示"按钮（folder icon） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.2) **Show in Finder 行为**：点 "在 Finder 中显示"按钮 → Finder 弹出/前置 + 在父目录窗口里高亮选中该文件 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.2) **V1 / V2 双模式生效**：V1 单文件夹模式选图 / V2 智能文件夹（全部最近 / 本周新增）选图，Inspector 来源段都正确显示对应图的真实 path（不是 root path） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice D.2) **path 选中复制**：长按拖选 path 文字 → 复制 → 粘贴到 Finder 地址栏 / 终端 → 能定位到文件 ✓ 2026-05-22
+
+### Slice G: FSEvents 增量监听 + 删 root 清理
+
+- [x] (2026-05-09 / `<pending>` / Slice G.1) **删 root 整树清理**：V1 sidebar 右键 root → "移除文件夹" → 智能文件夹 grid 立即不再显示该 root 下的图（不应 stale）。退出 + 重启验证 IndexStore 也已清干净（重启后 sidebar 不出现该 root，"全部最近"也不含其图） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice G.2) **新增图实时入索引**：选「全部最近」打开 grid → Finder 拖一张图到某 managed folder（不用关 Glance）→ **5s 内**该图出现在智能文件夹 grid 顶部（按 birth_time DESC） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice G.2) **跨 managed folder 都监听**：在 root1 + root2 各 cp 一张图 → 5s 内两张都出现在「全部最近」 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice G.3) **删图实时去索引**：grid 显示某图时 Finder 删该图（rm / 移到废纸篓）→ 5s 内该图从 grid 消失 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice G.3) **改图内容元数据同步**：替换某 jpg（同 path 不同内容） → 5s 内 Inspector 看到 file_size / dimensions 已更新 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice G.3) **改名 = delete + insert**：rename 某图（same folder，新文件名）→ 5s 内 grid 老 cell 消失，新 filename cell 出现（按新 birth 时间归段；Slice H 之前不会自动 dedup link） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice G.3) **subfolder 内变化也监听**：在 managed root 的子目录里 cp 图 / rm 图 → 5s 内 grid 同步（FSEvents WatchRoot 默认监听 subfolders） ✓ 2026-05-22
+
+### Slice H: 内容去重 SHA256 + cheap-first 粗筛
+
+- [x] (2026-05-09 / `<pending>` / Slice H.1) **dedup canonical 跨 root**：在 root1 + root2 两个 managed folder 各 cp 一张相同图（确保 same file_size + same format） → 等扫描 + dedup pass 完成 → 智能文件夹 grid 应**只显示 1 张**（earliest birth_time 那张），不应两张都显示 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.1) **dedup pass 后台不卡 UI**：往 managed folder 拖 1k+ 张图（含一些已知 dup） → grid 在扫描期间能正常滚动 / 切换 SF / 选图，不应 spinner 卡住 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.1) **FSEvents 增量去重**：grid 已显示某图 → cp 一份到第二个 root（同 file_size+format）→ 5s 内 grid 不应出现"两张同图"（dedup pass on FSEvents 应识别副本） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.1) **modify 后 SHA256 重算**：替换某 dup 文件内容（同 path 不同内容） → 5s 内 grid 该图独立显示（不再被视为副本）；Inspector 副本段空 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.1) **删 canonical 后 promote**：3 张 dup 图 A/B/C，A 是 canonical → rm A → 剩下 B/C 中 earliest 自动 promote canonical → grid 仍显示 1 张（B 或 C），不应 grid 空 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.2) **Inspector 副本段渲染**：选 canonical 图打开 Inspector → 滚动到底部应有"副本（N 个）"Section，列出其他 path（truncation .middle 中间省略）+ 每条行末有 folder icon 按钮可点 → 在 Finder 中跳转 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.2) **副本段互显**：选 canonical 看到 N-1 个副本；切到任一副本看 Inspector → 应也看到 N-1 个 path（含 canonical + 其他副本） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice H.2) **无副本时段不显示**：选普通图（无 dup）打开 Inspector → 应**没有**"副本"Section（不渲染空段） ✓ 2026-05-22
+
+### Slice I: 进度 chip + 错误 banner + 取消 + 进度持久化 + enum-state
+
+- [x] (2026-05-09 / `<pending>` / Slice I.1) **大库扫描进度 chip 显示**：拖一个含 5k+ 张图的 root 加入 → mainContent 顶部应出现"正在索引「root_name」 · X 已扫 / Y 入库"chip → 数字每 50 张更新一次 → 扫完 chip 自动消失 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice I.2) **取消扫描**：扫描进行中点 chip 上 X 按钮 → scan loop 内 Task.isCancelled 检测后 break → chip 消失；当前 cursor 已写入 folders.last_processed_path（持久化） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice I.2) **重启 resume from cursor**：扫描中途 cancel 或杀进程 → 重启 Glance → 该 root 自动 resume，从 lastProcessedPath 之后继续扫，不重头（依赖 macOS DirectoryEnumerator 字典序稳定遍历） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice I.2) **扫描完成清 cursor**：完整扫完一个 root → folders.last_processed_path = NULL → 下次启动不再 resume（直接走完整扫，但 insertImageIfAbsent 幂等不会重复插） ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice I.2) **错误 banner**：模拟扫描失败（如某文件 IO error）→ mainContent 顶部出现红色 capsule banner "「root_name」扫描失败：..." → 点 X 按钮 dismiss → banner 消失，主 UI 仍可滚动 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice I.3) **enum-state 重构无回归**：所有 V2 grid 行为（query 切换 / 重 query / 空态 / preview 方向键 navigate / Inspector 同步）跟 Slice H 一致，没有 race / stale-write / 重复刷新等异常 ✓ 2026-05-22
+
+### V1 mode grid 自动刷新 + 手动刷新（2026-05-10）
+
+- [x] (2026-05-10 / `3256733` / V1 refresh) **V1 自动 FSEvents · 增**：V1 mode 选某 folder → grid 显示 → 用 Finder 拖一张图到该 folder → 5s 内 grid 自动出现新图（不用手动刷新） ✓ 2026-05-22
+- [x] (2026-05-10 / `3256733` / V1 refresh) **V1 自动 FSEvents · 删**：V1 mode 选某 folder → 用 Finder 删该 folder 内某图 → 5s 内 grid 自动消失 ✓ 2026-05-22
+- [x] (2026-05-10 / `3256733` / V1 refresh) **V1 自动 FSEvents · 改**：V1 mode 选某 folder → 用 Finder 替换某图（cp 覆盖）→ 5s 内 grid 同步（缩略图重新加载） ✓ 2026-05-22
+- [x] (2026-05-10 / `3256733` / V1 refresh) **手动刷新**：右键当前选中的 folder → 出现"刷新"菜单项 → 点 → grid reload。**右键非选中的 folder** → 不应出现"刷新"项（避免歧义刷哪个） ✓ 2026-05-22
+- [x] (2026-05-10 / `3256733` / V1 refresh) **切 folder watcher 切换**：选 folderA → 拖图进 folderA 验证 grid 出现 → 切到 folderB → 拖图进 folderA → folderB grid **不应**响应（folderA watcher 已 stop，selectedFolder guard 也防漏）→ 切回 folderA grid 显示新图 ✓ 2026-05-22
+- [x] (2026-05-10 / `3256733` / V1 refresh) **删 folder 停 watcher**：选 folderA → 右键移除 folderA → watcher 应自动停（无 leak），不再有事件触发；之后选别的 folder 正常工作 ✓ 2026-05-22
+
+### Slice D follow-up #2 — hide 图标扩到 subfolder explicit（2026-05-10）
+
+- [x] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **subfolder 单独 hide 显图标**：root visible 状态下 → 右键某 subfolder → "在智能文件夹中隐藏" → **该 subfolder 行**应出现 eye.slash 图标 + tooltip"在智能文件夹中隐藏" ✓ 2026-05-22
+- [x] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **root hide 整树 subfolder 不显图标**：右键 root → "在智能文件夹中隐藏" → root 行显图标 ✓；展开 root → 各 subfolder 行**不应**显图标（继承非 explicit，避免视觉噪音） ✓ 2026-05-22
+- [x] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **subfolder 单独 unhide 不显图标**：root hide 状态下 → 右键某 subfolder → "在智能文件夹中显示"（subfolder 行 explicit hide=0）→ subfolder 行**不应**显图标（explicit unhide ≠ hide） ✓ 2026-05-22
+- [x] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **explicit + 继承双层冗余场景**：root hide → 右键某 subfolder → "在智能文件夹中隐藏"（冗余 explicit）→ root 显 / 该 subfolder 也显（双图标 — explicit 表达一致，冗余但不错） ✓ 2026-05-22
+- [x] (2026-05-10 / `f34edb7` / Slice D follow-up #2) **重启状态保留**：执行任意 explicit hide → 退出重启 → 图标位置跟退出前一致 ✓ 2026-05-22
+
+### Slice D follow-up — root hide 图标提示（2026-05-10）
+
+- [x] (2026-05-10 / `3cd463c` / Slice D follow-up) **root hide 显示 eye.slash**：sidebar 右键 root → "在智能文件夹中隐藏" → 该 root 行 folder 名右侧应出现灰色 `eye.slash` 图标；hover 该图标 → 浮 tooltip "在智能文件夹中隐藏" ✓ 2026-05-22
+- [x] (2026-05-10 / `3cd463c` / Slice D follow-up) **取消 hide 图标消失**：右键已 hide 的 root → "在智能文件夹中显示" → eye.slash 图标立即消失 ✓ 2026-05-22
+- [x] (2026-05-10 / `3cd463c` / Slice D follow-up) **subfolder hide 不显图标**：root visible 状态下，右键某 subfolder → "在智能文件夹中隐藏" → subfolder 行**不应**出现图标（仅 root 层显，子目录靠 contextMenu label 表达） ✓ 2026-05-22
+- [x] (2026-05-10 / `3cd463c` / Slice D follow-up) **重启状态保留**：hide 某 root → 退出 Glance → 重启 → 该 root 仍带 eye.slash 图标（IndexStore 持久化） ✓ 2026-05-22
+
+### SVG 支持（2026-05-10）
+
+- [x] (2026-05-10 / `c88c7ae` / SVG support) **V2 grid SVG 缩略图渲染**：装新 build → 重启 → 拖 `.svg` 文件到 managed folder → 「全部最近」grid 应**正常显示 SVG 缩略图**，不再卡 spinner ✓ 2026-05-22
+- [x] (2026-05-10 / `c88c7ae` / SVG support) **V1 grid SVG 显示**：选 V1 mode 某个含 SVG 的具体 folder → 该 SVG 应在缩略图网格里出现（之前 supportedExtensions 不含 svg → V1 完全过滤） ✓ 2026-05-22
+- [x] (2026-05-10 / `c88c7ae` / SVG support) **ImagePreviewView SVG**：单击 SVG cell → 进 preview → SVG 应正常显示；方向键切换到下一张非 SVG 图也正常 ✓ 2026-05-22
+- [x] (2026-05-10 / `c88c7ae` / SVG support) **QuickViewer SVG**：双击 SVG cell → 进 QV → SVG 应能正常显示 + 滚轮缩放无糊（vector 无限缩放）；方向键切换其他格式正常 ✓ 2026-05-22
+- [x] (2026-05-10 / `c88c7ae` / SVG support) **混合格式排序**：folder 内有 svg + png + jpg 混合 → 排序菜单切换（按修改时间 / 名字等）→ SVG 正确排序，缩略图不消失 ✓ 2026-05-22
+
+### FolderScanner cleanup pass — stale row 自愈（2026-05-10）
+
+- [x] (2026-05-10 / `3914a01` / scan cleanup) **离线移动 stale row 自动清**：装新 build → 重启 Glance → 等首次 scan 完 → console 应有 `[FolderScanner] cleanup folderId=N: removed M stale rows (offline delete/move)` log → 「全部最近」原本卡 spinner 的 `00-cover.png` / `05-card-05.png` 等 cell 应消失（被 cleanup pass 删了 stale row） ✓ 2026-05-22
+- [x] (2026-05-10 / `3914a01` / scan cleanup) **当前用户库直接修复**：你目前库里的 stale row（id=42 / id=43 等）应在重启后第一次 scan 完成时被清掉；不需要手动跑 SQL ✓ 2026-05-22
+- [x] (2026-05-10 / `3914a01` / scan cleanup) **离线删除文件 → 重启清行**：app 关闭状态下在 Finder 删某 managed folder 里的图 → 重启 Glance → 等 scan 完 → grid 应不再显示该图（cleanup pass 删 row） ✓ 2026-05-22
+- [x] (2026-05-10 / `3914a01` / scan cleanup) **resume 场景不误删**：扫描中途 Cmd+Q（cursor 写入）→ 重启自动 resume → 完成 resume 后**不应**触发 cleanup（resumeFrom != nil 时跳过 cleanup pass）；已 indexed 的图保留 ✓ 2026-05-22
+- [x] (2026-05-10 / `3914a01` / scan cleanup) **dedup canonical 自动重定位**：cleanup 删了 stale row 后 `triggerDedupFullPass` 自动重跑（registerAndScan 末尾已挂）→ canonical 在剩余 row 间重新决策，grid 正确显示 ✓ 2026-05-22
+
+### Slice I 启动双 loading 闪屏 fix（2026-05-09 · 修法 2 方案 5 落地）
+
+- [x] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **启动 grid 不闪 · 核心**：冷启动 Glance（多 root 已索引场景）→ 主区显示 grid 后**不应再消失/重新出现**。允许 progress chip 短暂出现（FSEvents 增量），但 grid 本身始终保留旧数据，无空白闪烁 ✓ 2026-05-22
+- [x] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **手动切 SF 立即清空**：在「全部最近」grid 浏览中 → 点 sidebar「本周新增」→ grid 应**立刻清空 + loading**（不 carry「全部最近」的 stale 数据），新 SF 数据出来后填充。验证 select(不同 SF) 时不 carry stale 的语义 ✓ 2026-05-22
+- [x] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **同 SF refresh 不闪**：选中某 SF → 后台触发 refresh（如 Finder 拖图进 managed folder 触发 FSEvents → onIndexChanged → refreshSelected）→ grid 中旧 cell **不应消失**，新数据回来后无缝替换 ✓ 2026-05-22
+- [x] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **空库首启动仍走 emptyState**：`rm -rf` DB → 启动 → 加首个 root → 空库阶段 SmartFolderGridView 应正常显示 emptyState（"暂无图片"）；扫完后 grid 出图。验证 stale=`[]` + loaded([]) 两条空路径都触发 emptyState ✓ 2026-05-22
+- [x] (2026-05-09 / `5f1e365` / Slice I bugfix v2) **stale cell 点击行为**：grid loading 期间快速点 stale cell（启动后 1 秒内）→ 行为应是预览旧 image（不崩、不 nil 错误），即使该 image 在 refresh 后已被 dedup 清除。trade-off 验证：codex 标的 race 接受度 ✓ 2026-05-22
+- [x] (2026-05-09 / `<pending>` / Slice I bugfix) **启动单次 loading**：冷启动 Glance（不要 `rm -rf` DB，确保有 root + 已索引数据）→ 主区只看到 1 次 loading 过渡（idle → loading → loaded）就显示 grid，不应再"loading 完→消失→又 loading 一下→出图"两次循环 ✓ 2026-05-22
+- [x] (2026-05-09 / `3ad6f1f` / Slice I bugfix) **首次启动空库**：`rm -rf "$HOME/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/Glance/"` → 启动 → 加 root → 等扫完。期间应只在 scan + dedup 完成那一刻看到 loading（不应启动瞬间就 loading 一次再 loading 一次） ✓ 2026-05-22
+- [x] (2026-05-09 / `3ad6f1f` / Slice I bugfix) **添加 root 后 grid 自动出图**：app 已启动且选中"全部最近"→ Cmd+O 或拖 Finder 文件夹添加新 root → 等扫完（含 dedup pass）→ grid 自动反映新 root 的图。验证 onIndexChanged → refreshSelected 链路在添加路径仍工作（修法删了手动 refresh，全靠 bridge 内部 triggerDedupFullPass 的回调） ✓ 2026-05-22
+- [x] (2026-05-09 / `3ad6f1f` / Slice I bugfix) **删除 root 后 grid 自动清理**：删 root（V1 sidebar 右键移除）→ grid 自动从"全部最近"清掉该 root 的图。验证 unregister → triggerDedupFullPass → onIndexChanged 链路仍工作 ✓ 2026-05-22
+
+### V2 M3 Slice L（2026-05-11）— 3 个新内置 SmartFolder
+
+- [x] (2026-05-11 / `<pending>` / Slice L) **Sidebar 显示 5 个内置 SF**：app 启动 → sidebar 顶部智能文件夹区按顺序看到「全部最近」/「本周新增」/「上个月」/「截图」/「大图」5 条 ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice L) **「上个月」自然月边界**：点击「上个月」→ grid 显示库里所有 birth_time 落在上个自然月（1 号 00:00 到本月 1 号 -1s）的图；跨年场景：1 月点开看到上年 12 月的图（如有） ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice L) **「截图」筛选**：库里有任一 filename 含 "Screenshot" 或 "截图" 的图 → 点开看到，按 birth_time 倒序；不含这两个 keyword 的图不在结果里 ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice L) **「大图」筛选**：库里有任一文件 >5MB 或 width>4000 且 height>4000 的图 → 点开看到，按 birth_time 倒序 ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice L) **空结果空态**：3 个新 SF 任一在小库下可能空结果 → 显示已有 SmartFolderGridView emptyState，不崩 ✓ 2026-05-22
+
+### V2 M2 Slice K（2026-05-11）— V2.1 GA polish
+
+- [x] (2026-05-11 / `<pending>` / Slice K.1) **Vision revision 迁移正常启动**：app 启动正常进 grid，不应弹出"Vision 模型已更新"banner（除非真的 macOS Vision revision 变了）；启动延迟无感知（≤200ms 额外开销） ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice K.1) **Vision revision 迁移 mock 测**：终止 app → `sqlite3 ~/Library/Containers/com.sunhongjun.glance/.../index.sqlite "UPDATE images SET feature_print_revision = 0 WHERE feature_print IS NOT NULL LIMIT 5;"` 改 5 行 stale revision → 重启 app → 应看到 banner "Vision 模型已更新，正在重新索引 5 张图片"；fp progress chip 应出现并完成 ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice K.2) **失败重试 polish**：临时让某张图不可读（`chmod 000`）→ FeaturePrintIndexer 应不立刻把它标 supports_feature_print=0；改回 `chmod 644` → 同 session 内能恢复索引；超过 3 次仍失败 → 标 unsupported（找类似按钮 disable） ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / Slice K.3) **错误 banner 文案**：触发任一 fp 错误（mock SQLite IO 失败 / Vision 不支持等）→ banner 文案是"类似图特征索引...失败"风格，不是旧"feature print"技术 jargon ✓ 2026-05-22
+
+### Focus 架构父持有重构（2026-05-11）
+
+D15 终态落地（共享 `@FocusState focusTarget: AppFocus?` enum）。下列 7 条覆盖所有焦点路径，**任何一条** 方向键 / Space / ESC 静默 = 焦点 race，回滚。
+
+**首测发现的关键回归 + follow-up fix（已修，需重测）**：bdb8307 后 preview 第二次方向键失焦（rebuild + @FocusState binding 时序 race），followup 删 ContentView 上 ImagePreviewView 的 `.id(idx)` 修复（codex:rescue 验证）。**重点验证**：preview 内连续按方向键 ≥ 10 次切图，每次都应即时切换无静默；同时 ESC 在任意切图后仍能退出。
+
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 1 — V1 grid 双击 → QV → ESC**：V1 单文件夹 grid → 双击 cell A → QV → ESC → 焦点回 grid，按方向键能移 highlight，按 Space 能再进 QV ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 2 — V1 grid 单击 → preview → ESC**：单击 cell A → preview → ESC → 焦点回 grid，方向键 / Space 能用 ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 3 — V1 grid → preview → 双击 → QV → ESC ×2**：单击 cell A → preview → 双击 → QV → ESC → 焦点回 preview，方向键能切预览；再 ESC → 焦点回 grid，方向键能用（关键回归点：5b29600 / 59a9d86 race） ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 4 — Ephemeral → QV → ESC ×2**：QV → 找类似 → ephemeral → 双击 → QV → ESC → 焦点回 ephemeral，方向键能在 ephemeral grid 切 highlight；再 ESC → 焦点回 baseGrid（D8 amendment 分层 modal 行为） ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 5 — Ephemeral → preview → ESC**：ephemeral → 单击 cell → preview → ESC → 焦点回 ephemeral，方向键能在 ephemeral 切 highlight ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 6 — V2 SmartFolder 全路径重测**：sidebar 选「全部最近」→ 重测路径 1-5（V2 grid 走 SmartFolderGridView 路径） ✓ 2026-05-22
+- [x] (2026-05-11 / `<pending>` / refactor) **Focus 路径 7 — 切文件夹强关 QV**：QV 打开 → sidebar 点其他文件夹 → QV 自动关闭 → 焦点应回新文件夹的 grid，方向键能用 ✓ 2026-05-22
+
+### V2 M3 Slice M（2026-05-11）— 全局搜索
+
+- [x] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — baseGrid**：sidebar 选「全部最近」grid 状态按 ⌘F → SearchOverlayView 顶部滑入，input 自动 active，可立即输入 ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — preview**：单击 cell 进 preview 后按 ⌘F → overlay 出，preview 仍 visible（z-index 区分） ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — ephemeral**：找类似 ephemeral 状态按 ⌘F → overlay 替换显示，ephemeral 转换为 search ephemeral ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **⌘F 入口 — QV**：双击 cell 进 QV 后按 ⌘F → QV 同帧关 + overlay 出（视觉一帧切换） ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **keyword 基础搜索**：输入 "screen" → 200ms 后 EphemeralResultView 出结果，filename + relative_path LIKE 命中均显示，按 birth_time 倒序 + 时间分段 chip header ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **modifier type**：输入 "type:png" → 仅 PNG 文件结果 ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **modifier size**：输入 "size:>1mb" → 仅 >1MB 文件结果 ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **modifier birth**：输入 "birth:>2026-04-01" → 仅 birth_time > 2026-04-01 文件结果 ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **modifier 混合 AND**：输入 "screen type:png size:>500k" → 三条件 AND 命中 ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **Silent partial fallback**：输入 "screen type:invalidext" → 整 token "screen type:invalidext" 当 keyword LIKE（结果可能 0，不报错）；输入 "foo size:abc" → 整 token fallback keyword（结果可能 0） ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **Hidden 继承**：右键 hide 某 folder → 搜索其内 filename 应不出现（D18） ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **焦点回归**：ESC overlay → baseGrid 立即响应方向键 / Space（D15 单仲裁回归 .grid） ✓ 2026-05-22
+- [x] (2026-05-11 / `d315c78` / Slice M) **M2 找类似回归**：QV 内点找类似 → EphemeralResultView showTimeBuckets=false 维持 flat LazyVGrid + "无结果" 文案（如空结果），cell 单击/双击行为不变 ✓ 2026-05-22
 
 - [x] (2026-05-07 / `79fcfdf`) **F 键全局 · grid**：grid 模式 → 按 F → 窗口全屏（traffic lights 隐藏）；再按 F → 退出全屏 ✓ 2026-05-07
 - [x] (2026-05-07 / `79fcfdf`) **F 键全局 · preview**：单击 cell 进 preview → 按 F → 窗口全屏；再按 F → 退出全屏 ✓ 2026-05-07
