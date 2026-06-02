@@ -49,9 +49,26 @@ pre-push hook 本身已对 docs-only 短路跳过 codex，`[docs-only]` 是给�
 
 需要更新的文档一起 staged 进同一个 commit。pre-push hook 的文档同步 P1 规则会在 push 时独立校验 —— 这是第二道防线。
 
-## Step 3: PENDING 人工清单
+## Step 3: PENDING 维护（先 review 老项，再追加新项）
 
-不能自动验证的项**追加**到 `specs/PENDING-USER-ACTIONS.md`，不要每次都复制全清单。格式：
+### Step 3.a: Review 老 pending 项（防止 Pending 段无限膨胀 stale）
+
+读 `specs/PENDING-USER-ACTIONS.md` Pending 段，按 H3 分组扫一遍。**对每个 ≥ 3 天前的 H3 段**：
+
+- AskUserQuestion 或直接问："`<H3 标题>` 段 N 项，测过没？"
+- 用户答**测过** → 整段挪 Done 段顶部新 `### 2026-MM-DD 批量补录` 子段（或 mirror 现有"V2 M2 Slice J 已验证（2026-05-11）"pattern 单独建段），每项 `[ ]` → `[x]` + 行末加 ` ✓ <YYYY-MM-DD>`
+- 用户答**没测** → 整段留 Pending 不动
+- 用户答**部分测** → 让用户点名哪些，逐项处理
+
+**不假设用户记得，必须主动问**——这是流程纪律。2026-05-22 发现累积 ~170 项 stale 全压在 Pending 段，根因就是 CC 从来不主动问，全靠用户记忆维护。
+
+**跳过条件**：
+- 标 `/ deferred` 或 `Deferred` 的项不问（明确推后不测的 perf 验收 / 设计 polish，无验证义务）
+- < 3 天前刚追加的项不问（用户还没来得及测）
+
+### Step 3.b: 追加本次新项
+
+不能自动验证的项**追加**到对应 H3 段（按 Slice / 模块归类；本次改动不属于既有 H3 就新建一个）。格式：
 
 ```markdown
 - [ ] (YYYY-MM-DD / <短 hash>) **类别**: 具体怎么测，要看到什么现象

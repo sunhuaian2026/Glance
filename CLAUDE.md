@@ -232,3 +232,15 @@ git commit 前的强制 checklist，逐条检查，全部通过才能提交：
 
 - **grill-with-docs / improve-codebase-architecture 等 skill 默认写 `docs/adr/`，本项目不建该目录**：ADR 等价物落在 `specs/Roadmap.md`「关键架构决策」段（单文件好扫好搜，避免决策碎片）；`CONTEXT.md` 仅放领域术语 + 架构总览，**不放决策**。skill 触发时按此目标写，CLAUDE.md 优先级高于 skill 默认行为，无需每次手动提醒。
 - **新术语必须先登记 `CONTEXT.md` 术语表，再用于代码 / specs / commit message**：避免同一概念在不同模块用不同名字漂移。命名冲突时以 `CONTEXT.md` 为准。
+
+---
+
+## 事件档案（incidents 索引）
+
+事件级 detail 记录，**Why 段从全局 `~/.claude/CLAUDE.md` 下沉到此**。不自动加载详情，需要时主动 Read。按时间倒序：
+
+- [2026-05-11 milestone 必走 skill chain](.claude/memory/incidents/2026-05-11-milestone-skill-chain.md) — M3 连续 3 次跳 brainstorming→writing-plans→execution
+- [2026-05-11 会话开始 ls 子目录](.claude/memory/incidents/2026-05-11-session-start-ls-subdirs.md) — M3 只 trust CLAUDE.md 摘要，忽略 `specs/v2/` 已有 M1/M2 design+plan
+- [2026-05-06 多方案推荐必须先摆完整候选](.claude/memory/incidents/2026-05-06-slice-a-options-naming.md) — Slice A 只写 "Mode C"，A/B 未出现，用户无从选择
+- [2026-05-06 plan 引用已有代码先 Read](.claude/memory/incidents/2026-05-06-plan-symbol-reality-check.md) — M1 plan A.13-A.17 脑补 V1 API（FolderStore / DS.Spacing.s / 三栏 NSV）全错
+- [2026-05-06 ADR 措辞擅自修改](.claude/memory/incidents/2026-05-06-adr-rewording-no-action-without-verb.md) — 用户陈述句"没 ADR 目录了吧"被吃成"请改"
