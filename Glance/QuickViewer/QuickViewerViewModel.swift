@@ -18,6 +18,8 @@ class QuickViewerViewModel: ObservableObject {
     let images: [URL]
     @Published var currentIndex: Int
     @Published var currentNSImage: NSImage?
+    /// 方案 3 — 加载失败（文件已删 / 解码失败）→ overlay 显占位而非无限 ProgressView。
+    @Published var loadFailed = false
 
     // 缩放
     @Published var zoomMode: ZoomMode = .fit
@@ -195,6 +197,7 @@ class QuickViewerViewModel: ObservableObject {
         if let cached = prefetchCache[idx] {
             let nsImage = NSImage(cgImage: cached, size: NSSize(width: cached.width, height: cached.height))
             currentNSImage = nsImage
+            loadFailed = false
             onImageLoaded(nsImage)
             prefetchAdjacent()
             return
@@ -202,6 +205,7 @@ class QuickViewerViewModel: ObservableObject {
 
         // Cache miss：从磁盘加载
         currentNSImage = nil
+        loadFailed = false
         imageLoadTask?.cancel()
         imageLoadTask = Task {
             let result: NSImage? = await Task.detached(priority: .userInitiated) {
@@ -209,6 +213,7 @@ class QuickViewerViewModel: ObservableObject {
             }.value
             guard !Task.isCancelled else { return }
             currentNSImage = result
+            loadFailed = (result == nil)
             if let image = result {
                 onImageLoaded(image)
             }

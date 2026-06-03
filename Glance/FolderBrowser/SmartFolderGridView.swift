@@ -313,6 +313,8 @@ private struct SmartFolderImageCell: View {
     var size: CGFloat = DS.Thumbnail.defaultSize
     @State private var thumbnail: NSImage?
     @State private var isHovered = false
+    /// 方案 3 — 缩略图加载失败（文件已删 / 解码失败 / 无权限）→ 显占位而非无限转圈。
+    @State private var loadFailed = false
     /// 完整文件路径（hover tooltip 用）。loadThumb resolve root bookmark 拼出 child URL 时一并填，
     /// 复用那次 resolve 不额外开销。未填前 .help 回退 relativePath。智能文件夹跨多根聚合，
     /// 只显 relativePath（根目录层会退化成纯文件名）看不出图来自哪，故显完整路径。
@@ -330,7 +332,7 @@ private struct SmartFolderImageCell: View {
                 Rectangle()
                     .fill(Color.secondary.opacity(0.15))
                     .frame(width: size, height: size)
-                    .overlay { ProgressView() }
+                    .overlay { loadFailed ? AnyView(ImageLoadFailedView(compact: true)) : AnyView(ProgressView()) }
             }
         }
         .frame(width: size, height: size)
@@ -368,12 +370,13 @@ private struct SmartFolderImageCell: View {
     /// 不允许给 enumerator 出来的子文件创建 .withSecurityScope bookmark，所以子访问只能
     /// 通过 root active scope 隐式走。Slice I 重构候选：rename field / 改为 folder_id lookup。)
     private func loadThumb(targetSize: CGFloat) async {
+        loadFailed = false
         var stale = false
         guard let rootURL = try? URL(
             resolvingBookmarkData: image.urlBookmark,
             options: [.withSecurityScope],
             bookmarkDataIsStale: &stale
-        ) else { return }
+        ) else { loadFailed = true; return }
         let didStart = rootURL.startAccessingSecurityScopedResource()
         defer { if didStart { rootURL.stopAccessingSecurityScopedResource() } }
 
@@ -386,6 +389,7 @@ private struct SmartFolderImageCell: View {
         guard !Task.isCancelled else { return }
         await MainActor.run {
             self.thumbnail = thumb
+            self.loadFailed = (thumb == nil)
         }
     }
 }

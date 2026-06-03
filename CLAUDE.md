@@ -71,13 +71,14 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     ├── FolderBrowser/
     │   ├── FolderStore.swift            ← V1 状态管理（FolderNode 树形结构、图片列表、排序、thumbnailSize 共享给 V2）
     │   ├── FolderSidebarView.swift      ← V1 侧边栏（树形展开/折叠、badge、右键菜单）
-    │   ├── ImageGridView.swift          ← V1 缩略图网格 + ThumbnailCell + loadThumbnail() 顶层函数
+    │   ├── ImageGridView.swift          ← V1 缩略图网格 + ThumbnailCell + loadThumbnail() / loadFullNSImage() 顶层函数（均标 nonisolated：项目 default main-actor isolation 否则离主线程解码会 hop 回主线程卡 UI）
     │   ├── SmartFolderListView.swift    ← V2 sidebar 智能文件夹区（M1 "全部最近" + 后续 "本周新增"）
     │   ├── SmartFolderGridView.swift    ← V2 跨文件夹 grid（cell mirror V1 ThumbnailCell + Slice B-α 时间分段 sticky）；cell hover tooltip 显完整路径（复用 loadThumb 已 resolve 的 child URL.path 存 @State，跨多根聚合看图来自哪）
     │   └── TimeBucket.swift             ← V2 D4 时间分段算法（5 段：今天/昨天/本周/本月/更早）+ groupedByTimeBucket helper
     ├── ImageViewer/
     │   ├── ImagePreviewView.swift       ← 单击后内嵌预览（简单展示，双击触发 QuickViewer）
-    │   └── ImagePreviewViewModel.swift  ← 预览页 ±1 预加载缓存，方向键切换零延迟
+    │   ├── ImagePreviewViewModel.swift  ← 预览页 ±1 预加载缓存，方向键切换零延迟（+ loadFailed 标志：加载失败显占位）
+    │   └── ImageLoadFailedView.swift    ← 方案 3 共享加载失败占位（photo.badge.exclamationmark + 文字，compact 模式 grid cell 仅图标）；三处复用
     ├── QuickViewer/
     │   ├── QuickViewerViewModel.swift  ← ZoomMode + 缩放/导航逻辑
     │   ├── ZoomScrollView.swift        ← NSViewRepresentable（滚轮/双击/拖拽）

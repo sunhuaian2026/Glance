@@ -60,6 +60,8 @@ struct ImagePreviewView: View {
                     .onTapGesture(count: 2) {
                         onQuickView(currentIndex)
                     }
+            } else if vm.loadFailed {
+                ImageLoadFailedView()
             } else {
                 ProgressView()
                     .controlSize(.large)

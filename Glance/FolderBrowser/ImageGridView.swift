@@ -270,7 +270,9 @@ struct ThumbnailCell: View {
 /// 加载完整 NSImage（preview / QuickViewer 大图用）。SVG 走 NSImage(contentsOf:)
 /// 让 macOS CoreSVG rasterize；raster 格式走 CGImageSource → CGImage → NSImage。
 /// 必须在 detached task 内调用（IO + 解码）。
-func loadFullNSImage(url: URL) -> NSImage? {
+/// nonisolated：项目 default main-actor isolation 下，全局函数默认 @MainActor，会令本应离主线程的
+/// 解码在 Task.detached 里 hop 回主线程跑（UI 卡）。标 nonisolated 恢复真·后台解码 + 消隔离 warning。
+nonisolated func loadFullNSImage(url: URL) -> NSImage? {
     if url.pathExtension.lowercased() == "svg" {
         return NSImage(contentsOf: url)
     }
@@ -279,7 +281,7 @@ func loadFullNSImage(url: URL) -> NSImage? {
     return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
 }
 
-func loadThumbnail(url: URL, maxPixelSize: Int = 200) async -> NSImage? {
+nonisolated func loadThumbnail(url: URL, maxPixelSize: Int = 200) async -> NSImage? {
     await Task.detached(priority: .userInitiated) {
         // SVG: vector 无内嵌 raster thumbnail，CGImageSourceCreateThumbnailAtIndex 常 return
         // nil → spinner 永卡。走 NSImage 让 macOS CoreSVG rasterize；通过 size 控制目标尺寸，

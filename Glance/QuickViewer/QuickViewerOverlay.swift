@@ -211,6 +211,8 @@ struct QuickViewerOverlay: View {
                 .animation(nil, value: viewModel.scale)
                 .animation(nil, value: viewModel.offset)
                 .allowsHitTesting(false)
+        } else if viewModel.loadFailed {
+            ImageLoadFailedView()
         } else {
             ProgressView()
                 .controlSize(.large)
