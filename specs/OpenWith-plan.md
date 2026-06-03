@@ -401,3 +401,35 @@ Expected: `=== summary: 12 passed, 0 failed ===`
 **Placeholder scan**：Task 2.1 Step 2 的 `viewModel.images[safe:]` 标注了"实施时 grep 确认 + fallback"——非空想 placeholder，是诚实的 code-reality-check 待办（QuickViewerViewModel 内部 API 实施时验证）。其余 step 均有完整代码。
 
 **Type consistency**：`externalOpenUrls: [URL]?` / `ExternalOpenCoordinator.pendingOpen: [URL]?` / `QuickViewerEntry.externalOpen` / `handleExternalOpen(_:)` / `handleBrowseFolder(_:)` / `onBrowseFolder: ((URL) -> Void)?` 跨 task 命名一致 ✓
+
+---
+
+## Slice 1 完成详细（commit `<本次>`，ship 待）
+
+Slice 1（外部打开看单图）+ 实测发现并修复的 4 个 bug 一起实现。**Slice 2（浏览所在文件夹）尚未做。**
+
+| Task | 内容 | 状态 |
+|------|------|------|
+| 1.1 | 新建 `Glance/ExternalOpen/ExternalOpenCoordinator.swift`（单例 ObservableObject + `@Published pendingOpen`，`import Foundation` + `import Combine`——plan 漏 Combine，`@Published` 需要） | ✅ |
+| 1.2 | `GlanceApp.swift`：spike NSAlert 转正成 `application(_:open:)` 过滤图片→写 coordinator；`import UniformTypeIdentifiers`；注入 environment | ✅ |
+| 1.3 | `ContentView.swift` 6 处：QuickViewerEntry.externalOpen / externalOpenUrls + @ObservedObject externalOpen / QV images 源加 externalOpenUrls 优先 / dismiss 仲裁 .externalOpen 分支 / onChange(pendingOpen) / 冷启动兜底**合并进现有 .onAppear**（未建第二个） | ✅ |
+| 1.4 | spike 的 Info.plist + pbxproj（INFOPLIST_FILE ×2 + 新增 PBXFileSystemSynchronizedBuildFileExceptionSet 把 Info.plist 从 Copy Bundle Resources 排除消 warning）转正提交 + verify + 文档同步 | ✅ |
+
+### 实测发现并修复的 bug（user PENDING 验证逐一通过）
+
+| # | 现象 | 根因 | 修复 |
+|---|------|------|------|
+| 1 | 多图「打开方式」spawn 多个空白窗口（Mission Control 见 3 窗）+ 抢 key | `WindowGroup` + `CFBundleDocumentTypes` 被 macOS 当可开文档 app，按每文件 spawn WindowGroup 实例 | `WindowGroup` → 单实例 `Window("一眼", id: "main")` |
+| 2 | 外部打开进 QV 后 ESC 关不掉，须先点图 | QV `.onAppear { isFocused = true }` 时承载窗口还非 key（NSApp.activate 异步/冷启动），@FocusState 赋值被静默丢弃 | `AppState.isWindowKey` + WindowAccessor `windowDidBecomeKey/ResignKey` + 装 delegate 时 `isKeyWindow` 播种；QV onAppear 仅 key 时 assert + `.onChange(isWindowKey)` 补 assert（codex:rescue 方案 c）；application(open:) 加 `NSApp.activate(ignoringOtherApps:)` |
+| 3 | 智能文件夹进 QV 首次悬停工具栏 tooltip 串成随机文件名 | V2 `SmartFolderImageCell` 显式 `.help(relativePath)` 的 tracking area 在 QV overlay 盖上后仍存活串扰（V1 cell 无显式 .help 故不串）；先试 QV 顶部 Text `.help("")` 无效（改错目标） | `ContentView` mainContent 加 `.allowsHitTesting(quickViewerIndex == nil)`，QV 期底层 grid tooltip tracking 失活（codex:rescue 二诊定位） |
+| 4 | smart folder cell tooltip 只显文件名看不出来自哪个文件夹 | `.help(image.relativePath)` 根目录层图退化成纯文件名 | 改显完整路径：cell 复用 loadThumb 已 resolve 的 `fileURL.path` 存 @State，`.help(fullPath ?? relativePath)` |
+
+附带：修了 M3 既有 `ParsedSearch` / `SearchSizeUnit` 的 actor-isolation warning（项目 default main-actor isolation 下纯值类型未标 `nonisolated`，runSearch detached task 访问 `parsed.isEmpty` 触发；标 `nonisolated` 修复）。
+
+### 偏离 plan
+- `ExternalOpenCoordinator` 补 `import Combine`（plan 只写 Foundation）。
+- plan 行号因文件增长全失效，按符号名内容匹配实施。
+- 冷启动兜底合并进 ContentView 现有 `.onAppear`（plan 写新建一个）。
+
+### 已知遗留（不在本 commit）
+- **侧边栏移除文件夹后智能文件夹仍残留其缩略图、点开一直 loading**：独立 bug，下一摊处理（方案 1 索引对账 + 防 wipe + 方案 3 加载失败占位）。

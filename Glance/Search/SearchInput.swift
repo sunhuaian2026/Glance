@@ -9,7 +9,10 @@
 import Foundation
 
 /// SearchService.parse 的结构化输出。
-struct ParsedSearch: Equatable {
+/// nonisolated：纯值类型，被 nonisolated SearchService.parse/compile 及 runSearch 的
+/// Task.detached（非 MainActor）访问 isEmpty。项目开了 default main-actor isolation，
+/// 不标 nonisolated 会令 isEmpty 默认 @MainActor，在 detached 上下文访问触发隔离 warning。
+nonisolated struct ParsedSearch: Equatable {
     /// 成功解析的 modifier 列表（D17：解析失败的 modifier 不进这里，落入 keyword）。
     var modifiers: [SmartFolderAtom]
     /// 剩余 token 拼成的 keyword 串（用空格 join）。空串表示无 keyword（query 只有 modifier）。
@@ -27,7 +30,8 @@ struct ParsedSearch: Equatable {
 }
 
 /// Size modifier 的单位枚举（decimal 1000^n，跟 macOS Finder 文件大小显示一致）。
-enum SearchSizeUnit: String, CaseIterable {
+/// nonisolated：理由同 ParsedSearch，被 nonisolated SearchService.parseSizeValue 访问。
+nonisolated enum SearchSizeUnit: String, CaseIterable {
     case b   // 1
     case k   // 1_000
     case m   // 1_000_000

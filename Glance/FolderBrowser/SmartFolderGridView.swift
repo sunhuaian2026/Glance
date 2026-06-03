@@ -313,6 +313,10 @@ private struct SmartFolderImageCell: View {
     var size: CGFloat = DS.Thumbnail.defaultSize
     @State private var thumbnail: NSImage?
     @State private var isHovered = false
+    /// 完整文件路径（hover tooltip 用）。loadThumb resolve root bookmark 拼出 child URL 时一并填，
+    /// 复用那次 resolve 不额外开销。未填前 .help 回退 relativePath。智能文件夹跨多根聚合，
+    /// 只显 relativePath（根目录层会退化成纯文件名）看不出图来自哪，故显完整路径。
+    @State private var fullPath: String?
 
     var body: some View {
         ZStack {
@@ -352,7 +356,7 @@ private struct SmartFolderImageCell: View {
         .animation(DS.Anim.fast, value: isHighlighted)
         .animation(DS.Anim.fast, value: size)
         .onHover { isHovered = $0 }
-        .help(image.relativePath)
+        .help(fullPath ?? image.relativePath)
         .task(id: image.id) {
             thumbnail = nil
             await loadThumb(targetSize: size)
@@ -375,6 +379,7 @@ private struct SmartFolderImageCell: View {
 
         // root + relative_path → child file URL，通过 root active scope 隐式访问
         let fileURL = rootURL.appendingPathComponent(image.relativePath)
+        await MainActor.run { self.fullPath = fileURL.path }
         // HiDPI 锐化：mirror V1 ThumbnailCell 的 maxPixelSize = size × backingScaleFactor
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let thumb = await loadThumbnail(url: fileURL, maxPixelSize: Int(targetSize * scale))

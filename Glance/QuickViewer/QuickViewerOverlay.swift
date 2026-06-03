@@ -110,11 +110,16 @@ struct QuickViewerOverlay: View {
             }
             .onAppear {
                 viewModel.applyViewportSize(geo.size)
-                isFocused = true
+                requestKeyboardFocusIfWindowIsKey()
                 showControlsTemporarily()
             }
             .onChange(of: geo.size) { _, newSize in
                 viewModel.applyViewportSize(newSize)
+            }
+            // 外部打开/冷启动路径：onAppear 时窗口可能还不是 key，isFocused 赋值被丢弃。
+            // 等 windowDidBecomeKey → isWindowKey 翻 true 时补 assert，ESC 无需先点击即生效。
+            .onChange(of: appState.isWindowKey) { _, _ in
+                requestKeyboardFocusIfWindowIsKey()
             }
             // 监听 viewModel.currentIndex 一处统一上报，覆盖 nav button (goBack/goForward)
             // / filmstrip tap (goTo) / 方向键 三种 QV 内导航路径，避免补 key handler 漏渠道
@@ -407,6 +412,13 @@ struct QuickViewerOverlay: View {
             isFocused = false
             onDismiss()
         }
+    }
+
+    /// 仅当窗口已是 key 时 assert 键盘焦点。非 key 时 @FocusState 赋值被 SwiftUI 静默丢弃，
+    /// 等 windowDidBecomeKey 后由 .onChange(of: appState.isWindowKey) 补 assert。幂等可重复调。
+    private func requestKeyboardFocusIfWindowIsKey() {
+        guard appState.isWindowKey else { return }
+        isFocused = true
     }
 
     // MARK: - Auto-hide

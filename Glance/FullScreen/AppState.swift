@@ -22,6 +22,9 @@ enum AppearanceMode: String, CaseIterable {
 
 class AppState: ObservableObject {
     @Published var isFullScreen = false
+    /// 窗口是否为 key window。QuickViewerOverlay 靠它在外部打开/冷启动路径下，
+    /// 等窗口 become key 后再 assert 键盘焦点（onAppear 时窗口非 key 则 @FocusState 赋值被静默丢弃）。
+    @Published var isWindowKey = false
     weak var window: NSWindow?
 
     @Published var appearanceMode: AppearanceMode {

@@ -60,9 +60,10 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
 │       ├── 2026-03-24-appearance-mode-design.md  ← 已归档（合并入 AppState.md + UI.md）
 │       └── 2026-03-24-appearance-mode-plan.md    ← 已归档（实施记录）
 └── Glance/                         ← Swift 源码（PBXFileSystemSynchronizedRootGroup，新文件自动加入编译）
-    ├── GlanceApp.swift              ← App 入口（struct GlanceApp），注入 BookmarkManager / FolderStore / AppState / IndexStoreHolder（V2）
+    ├── GlanceApp.swift              ← App 入口（struct GlanceApp），单实例 Window scene（非 WindowGroup，防外部打开 spawn 多窗口）+ AppDelegate.application(_:open:) 接 Finder「打开方式」/Dock 拖放 + 注入 BookmarkManager / FolderStore / AppState / IndexStoreHolder（V2）/ ExternalOpenCoordinator
     ├── Glance.entitlements          ← sandbox entitlements（当前未被 pbxproj 引用，由 build settings 自动生成）
-    ├── ContentView.swift            ← NavigationSplitView (sidebar VStack: SmartFolderListView + V1 FolderSidebarView) + mainContent ZStack(baseGrid + previewOverlay) + QuickViewer .overlay
+    ├── Info.plist                   ← 手写 Info.plist（CFBundleDocumentTypes=public.image Viewer / LSHandlerRank=Alternate）让 Glance 进 Finder「打开方式」；GENERATE_INFOPLIST_FILE=YES 合并注入版本/DisplayName/BundleID。pbxproj 用 PBXFileSystemSynchronizedBuildFileExceptionSet 把它从 Copy Bundle Resources 排除（否则与 INFOPLIST_FILE 双引用报 warning）
+    ├── ContentView.swift            ← NavigationSplitView (sidebar VStack: SmartFolderListView + V1 FolderSidebarView) + mainContent ZStack(baseGrid + previewOverlay) + QuickViewer .overlay；OpenWith：externalOpenUrls 临时图源 + handleExternalOpen + QuickViewerEntry.externalOpen 仲裁；mainContent .allowsHitTesting(QV 不在时) 让底层 grid tooltip tracking 在 QV 期失活
     ├── DesignSystem.swift           ← DS.Spacing / DS.Color / DS.Anim 等所有 UI 常量
     ├── BookmarkManager.swift
     ├── en.lproj/InfoPlist.strings   ← 英文 locale 显示名 "Glance"
@@ -72,7 +73,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── FolderSidebarView.swift      ← V1 侧边栏（树形展开/折叠、badge、右键菜单）
     │   ├── ImageGridView.swift          ← V1 缩略图网格 + ThumbnailCell + loadThumbnail() 顶层函数
     │   ├── SmartFolderListView.swift    ← V2 sidebar 智能文件夹区（M1 "全部最近" + 后续 "本周新增"）
-    │   ├── SmartFolderGridView.swift    ← V2 跨文件夹 grid（cell mirror V1 ThumbnailCell + Slice B-α 时间分段 sticky）
+    │   ├── SmartFolderGridView.swift    ← V2 跨文件夹 grid（cell mirror V1 ThumbnailCell + Slice B-α 时间分段 sticky）；cell hover tooltip 显完整路径（复用 loadThumb 已 resolve 的 child URL.path 存 @State，跨多根聚合看图来自哪）
     │   └── TimeBucket.swift             ← V2 D4 时间分段算法（5 段：今天/昨天/本周/本月/更早）+ groupedByTimeBucket helper
     ├── ImageViewer/
     │   ├── ImagePreviewView.swift       ← 单击后内嵌预览（简单展示，双击触发 QuickViewer）
@@ -84,9 +85,11 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     ├── Inspector/
     │   ├── ImageInspectorViewModel.swift  ← ImageInfo struct + EXIF 读取
     │   └── ImageInspectorView.swift       ← Form + Section 布局
+    ├── ExternalOpen/                ← OpenWith：Finder「打开方式」/ Dock 拖放接收图片
+    │   └── ExternalOpenCoordinator.swift  ← 单例 ObservableObject（mirror AboutWindowController.shared）；@Published pendingOpen: [URL]? 桥 AppDelegate.application(_:open:) → ContentView 观察消费驱动 QuickViewer
     ├── FullScreen/
-    │   ├── AppState.swift           ← isFullScreen + appearanceMode 状态 + toggleFullScreen()
-    │   └── WindowAccessor.swift     ← NSViewRepresentable，获取 NSWindow + NSWindowDelegate
+    │   ├── AppState.swift           ← isFullScreen + isWindowKey + appearanceMode 状态 + toggleFullScreen()（isWindowKey 给 QV 外部打开/冷启动时等 window become key 再 assert 键盘焦点）
+    │   └── WindowAccessor.swift     ← NSViewRepresentable，获取 NSWindow + NSWindowDelegate（含 windowDidBecomeKey/ResignKey → isWindowKey + 装 delegate 时 isKeyWindow 播种）
     ├── About/
     │   ├── AboutView.swift                ← 自定义"关于一眼"窗口内容（点击 contact 复制 + toast 提示）
     │   └── AboutWindowController.swift    ← 纯 AppKit NSWindow + NSHostingView 单例，先定位再 makeKeyAndOrderFront 避免显示后跳跃

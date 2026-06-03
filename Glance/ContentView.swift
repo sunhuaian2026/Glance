@@ -25,6 +25,7 @@ private enum QuickViewerEntry {
     case grid       // 路径 1: grid 双击 cell 直接进 QV
     case preview    // 路径 2: grid → preview → 双击 → QV
     case ephemeral  // 路径 3 (M2 Slice J): EphemeralResultView 双击 cell 进 QV → 退出直接回 baseGrid，不卡在 ephemeral 无焦点态
+    case externalOpen  // 路径 5 (OpenWith): Finder「打开方式」进 QV → 退出回 app 之前状态，清 externalOpenUrls
 }
 
 /// M2 Slice J — 临时结果视图请求。M2 .similar；M3 加 .search。
@@ -98,6 +99,10 @@ struct ContentView: View {
     /// 不复用 folderStore.images，避免触发 .onChange(of: folderStore.images) 的保护性
     /// 关 QV 逻辑（那条 onChange 是给 V1 排序场景设计的）。
     @State private var v2Urls: [URL] = []
+    /// OpenWith — Finder「打开方式」临时图源。non-nil 时 QV 图源走它（不碰 folderStore.images / IndexStore）。
+    @State private var externalOpenUrls: [URL]? = nil
+    /// OpenWith — AppDelegate→SwiftUI 桥，观察 pendingOpen 触发外部打开。
+    @ObservedObject private var externalOpen = ExternalOpenCoordinator.shared
     /// M2 Slice J — 类似图查找结果视图状态。non-nil 时主区域换 EphemeralResultView 替代 baseGrid。
     @State private var currentEphemeral: EphemeralRequest?
     @State private var showInspector = false
@@ -126,6 +131,15 @@ struct ContentView: View {
         guard let idx = folderStore.selectedImageIndex,
               idx < images.count else { return nil }
         return images[idx]
+    }
+
+    /// OpenWith — 外部打开图片：临时图源驱动 QuickViewer，不持久化、不进 IndexStore。
+    private func handleExternalOpen(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        externalOpenUrls = urls
+        quickViewerEntry = .externalOpen
+        quickViewerIndex = 0
+        externalOpen.pendingOpen = nil  // 消费掉，防重复触发
     }
 
     var body: some View {
@@ -159,6 +173,10 @@ struct ContentView: View {
         } detail: {
             HStack(spacing: 0) {
                 mainContent
+                    // QV 是全屏 modal overlay：激活时底层 grid 不该再响应鼠标。顺带让底层
+                    // cell 的 .help tooltip tracking area 失活，修复 V2 smart folder cell 的
+                    // relativePath tooltip 串到 QV 工具栏的串扰（V1 cell 无显式 .help 故不受影响）。
+                    .allowsHitTesting(quickViewerIndex == nil)
                 if showInspector {
                     // V1 已删独立 Divider（commit 086ade2 改用 Inspector 自带 leading overlay）
                     ImageInspectorView(
@@ -207,7 +225,7 @@ struct ContentView: View {
         .overlay {
             if let idx = quickViewerIndex {
                 QuickViewerOverlay(
-                    images: smartFolderStore.selected != nil ? v2Urls : folderStore.images,
+                    images: externalOpenUrls ?? (smartFolderStore.selected != nil ? v2Urls : folderStore.images),
                     startIndex: idx,
                     onDismiss: {
                         withAnimation(DS.Anim.normal) {
@@ -233,6 +251,10 @@ struct ContentView: View {
             }
         }
         .animation(DS.Anim.normal, value: quickViewerIndex)
+        // OpenWith — AppDelegate 写 coordinator.pendingOpen 后 ContentView 已 mount 的运行期路径
+        .onChange(of: externalOpen.pendingOpen) { _, newValue in
+            if let urls = newValue { handleExternalOpen(urls) }
+        }
         // QuickViewer 关闭的真源出口：按 quickViewerEntry provenance 仲裁焦点路由，不依赖
         // selectedImageIndex 是否 nil 当哨兵 — 因为 QV 方向键已经在写 selectedImageIndex
         .onChange(of: quickViewerIndex) { oldValue, newValue in
@@ -252,6 +274,12 @@ struct ContentView: View {
                 // QV 期间方向键写过的 selectedImageIndex 这里清回 nil 防止 previewOverlay 反弹
                 folderStore.selectedImageIndex = nil
                 focusTarget = .ephemeral
+            case .externalOpen:
+                // 路径 5 (OpenWith)：清临时图源退回 app 之前状态；selectedImageIndex 清 nil
+                // 防 baseGrid 反弹（QV 方向键写过），focus 回 grid（无内容时无害）
+                externalOpenUrls = nil
+                folderStore.selectedImageIndex = nil
+                focusTarget = .grid
             case .none:
                 // 路径 4（M2 Slice J）：handleFindSimilar 在 QV 内点找类似时主动清 entry，
                 // QV 关闭走这里。currentEphemeral 已 set 时回 ephemeral，否则回 grid
@@ -301,6 +329,9 @@ struct ContentView: View {
         // V2 wire-up：IndexStore async ready 后挂载 engine + bridge + 默认选中"全部最近"
         .onAppear {
             Task { await wireIfReady() }
+            // OpenWith 冷启动兜底：app 启动时 application(_:open:) 可能已写 pendingOpen，
+            // 但 ContentView 还没 mount → onChange 漏触发，onAppear 补一次消费。
+            if let urls = externalOpen.pendingOpen { handleExternalOpen(urls) }
         }
         .onChange(of: indexStoreHolder.isReady) { _, ready in
             guard ready else { return }

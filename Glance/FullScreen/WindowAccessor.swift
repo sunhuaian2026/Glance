@@ -15,6 +15,9 @@ struct WindowAccessor: NSViewRepresentable {
             guard let window = view.window else { return }
             appState.window = window
             window.delegate = context.coordinator
+            // 播种当前 key 真值：delegate 安装时窗口可能已是 key（错过 windowDidBecomeKey
+            // 通知），否则 isWindowKey 永为 false 会拖垮 grid/preview 路径的 QV 焦点。
+            appState.isWindowKey = window.isKeyWindow
         }
         return view
     }
@@ -26,6 +29,7 @@ struct WindowAccessor: NSViewRepresentable {
                 if window.delegate == nil {
                     window.delegate = context.coordinator
                 }
+                appState.isWindowKey = window.isKeyWindow
             }
         }
     }
@@ -47,6 +51,18 @@ struct WindowAccessor: NSViewRepresentable {
 
         func windowDidExitFullScreen(_ notification: Notification) {
             appState.isFullScreen = false
+        }
+
+        func windowDidBecomeKey(_ notification: Notification) {
+            guard let window = notification.object as? NSWindow,
+                  window === appState.window else { return }
+            appState.isWindowKey = true
+        }
+
+        func windowDidResignKey(_ notification: Notification) {
+            guard let window = notification.object as? NSWindow,
+                  window === appState.window else { return }
+            appState.isWindowKey = false
         }
     }
 }

@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 @main
 struct GlanceApp: App {
@@ -24,12 +26,17 @@ struct GlanceApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        // 单实例 Window 而非 WindowGroup：声明 CFBundleDocumentTypes 后 WindowGroup 会被
+        // macOS 当"可开文档"按每个外部打开文件 spawn 一个空白窗口实例，抢 key window 导致
+        // QV 焦点落空（ESC 失效）+ 空白 grid 窗口遮挡 QV。Window 是单实例场景，系统无法
+        // spawn 第二个，所有外部打开都进同一窗口。看图器本就单窗口，去掉 ⌘N 多窗口符合设计。
+        Window("一眼", id: "main") {
             ContentView()
                 .environmentObject(bookmarkManager)
                 .environmentObject(folderStore)
                 .environmentObject(appState)
                 .environmentObject(indexStoreHolder)
+                .environmentObject(ExternalOpenCoordinator.shared)
                 .onAppear {
                     folderStore.loadSavedFolders()
                 }
@@ -61,5 +68,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for url in accessedURLs {
             url.stopAccessingSecurityScopedResource()
         }
+    }
+
+    // 从 Finder「打开方式」/ Dock 拖放 / 拖图到窗口接收图片文件。
+    // 过滤出图片 URL 后写入 coordinator，由 ContentView 观察消费驱动 QuickViewer。
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let images = urls.filter { url in
+            guard let type = UTType(filenameExtension: url.pathExtension) else { return false }
+            return type.conforms(to: .image)
+        }
+        guard !images.isEmpty else { return }
+        // warm 场景（Glance 后台运行时 Open With）确保唯一窗口激活到 key/front，
+        // 否则 QV 的 .onAppear { isFocused = true } 焦点请求落空，ESC 失效需点一下。
+        NSApp.activate(ignoringOtherApps: true)
+        ExternalOpenCoordinator.shared.pendingOpen = images
     }
 }
