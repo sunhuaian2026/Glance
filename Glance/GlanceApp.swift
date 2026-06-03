@@ -78,17 +78,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // 从 Finder「打开方式」/ Dock 拖放 / 拖图到窗口接收图片文件。
-    // 过滤出图片 URL 后写入 coordinator，由 ContentView 观察消费驱动 QuickViewer。
+    // 从 Finder「打开方式」/ Dock 拖放接收图片文件 → 过滤图片 URL → 直接打开独立看图窗
+    // （方向 2：ExternalViewerWindowController 自建 NSWindow，置顶可控，不复用图库主窗）。
+    // Slice 1 恒传 terminateOnClose:false（warm-only 验证）；冷启动"看完即走"在 Slice 2 收 lifecycle 后接。
     func application(_ application: NSApplication, open urls: [URL]) {
         let images = urls.filter { url in
             guard let type = UTType(filenameExtension: url.pathExtension) else { return false }
             return type.conforms(to: .image)
         }
         guard !images.isEmpty else { return }
-        // 不在此 activate：单 Window scene 此刻正处理 open-document 的瞬态 close/reopen，
-        // appState.window 可能 nil/旧指针，activate 太早会被消耗。由 ContentView 在窗口稳定后
-        // （.onChange(windowIdentity)）重试 makeKeyAndOrderFront + NSApp.activate()。
-        ExternalOpenCoordinator.shared.pendingOpen = images
+        ExternalViewerWindowController.shared.show(urls: images, terminateOnClose: false)
     }
 }

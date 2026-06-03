@@ -60,7 +60,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
 │       ├── 2026-03-24-appearance-mode-design.md  ← 已归档（合并入 AppState.md + UI.md）
 │       └── 2026-03-24-appearance-mode-plan.md    ← 已归档（实施记录）
 └── Glance/                         ← Swift 源码（PBXFileSystemSynchronizedRootGroup，新文件自动加入编译）
-    ├── GlanceApp.swift              ← App 入口（struct GlanceApp），单实例 Window scene（非 WindowGroup，防外部打开 spawn 多窗口）+ AppDelegate.application(_:open:) 接 Finder「打开方式」/Dock 拖放（只写 coordinator，不在此 activate）+ applicationShouldTerminateAfterLastWindowClosed=false（单 Window scene 处理 open-document 瞬间 close 窗口会自杀，故关掉）+ 注入 BookmarkManager / FolderStore / AppState / IndexStoreHolder（V2）/ ExternalOpenCoordinator
+    ├── GlanceApp.swift              ← App 入口（struct GlanceApp），单实例 Window scene（非 WindowGroup，防外部打开 spawn 多窗口）+ AppDelegate.application(_:open:) 接 Finder「打开方式」/Dock 拖放（**方向2 Slice1：直接调 ExternalViewerWindowController.show(urls:terminateOnClose:false)**，不再写 coordinator）+ applicationShouldTerminateAfterLastWindowClosed=false（Slice1 保留，主 Window scene 仍在；Slice2 收 lifecycle 后改自持窗口计数）+ 注入 BookmarkManager / FolderStore / AppState / IndexStoreHolder（V2）/ ExternalOpenCoordinator
     ├── Glance.entitlements          ← sandbox entitlements（当前未被 pbxproj 引用，由 build settings 自动生成）
     ├── Info.plist                   ← 手写 Info.plist（CFBundleDocumentTypes=public.image Viewer / LSHandlerRank=Alternate）让 Glance 进 Finder「打开方式」；GENERATE_INFOPLIST_FILE=YES 合并注入版本/DisplayName/BundleID。pbxproj 用 PBXFileSystemSynchronizedBuildFileExceptionSet 把它从 Copy Bundle Resources 排除（否则与 INFOPLIST_FILE 双引用报 warning）
     ├── ContentView.swift            ← NavigationSplitView (sidebar VStack: SmartFolderListView + V1 FolderSidebarView) + mainContent ZStack(baseGrid + previewOverlay) + QuickViewer .overlay；OpenWith：externalOpenUrls 临时图源 + handleExternalOpen + QuickViewerEntry.externalOpen 仲裁 + handleBrowseFolder（Slice 2 浏览所在文件夹：已加直接 selectFolder / 未加 NSOpenPanel 授权后 addFolder）+ warm 激活 scheduleActivation（best-effort 置顶，见下文 backlog）；mainContent .allowsHitTesting(QV 不在时) 让底层 grid tooltip tracking 在 QV 期失活
@@ -80,14 +80,16 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── ImagePreviewViewModel.swift  ← 预览页 ±1 预加载缓存，方向键切换零延迟（+ loadFailed 标志：加载失败显占位）
     │   └── ImageLoadFailedView.swift    ← 方案 3 共享加载失败占位（photo.badge.exclamationmark + 文字，compact 模式 grid cell 仅图标）；三处复用
     ├── QuickViewer/
-    │   ├── QuickViewerViewModel.swift  ← ZoomMode + 缩放/导航逻辑
+    │   ├── QuickViewerViewModel.swift  ← ZoomMode + 缩放/导航逻辑 + deinit 取消在途 imageLoadTask/prefetch（.id 重建 teardown 卫生）
     │   ├── ZoomScrollView.swift        ← NSViewRepresentable（滚轮/双击/拖拽）
     │   └── QuickViewerOverlay.swift    ← 全窗口覆盖层（TopBar + NavButtons + BottomToolbar + Filmstrip）+ 加载失败 ImageLoadFailedView + Slice 2「浏览所在文件夹」按钮（onBrowseFolder，仅外部打开场景传）
     ├── Inspector/
     │   ├── ImageInspectorViewModel.swift  ← ImageInfo struct + EXIF 读取
     │   └── ImageInspectorView.swift       ← Form + Section 布局
     ├── ExternalOpen/                ← OpenWith：Finder「打开方式」/ Dock 拖放接收图片
-    │   └── ExternalOpenCoordinator.swift  ← 单例 ObservableObject（mirror AboutWindowController.shared）；@Published pendingOpen: [URL]? 桥 AppDelegate.application(_:open:) → ContentView 观察消费驱动 QuickViewer
+    │   ├── ExternalViewerWindowController.swift ← 方向2 Slice1：@MainActor 纯 AppKit 单例，自建 NSWindow + NSHostingController(QuickViewerOverlay.environmentObject(viewerAppState).id(session.id)) + 自任 NSWindowDelegate（不接 WindowAccessor 避 delegate 被抢，复刻 fullscreen/key 跟踪）+ 持 viewerAppState 看图窗专属 AppState + retiredSessions（二次打开旧 session 不立即 end、关窗统一 end 避 scope 竞态）+ deferred 置顶 reassert（guard session.id+isVisible）；统一 close path reset isFullScreen + 按 terminateOnClose 决定 NSApp.terminate/只关窗
+    │   ├── ViewerSession.swift            ← 方向2 Slice1：@MainActor 一次看图会话，持 security-scope token（start 仅记成功 URL，end 幂等配平）+ terminateOnClose flag（冷启动 true 看完即走 / warm false）
+    │   └── ExternalOpenCoordinator.swift  ← 单例 ObservableObject（旧桥/方向1，@Published pendingOpen）。**Slice1 起休眠**：application(_:open:) 不再写 pendingOpen 改调 ExternalViewerWindowController.show，ContentView 旧消费路径不再触发；Slice2 删
     ├── FullScreen/
     │   ├── AppState.swift           ← isFullScreen + isWindowKey + windowIdentity(@Published，换窗换 UUID) + appearanceMode + toggleFullScreen() + attachWindow/detachWindow（isWindowKey 给 QV 焦点 assert；windowIdentity 给 ContentView 检测窗口 reopen 触发 warm 激活重试）
     │   └── WindowAccessor.swift     ← NSViewRepresentable，获取 NSWindow + NSWindowDelegate（windowDidBecomeKey/ResignKey + windowWillClose → attachWindow/detachWindow；fullscreen 事件）

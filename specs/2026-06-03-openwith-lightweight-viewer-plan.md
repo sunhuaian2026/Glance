@@ -405,6 +405,19 @@ Slice 2 scope（来自 design D-OW9/D-OW10）：
 | P1#2（二轮 re-review） | `DispatchQueue.main.async` 不保证排在旧 VM teardown 后；`imageLoadTask` 内层 `Task.detached` 同步读盘 cancel 挡不住 | 改：T3 `retiredSessions` 累积旧 session，**关窗（windowWillClose）才统一 end**，不在二次 show 过早 stop；VM `deinit` 保留但仅作 teardown 卫生（措辞已改）+ PENDING 5 降级为 smoke test |
 | P2（二轮）deferred reassert | `isReleasedWhenClosed=false` → 窗口关后 `self.window` 仍非 nil，async 可能把已关窗口再拉前台 | T3 reassert 改 `Task { @MainActor in }` + guard `session.id==currentID && win.isVisible` |
 | P2（二轮）GCD vs actor | 类型已 `@MainActor`，混 `DispatchQueue.main.async` 可能隔离 warning | deferred reassert 改用 `Task { @MainActor in }`（旧 session end 已不再用 async） |
+
+---
+
+## Slice 1 完成详细（commit `<pending>`）
+
+| Task | 文件 | 落地 |
+|------|------|------|
+| T1 | `QuickViewerViewModel.swift` | 加 `deinit { imageLoadTask?.cancel(); prefetchTasks.values.forEach{$0.cancel()} }`（teardown 卫生，非 scope 安全边界） |
+| T2 | `ViewerSession.swift`（新建） | `@MainActor` 会话：start 仅记 `startAccessingSecurityScopedResource()` 返回 true 的 URL，end 幂等 stop；持 `terminateOnClose` |
+| T3 | `ExternalViewerWindowController.swift`（新建） | `@MainActor` 单例：自建 NSWindow + `NSHostingController<AnyView>` + 自任 NSWindowDelegate；`show` 先 `attachWindow` 再换 `.id(session.id)` rootView，`Task{@MainActor}` deferred reassert（guard session.id+isVisible）；旧 session 进 `retiredSessions` 关窗统一 end；`windowWillClose` reset `isFullScreen`/detach + 按 `terminateOnClose` terminate/只关窗 |
+| T4 | `GlanceApp.swift` | `application(_:open:)` 改调 `ExternalViewerWindowController.shared.show(urls:terminateOnClose:false)`，不再写 `pendingOpen`；旧 coordinator 路径休眠 |
+
+**验收**：`make build` BUILD SUCCEEDED 0 error/0 code warning（verify.sh 12 passed/0 failed）。三轮 codex review 收敛（design→plan→re-review→Go）全部折入。GUI 行为（warm 置顶/连换图/全屏⌘W后ESC/多文件/Dock多拖/后台抢前台/多屏/内存）见 PENDING-USER-ACTIONS，**待用户真机验**。Slice 2（收 lifecycle 拿冷启动看完即走 + 删旧 coordinator 等残留）待 Slice 1 真机验过再走 writing-plans。
 | P2#3 | 项目 default main-actor isolation，新类型该显式 `@MainActor` | T2 `@MainActor ViewerSession` + T3 `@MainActor ExternalViewerWindowController` |
 | P2#4 | attach 时序：应 create window 后先 attach 再 set rootView/show | T3 `show()` 先 `attachWindow(win)` 再换 rootView |
 | P2#5 | warm 置顶验证不干净，主 scene 可能后手抢 key，应加 deferred reassert | T3 `show()` 末尾 `DispatchQueue.main.async` 再 assert 一次 |

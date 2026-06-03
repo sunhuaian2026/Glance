@@ -257,4 +257,12 @@ class QuickViewerViewModel: ObservableObject {
         prefetchTasks.removeAll()
         prefetchCache.removeAll()
     }
+
+    // teardown 卫生：.id(idx) / .id(session.id) 重建销毁本 VM 时取消在途加载，减少 teardown 后
+    // 还更新 UI/缓存的风险（外层 imageLoadTask 协作式 cancel；内层 Task.detached 同步读盘挡不住，
+    // 故非 security-scope 安全边界——scope 生命周期由 ExternalViewerWindowController.retiredSessions 兜底）。
+    deinit {
+        imageLoadTask?.cancel()
+        prefetchTasks.values.forEach { $0.cancel() }
+    }
 }
