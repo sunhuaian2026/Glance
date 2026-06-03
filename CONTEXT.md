@@ -33,6 +33,13 @@ macOS 本地看图 app，SwiftUI 实现，沙盒 + Security Scoped Bookmark，�
 - **Inspector** — 图片信息侧栏（EXIF / 尺寸 / 文件元数据），可在 Quick Viewer 内调出。
 - **Prefetch ±1** — 预览/Quick Viewer 当前索引相邻 ±1 图的预加载缓存策略，目的是方向键切换零延迟。
 
+### 外部打开 / 窗口生命周期（OpenWith 方向 2，2026-06-03）
+
+- **External Viewer（ExternalViewerWindowController）** — Finder「打开方式」/ Dock 拖放打开图片时弹出的**独立看图窗**（Preview/Quick Look 式）。纯 AppKit 单例：自建 `NSWindow + NSHostingController(QuickViewerOverlay)`，自任 `NSWindowDelegate`（不接 `WindowAccessor`，避免 delegate 被抢）。方向 2 取代旧"外部打开复用图库主窗 + QV overlay"模型，绕开 warm 崩溃 + 置顶顽疾。纯看图（无找类似/搜索/浏览所在文件夹）。
+- **ViewerSession** — 一次"看图"会话：持有本次 urls 的 security-scope token + `terminateOnClose` flag。二次打开时旧 session 退役进 `retiredSessions`（**不立即 end**，避免与旧同步读盘竞态），统一在看图窗 `windowWillClose` 时 end（短期 scope 重叠无害）。
+- **terminateOnClose** — `ViewerSession` 标志：看图窗关闭后是否终止整个 app。冷启动 open = `true`（看完即走）；warm（图库在用）= `false`（只关窗）。
+- **MainWindowController** — 图库主窗的自建 AppKit 控制器（**Slice 2 引入**）。把图库主窗从 SwiftUI `Window` scene 收回自建，首窗创建权交 AppDelegate，cold/warm 判断用自持状态（禁扫 `NSApp.windows`），是"冷启动只显看图窗、看完即走"的前提。
+
 ### UI 系统
 
 - **DesignSystem (DS.*)** — 所有 UI 常量唯一来源（`DS.Spacing` / `DS.Color` / `DS.Anim`）；硬编码颜色 / 间距 / 动画一律拒绝。

@@ -340,6 +340,18 @@ V2 引入跨文件夹聚合（智能文件夹）+ 找回（搜索 + 类似图）
 
 33. **D20 M3 SearchService = 新 `Glance/Search/` module（不扩 SmartFolderEngine）**：新增 `Glance/Search/` 目录含 `SearchService.swift` + `SearchInput.swift` + `SearchOverlayView.swift`；SearchService 只做 parser + 编译成 SmartFolderPredicate；最终 SQL 仍走 SmartFolderQueryBuilder + IndexStore.fetch 复用既有 query 路径。Why: (a) mirror M2 `Glance/Similarity/` module 边界 — search 是独立 feature 不污染 SmartFolderEngine；(b) SmartFolderEngine 当前职责仅 "已注册 SmartFolder 编译执行"，search 是 ephemeral 即时构造的 SmartFolder-shape 查询，语义不同；(c) 后期 M4 用户自定义 SmartFolder 编辑器复用 SearchService 的 parser（"保存搜索为 SmartFolder" → parser 输出 predicate 直接持久化）→ module 独立利于演化。How to apply: 新建 `Glance/Search/` 顶层，3 文件清单 fixed；SearchService.parse 输入 String → ParsedSearch struct（modifiers + keyword）；SearchService.compile(ParsedSearch) → SmartFolderPredicate；不需要新建 SearchQueryEngine（直接借 SmartFolderQueryBuilder + IndexStore.fetch）。
 
+### OpenWith 方向 2 决策（2026-06-03 brainstorming + 三轮 codex review 收敛）
+
+完整设计见 `specs/2026-06-03-openwith-lightweight-viewer-design.md`（D-OW5~D-OW11 + "为什么没有 SwiftUI 原生捷径"），实施 plan + codex 折入记录见 `specs/2026-06-03-openwith-lightweight-viewer-plan.md`。下面是 Roadmap 级索引。
+
+34. **D-OW5/6/7 外部打开 = Preview/Quick Look 式独立看图窗**：Finder「打开方式」/ Dock 拖放打开图 = 自建独立看图窗（`ExternalViewerWindowController`，mirror `AboutWindowController` 骨架），**不复用图库主窗**；纯看图（砍找类似/搜索/浏览所在文件夹，回滚 Slice 2 `84a1f5b` 浏览按钮）；冷启动 ESC = app 退出（看完即走），warm = 只关看图窗、图库留。Why: 旧模型（单 Window scene 复用主窗 + AppDelegate 消费 open）跟系统对着干 → warm 崩溃（`84a1f5b` 临时挡）+ 置顶顽疾（待修复段 backlog，5 种激活 API 真机全败）；自建独立窗顺系统、置顶可控、语义符合"快速看一张图"。
+
+35. **D-OW8 撤销"shouldTerminate 恢复默认 true"，改分阶段**：只要 SwiftUI 主 `Window` scene 还在（Slice 1），恢复 `true` 会被单 Window scene open-document 瞬态 close 触发自杀（codex plan-review P1）。改为 Slice 1 保持 `=false`；退出语义由 `ViewerSession.terminateOnClose` + Slice 2 自持窗口计数控制。
+
+36. **D-OW9/10 真实窗口创建权从 SwiftUI scene 收回 AppDelegate + 禁扫 `NSApp.windows`**：Preview 式冷启动需"按是否由文件启动决定首窗建谁"，SwiftUI 无原生捷径（`handlesExternalEvents`/`openWindow`/`DocumentGroup`/`defaultLaunchBehavior` 逐条排除）、事后 `.close()` 主窗不可靠。Slice 2 新增 `MainWindowController` 把图库主窗也收回自建（**否决"不可见占位 Window scene"**——仍是 scene 留幽灵主窗）；cold/warm 判断用自持 `MainWindowController` 状态，**不扫 `NSApp.windows`**（混入 About/看图窗/隐藏最小化窗/系统 panel，会误判）。
+
+37. **D-OW11 + Slice 切分 + 实现债**：看图窗用 `ViewerSession` 解二次打开（`.id(session.id)` 重建 viewModel 显新图，旧 session 进 `retiredSessions` 关窗才统一 end 避竞态）+ 注入 `viewerAppState` 防崩 + 自任 `NSWindowDelegate` 避 delegate 被抢 + close path 无条件 reset `isFullScreen`。两片拆：**Slice 1**（warm 验置顶 + 清实现债，不碰 lifecycle）→ 真机验过 → **Slice 2**（收 lifecycle 拿冷启动看完即走 + 删旧 `ExternalOpenCoordinator` 等残留）。Why: 把方向 2 核心赌注（自建窗置顶 + QuickViewer 搬迁）压在 Slice 1 前置风险，GUI 行为开发机 Mac mini 验不了靠真机迭代。
+
 ---
 
 ## V2 进度
