@@ -436,7 +436,7 @@ Slice 1（外部打开看单图）+ 实测发现并修复的 4 个 bug 一起实
 
 ---
 
-## Slice 2 完成详细（commit `<本次>`）
+## Slice 2 完成详细（commit `84a1f5b`）
 
 Slice 2（浏览所在文件夹）+ warm open 实测发现的崩溃/置顶问题一起处理。
 

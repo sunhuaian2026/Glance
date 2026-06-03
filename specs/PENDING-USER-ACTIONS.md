@@ -45,15 +45,15 @@
 
 ### OpenWith Slice 2 — 浏览所在文件夹（待验证）
 
-- [ ] (2026-06-03 / `<本次>` / Slice 2) **按钮出现**：Finder「打开方式」开单图 → QV 底部工具栏「找类似」「全屏」之间出现 folder 图标按钮
-- [ ] (2026-06-03 / `<本次>` / Slice 2) **未加过的文件夹**：开一张未加进 Glance 的文件夹的图 → 点 folder 按钮 → 弹「选择文件夹」对话框（预定位父目录）→ 选中 → 文件夹加入 sidebar + grid 显示全部 + 重启后还在
-- [ ] (2026-06-03 / `<本次>` / Slice 2) **已加过的文件夹**：开已管理文件夹的图 → 点 folder 按钮 → 不弹框，直接跳到该文件夹 grid
-- [ ] (2026-06-03 / `<本次>` / Slice 2) **取消**：弹框点取消 → 留在 QV，sidebar 无变化
-- [ ] (2026-06-03 / `<本次>` / Slice 2) **不该出现**：grid/preview 双击进的 QV 底部工具栏无 folder 按钮
+- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **按钮出现**：Finder「打开方式」开单图 → QV 底部工具栏「找类似」「全屏」之间出现 folder 图标按钮
+- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **未加过的文件夹**：开一张未加进 Glance 的文件夹的图 → 点 folder 按钮 → 弹「选择文件夹」对话框（预定位父目录）→ 选中 → 文件夹加入 sidebar + grid 显示全部 + 重启后还在
+- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **已加过的文件夹**：开已管理文件夹的图 → 点 folder 按钮 → 不弹框，直接跳到该文件夹 grid
+- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **取消**：弹框点取消 → 留在 QV，sidebar 无变化
+- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **不该出现**：grid/preview 双击进的 QV 底部工具栏无 folder 按钮
 
 ### OpenWith warm 激活 — 置顶（backlog，难修，best-effort）
 
-- [ ] (2026-06-03 / `<本次>` / backlog) **warm open 窗口置顶**：Glance 运行中 Finder「打开方式」开图 → 窗口理想应跳前台。**已知 macOS 顽疾未根治**（详见 Roadmap 待修复），当前 best-effort，窗口可能留在 Finder 后（点 Dock/窗口可调前）。功能不受影响。待 GUI 调试手段再啃
+- [ ] (2026-06-03 / `84a1f5b` / backlog) **warm open 窗口置顶**：Glance 运行中 Finder「打开方式」开图 → 窗口理想应跳前台。**已知 macOS 顽疾未根治**（详见 Roadmap 待修复），当前 best-effort，窗口可能留在 Finder 后（点 Dock/窗口可调前）。功能不受影响。待 GUI 调试手段再啃
 
 ### OpenWith Slice 1 — 剩余验证
 
@@ -68,8 +68,8 @@
 
 ### OpenWith warm open 崩溃修复（2026-06-03 用户验证通过）
 
-- [x] (2026-06-03 / `<本次>`) **warm open 不再崩溃/退出**：Glance 运行中 Finder「打开方式」开图 → app 不再退出、图打开、QV 显示（applicationShouldTerminateAfterLastWindowClosed=false 修复）✓ 2026-06-03
-- [x] (2026-06-03 / `<本次>`) **cold open 回归正常**：app 没开时打开图正常进 QV ✓ 2026-06-03
+- [x] (2026-06-03 / `84a1f5b`) **warm open 不再崩溃/退出**：Glance 运行中 Finder「打开方式」开图 → app 不再退出、图打开、QV 显示（applicationShouldTerminateAfterLastWindowClosed=false 修复）✓ 2026-06-03
+- [x] (2026-06-03 / `84a1f5b`) **cold open 回归正常**：app 没开时打开图正常进 QV ✓ 2026-06-03
 
 ### 文件夹移除残留清理 方案 3 + nonisolated 解码（2026-06-03 回归验证通过）
 
