@@ -408,7 +408,7 @@ Slice 2 scope（来自 design D-OW9/D-OW10）：
 
 ---
 
-## Slice 1 完成详细（commit `<pending>`）
+## Slice 1 完成详细（commit `7a32dff`）
 
 | Task | 文件 | 落地 |
 |------|------|------|
