@@ -66,6 +66,13 @@ class BookmarkManager: ObservableObject {
         url.stopAccessingSecurityScopedResource()
     }
 
+    /// 当前持久化的受管根文件夹路径集（standardizedFileURL.path，与 IndexStore root_path 对齐）。
+    /// 同步读 UserDefaults，是"受管根"的真权威来源——不像 FolderStore.rootFolders 那样异步滞后
+    /// （loadSavedFolders 在 Task 内才赋值 rootFolders）。索引对账删除以此为准，避免启动瞬态空集误删整库。
+    func managedRootPaths() -> Set<String> {
+        Set(loadRawBookmarks().keys.compactMap { URL(string: $0)?.standardizedFileURL.path })
+    }
+
     /// 删除指定 URL 对应的 bookmark
     func removeBookmark(for url: URL) {
         var bookmarks = loadRawBookmarks()

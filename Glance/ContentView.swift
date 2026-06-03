@@ -342,7 +342,8 @@ struct ContentView: View {
         // 主动 refreshSelected，避免启动时 rootFolders 异步还原触发的"双 loading 闪屏"。
         .onChange(of: folderStore.rootFolders) { _, newRoots in
             guard let bridge = indexBridge else { return }
-            Task { await bridge.sync(with: newRoots) }
+            let managed = folderStore.managedRootPaths
+            Task { await bridge.sync(with: newRoots, managedRootPaths: managed) }
         }
         // V2 selection 互斥：smart folder 选中 → 清 V1；反之亦然
         .onChange(of: folderStore.selectedFolder) { _, newFolder in
@@ -594,7 +595,7 @@ struct ContentView: View {
             bridgeRef.cancelCurrentScan()
         }
         indexBridge = bridge
-        await bridge.sync(with: folderStore.rootFolders)
+        await bridge.sync(with: folderStore.rootFolders, managedRootPaths: folderStore.managedRootPaths)
 
         if smartFolderStore.selected == nil {
             await smartFolderStore.select(BuiltInSmartFolders.allRecent)

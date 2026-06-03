@@ -148,6 +148,38 @@ nonisolated extension IndexStore {
         }
     }
 
+    /// 对账用：取 DB 里所有 root 的 (id, root_path)。仅 root 行（parent_root_id IS NULL）+
+    /// root_path NOT NULL 守卫（防 malformed 行）。FolderStoreIndexBridge.sync 拿它跟
+    /// BookmarkManager 的受管根集对账，删掉 DB 里已不在受管集的 root（FK CASCADE 连删 images）。
+    func fetchRootPaths() throws -> [(id: Int64, path: String)] {
+        try sync { db in
+            let stmt = try db.prepare("SELECT id, root_path FROM folders WHERE parent_root_id IS NULL AND root_path IS NOT NULL;")
+            defer { sqlite3_finalize(stmt) }
+            var results: [(id: Int64, path: String)] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = sqlite3_column_int64(stmt, 0)
+                let path = String(cString: sqlite3_column_text(stmt, 1))
+                results.append((id: id, path: path))
+            }
+            return results
+        }
+    }
+
+    /// 防御性孤儿清扫：删 folder_id 指向已不存在 folders 行的 image（历史上 FK 曾关 / 旧 DB 遗留产生）。
+    /// 现行 PRAGMA foreign_keys=ON 下正常操作不会产生孤儿，此为一次性完整性修复。返回删除行数。
+    /// 用 NOT EXISTS 而非 NOT IN（NULL-safe）。
+    @discardableResult
+    func deleteOrphanImages() throws -> Int {
+        try sync { db in
+            let stmt = try db.prepare("DELETE FROM images WHERE NOT EXISTS (SELECT 1 FROM folders WHERE folders.id = images.folder_id);")
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_DONE else {
+                throw IndexDatabaseError.stepFailed(message: "deleteOrphanImages: \(db.lastErrorMessage())")
+            }
+            return db.handle.map { Int(sqlite3_changes($0)) } ?? 0
+        }
+    }
+
     /// Slice D — 计算给定 (rootId, relativePath) 路径上的 effective hidden 状态。
     /// 走"path 上溯找最具体 explicit hide row"算法（稀疏 explicit 模型）：
     /// 1. 检查 (parent_root_id=rootId AND relative_path 是 path 前缀) 的所有 row

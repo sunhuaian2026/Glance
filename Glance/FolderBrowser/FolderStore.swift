@@ -100,6 +100,11 @@ class FolderStore: ObservableObject {
 
     // MARK: - Public
 
+    /// 当前持久化受管根路径集（转发 BookmarkManager，同步读 UserDefaults）。
+    /// 索引对账（FolderStoreIndexBridge）用作权威来源——不用异步滞后的 rootFolders，
+    /// 避免启动瞬态空集误删整个索引。
+    var managedRootPaths: Set<String> { bookmarkManager.managedRootPaths() }
+
     func loadSavedFolders() {
         let restored = bookmarkManager.restoreBookmarks()
         for url in restored {

@@ -100,7 +100,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── IndexedImage.swift                ← images 表 record struct + 幂等 SELECT-first INSERT + Slice G.3 deleteImage / updateImageMetadata + Slice H SHA256/canonical CRUD（setContentSHA256/setDedupCanonical/resetSHA256AndCanonical/promoteOrphanDuplicates/fetchCandidateGroups/fetchImagesInGroup/fetchDuplicates/fetchDuplicatesByFullPath）
     │   ├── ContentHasher.swift              ← V2 Slice H 文件 SHA256 hex 计算（CryptoKit + Data .mappedIfSafe mmap）
     │   ├── DedupPass.swift                  ← V2 Slice H cheap-first dedup 算法（runFullPass + reEvaluateGroup + orphan cleanup）；canonical = earliest birth_time + 最小 id tie-breaker
-    │   ├── ManagedFolder.swift              ← folders 表 record struct + registerRoot 幂等 + Slice D hide CRUD（setRootHidden/upsertSubfolderHide/effectiveHidden）+ Slice G.1 deleteRoot（FK CASCADE）+ Slice I.2 last_processed_path CRUD（resume from cursor）
+    │   ├── ManagedFolder.swift              ← folders 表 record struct + registerRoot 幂等 + Slice D hide CRUD（setRootHidden/upsertSubfolderHide/effectiveHidden）+ Slice G.1 deleteRoot（FK CASCADE）+ Slice I.2 last_processed_path CRUD（resume from cursor）+ fetchRootPaths（对账）/ deleteOrphanImages（NOT EXISTS 防御性孤儿清扫）
     │   ├── CompiledSmartFolderQuery.swift   ← Builder → Engine 之间的 SQL injection-safe contract
     │   ├── ImageMetadataReader.swift        ← URL → birth_time / file_size / format / dimensions（ImageIO，不解码像素）
     │   ├── FolderScanner.swift              ← 递归 enumerator + INSERT OR IGNORE 幂等 + Slice I.2 Task.isCancelled 检测 + resumeFrom 字典序 skip + 每 100 张写 cursor
@@ -109,7 +109,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── FSEvent.swift                    ← V2 Slice G FSEvents 单 event record struct（path + flags + isFile/isCreated/isRemoved/... computed flags）
     │   ├── FSEventsWatcher.swift            ← V2 Slice G FSEvents Swift wrapper（CoreServices FSEventStreamCreate / 每 root 一 stream / file-level events / defaultLatency 1s static let）
     │   ├── IndexStoreHolder.swift           ← 异步 init holder（@Published store + isReady Bool 让 .onChange 可观察）+ Slice I.1/I.2 progress / lastError / cancelCurrentScan 钩子
-    │   └── FolderStoreIndexBridge.swift     ← rootFolders diff → registerRoot/deleteRoot + 启动 FolderScanner + Slice G.2/3 watcher lifecycle + handle Created/Removed/Modified/Renamed events + Slice H dedup hooks + Slice I.1/I.2 progress 回调 / cancel 转发 / error 回调 + scan resume from cursor
+    │   └── FolderStoreIndexBridge.swift     ← rootFolders diff → registerRoot/deleteRoot + 启动 FolderScanner + Slice G.2/3 watcher lifecycle + handle Created/Removed/Modified/Renamed events + Slice H dedup hooks + Slice I.1/I.2 progress 回调 / cancel 转发 / error 回调 + scan resume from cursor；sync(with:managedRootPaths:) 移除段 DB+bookmark 权威对账（Guard B：删 DB 里不在 managedRootPaths 的 root，不用异步滞后的 rootFolders 防启动瞬态误删整库）+ 孤儿清扫
     ├── Similarity/                  ← V2 M2 类似图查找（feature print + Vision）
     │   ├── SimilarityService.swift           ← Vision VNFeaturePrintObservation 包装 + computeDistance batch top-N
     │   ├── FeaturePrintIndexer.swift          ← 后台 fp 索引 pipeline（batch 50 + cancel + enqueueIfNeeded）

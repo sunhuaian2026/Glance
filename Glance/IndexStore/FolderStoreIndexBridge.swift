@@ -56,24 +56,35 @@ final class FolderStoreIndexBridge: ObservableObject {
     }
 
     /// Diff incoming rootFolders vs registered set: add new + remove gone.
-    /// Caller (ContentView) invokes whenever folderStore.rootFolders changes.
+    /// Caller (ContentView) invokes whenever folderStore.rootFolders changes。
     /// Slice G.1：remove diff 调 IndexStore.deleteRoot 触发 FK CASCADE 连删 images +
     /// subfolder hide rows，破除 Slice A 的 stale row 残留。
-    func sync(with rootFolders: [FolderNode]) async {
-        let incoming = Set(rootFolders.map { $0.url.standardizedFileURL.path })
-
-        // Add diff
+    ///
+    /// remove diff 改为 **DB + bookmark 权威对账**（修「侧边栏移除文件夹后智能文件夹仍残留缩略图」）：
+    /// 删 DB 里所有不在 `managedRootPaths`（BookmarkManager 同步持久集，受管根真权威）的 root。
+    /// **不**用内存 registeredPaths（启动空 → 从不对账清残留）也**不**用 rootFolders（异步滞后，
+    /// 启动瞬态空集会误删整库）。managedRootPaths 同步读 UserDefaults 永不滞后，能区分
+    /// "瞬态空" vs "用户删到最后一个"（后者 bookmark 集真空，删除正确）。
+    func sync(with rootFolders: [FolderNode], managedRootPaths: Set<String>) async {
+        // Add diff：注册 rootFolders 里尚未注册的 root（registeredPaths 防重复 rescan）
         let newRoots = rootFolders.filter { !registeredPaths.contains($0.url.standardizedFileURL.path) }
         for node in newRoots {
             await registerAndScan(rootURL: node.url)
             registeredPaths.insert(node.url.standardizedFileURL.path)
         }
 
-        // Remove diff (Slice G.1)
-        let removedPaths = registeredPaths.subtracting(incoming)
-        for path in removedPaths {
-            await unregister(path: path)
-            registeredPaths.remove(path)
+        // Remove diff（DB 权威对账，Guard B）：删 DB 里不在受管根集的 root
+        let dbRoots = (try? indexStore.fetchRootPaths()) ?? []
+        for root in dbRoots where !managedRootPaths.contains(root.path) {
+            await unregister(path: root.path)
+            registeredPaths.remove(root.path)
+        }
+
+        // 防御性孤儿 image 清扫（folder_id 指向已删 folders 行；历史 FK off 遗留）。
+        // 现行 FK ON 正常不产生孤儿；deleteRoot CASCADE 已清掉刚删 root 的 image，此处只兜历史遗留。
+        if let orphans = try? indexStore.deleteOrphanImages(), orphans > 0 {
+            print("[IndexStore] swept \(orphans) orphan image(s)")
+            onIndexChanged?()
         }
     }
 
