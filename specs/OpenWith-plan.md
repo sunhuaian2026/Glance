@@ -404,7 +404,7 @@ Expected: `=== summary: 12 passed, 0 failed ===`
 
 ---
 
-## Slice 1 完成详细（commit `<本次>`，ship 待）
+## Slice 1 完成详细（commit `cc78c41`，ship 待）
 
 Slice 1（外部打开看单图）+ 实测发现并修复的 4 个 bug 一起实现。**Slice 2（浏览所在文件夹）尚未做。**
 
