@@ -85,7 +85,9 @@ final class ExternalViewerWindowController: NSObject {
     private func createWindow() {
         let host = NSHostingController(rootView: AnyView(EmptyView()))
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800),
+            contentRect: NSRect(x: 0, y: 0,
+                                width: DS.ExternalViewer.defaultWindowWidth,
+                                height: DS.ExternalViewer.defaultWindowHeight),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false

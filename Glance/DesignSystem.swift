@@ -183,6 +183,14 @@ enum DS {
         static let activationBecomeActiveTimeoutMilliseconds: Int64 = 400
     }
 
+    // MARK: - External Viewer（方向2 独立看图窗）
+
+    enum ExternalViewer {
+        /// 独立看图窗首次创建的默认尺寸（用户可 resize / 进全屏）。
+        static let defaultWindowWidth: CGFloat = 1280
+        static let defaultWindowHeight: CGFloat = 800
+    }
+
     // MARK: - Animation
 
     enum Anim {
