@@ -281,7 +281,7 @@ nonisolated func loadFullNSImage(url: URL) -> NSImage? {
     return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
 }
 
-nonisolated func loadThumbnail(url: URL, maxPixelSize: Int = 200) async -> NSImage? {
+nonisolated func loadThumbnail(url: URL, maxPixelSize: Int) async -> NSImage? {
     await Task.detached(priority: .userInitiated) {
         // SVG: vector 无内嵌 raster thumbnail，CGImageSourceCreateThumbnailAtIndex 常 return
         // nil → spinner 永卡。走 NSImage 让 macOS CoreSVG rasterize；通过 size 控制目标尺寸，
