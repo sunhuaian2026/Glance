@@ -13,11 +13,10 @@ struct WindowAccessor: NSViewRepresentable {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            appState.window = window
+            // attachWindow 同时播种 isWindowKey（delegate 安装时窗口可能已是 key，错过
+            // windowDidBecomeKey 通知）+ 换 windowIdentity 通知 ContentView 窗口已就绪。
+            appState.attachWindow(window)
             window.delegate = context.coordinator
-            // 播种当前 key 真值：delegate 安装时窗口可能已是 key（错过 windowDidBecomeKey
-            // 通知），否则 isWindowKey 永为 false 会拖垮 grid/preview 路径的 QV 焦点。
-            appState.isWindowKey = window.isKeyWindow
         }
         return view
     }
@@ -25,11 +24,10 @@ struct WindowAccessor: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
             if let window = nsView.window {
-                appState.window = window
+                appState.attachWindow(window)
                 if window.delegate == nil {
                     window.delegate = context.coordinator
                 }
-                appState.isWindowKey = window.isKeyWindow
             }
         }
     }
@@ -54,15 +52,21 @@ struct WindowAccessor: NSViewRepresentable {
         }
 
         func windowDidBecomeKey(_ notification: Notification) {
-            guard let window = notification.object as? NSWindow,
-                  window === appState.window else { return }
-            appState.isWindowKey = true
+            // 不 guard `=== appState.window`：reopen 时新窗口 become key 可能早于 makeNSView
+            // 更新 appState.window，此处用 attachWindow 把新窗口认下来（含换 identity + 置 key）。
+            guard let window = notification.object as? NSWindow else { return }
+            appState.attachWindow(window)
         }
 
         func windowDidResignKey(_ notification: Notification) {
             guard let window = notification.object as? NSWindow,
                   window === appState.window else { return }
             appState.isWindowKey = false
+        }
+
+        func windowWillClose(_ notification: Notification) {
+            guard let window = notification.object as? NSWindow else { return }
+            appState.detachWindow(window)
         }
     }
 }

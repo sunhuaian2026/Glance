@@ -64,6 +64,14 @@ private struct AboutMenuButton: View {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var accessedURLs: [URL] = []
 
+    // OpenWith — 单 Window scene + CFBundleDocumentTypes 下，warm（app 运行中）从 Finder
+    // 「打开方式」打开图片时，SwiftUI 处理 open-document 会让窗口瞬间 close（窗口数→0），
+    // 默认 true 会在 QV 显出前就终止 app。返回 false 让 app 在零窗口瞬态存活；用户关窗后
+    // app 驻留，点 Dock 图标可重开窗口，⌘Q 退出。
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         for url in accessedURLs {
             url.stopAccessingSecurityScopedResource()
@@ -78,9 +86,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return type.conforms(to: .image)
         }
         guard !images.isEmpty else { return }
-        // warm 场景（Glance 后台运行时 Open With）确保唯一窗口激活到 key/front，
-        // 否则 QV 的 .onAppear { isFocused = true } 焦点请求落空，ESC 失效需点一下。
-        NSApp.activate(ignoringOtherApps: true)
+        // 不在此 activate：单 Window scene 此刻正处理 open-document 的瞬态 close/reopen，
+        // appState.window 可能 nil/旧指针，activate 太早会被消耗。由 ContentView 在窗口稳定后
+        // （.onChange(windowIdentity)）重试 makeKeyAndOrderFront + NSApp.activate()。
         ExternalOpenCoordinator.shared.pendingOpen = images
     }
 }

@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SQLite3
+import AppKit
 
 /// 焦点目标 enum（D15 终态：父持有 @FocusState 单仲裁者）。
 /// grid case 由 V1 ImageGridView / V2 SmartFolderGridView 互斥共用（同层 baseGrid 二选一）。
@@ -103,6 +104,10 @@ struct ContentView: View {
     @State private var externalOpenUrls: [URL]? = nil
     /// OpenWith — AppDelegate→SwiftUI 桥，观察 pendingOpen 触发外部打开。
     @ObservedObject private var externalOpen = ExternalOpenCoordinator.shared
+    /// OpenWith — warm 激活请求标记（非 nil = 有外部打开待把窗口带到前台）。窗口稳定 + 成功抢到 key 后清。
+    @State private var externalOpenActivationRequest: UUID?
+    /// 激活重试 task（窗口在单 Window scene 瞬态期可能 nil，需等 windowIdentity 变化重试）。
+    @State private var externalOpenActivationTask: Task<Void, Never>?
     /// M2 Slice J — 类似图查找结果视图状态。non-nil 时主区域换 EphemeralResultView 替代 baseGrid。
     @State private var currentEphemeral: EphemeralRequest?
     @State private var showInspector = false
@@ -140,6 +145,91 @@ struct ContentView: View {
         quickViewerEntry = .externalOpen
         quickViewerIndex = 0
         externalOpen.pendingOpen = nil  // 消费掉，防重复触发
+        // warm 场景：把窗口带到前台（cold 启动本就在前台，重试无害）。窗口可能正处于单 Window
+        // scene 的瞬态 close/reopen，故走 windowIdentity 驱动的重试而非此处一次性 activate。
+        externalOpenActivationRequest = UUID()
+        scheduleActivation()
+    }
+
+    /// 启动一轮激活重试 task（取消上一轮）。窗口未就绪时轮询等 appState.window 非 nil。
+    /// OpenWith warm 场景 best-effort 把窗口带到前台。
+    /// ⚠️ 已知局限（backlog）：macOS 14 下 app 自己消费 Finder open 事件 + 单 Window scene 瞬态，
+    /// 系统常拒绝该 app 抢前台，窗口会留在 Finder 之后（多种 activate API 实测均无法可靠置顶）。
+    /// 此处尽力：NSRunningApplication.activate 请求激活，成则 makeKeyAndOrderFront；被拒则
+    /// orderFrontRegardless 至少抬升窗口可见性。功能不受影响（QV 已显示），仅自动置顶不保证。
+    private func scheduleActivation() {
+        externalOpenActivationTask?.cancel()
+        externalOpenActivationTask = Task { @MainActor in
+            await Task.yield()  // 让出一拍，给 SwiftUI 完成 QV 状态写入 + 可能的窗口 reopen
+            guard externalOpenActivationRequest != nil, let window = appState.window else { return }
+            NSApp.unhide(nil)
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            let becameActive = await waitForAppActivation(
+                timeoutMilliseconds: DS.ExternalOpen.activationBecomeActiveTimeoutMilliseconds
+            )
+            guard externalOpenActivationRequest != nil else { return }
+            if becameActive {
+                window.makeKeyAndOrderFront(nil)
+                if window.isKeyWindow { finalizeActivation() }
+            } else {
+                window.orderFrontRegardless()
+                finalizeActivation()
+            }
+        }
+    }
+
+    /// 等 app 变 active（NSRunningApplication.activate 是请求式，不保证同步生效）。
+    /// 已 active 立即返回；否则等 didBecomeActive 通知 vs 超时 race。
+    private func waitForAppActivation(timeoutMilliseconds: Int64) async -> Bool {
+        if NSApp.isActive { return true }
+        return await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                for await _ in NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification) {
+                    return true
+                }
+                return false
+            }
+            group.addTask {
+                try? await Task.sleep(for: .milliseconds(timeoutMilliseconds))
+                return false
+            }
+            let result = await group.next() ?? false
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func finalizeActivation() {
+        externalOpenActivationRequest = nil
+        externalOpenActivationTask?.cancel()
+        externalOpenActivationTask = nil
+    }
+
+    /// OpenWith Slice 2 — 浏览外部打开图的所在文件夹。
+    /// 父文件夹已添加（是某 root 或在某 root 子树下）→ 直接 selectFolder 浏览；
+    /// 未添加 → NSOpenPanel 预定位父目录，用户选中授权后 addFolder（沙盒铁律：单文件
+    /// 打开不含父目录权限，必须经 NSOpenPanel 主动授权）。两路径都清临时态 + 关 QV。
+    private func handleBrowseFolder(_ imageURL: URL) {
+        let parent = imageURL.deletingLastPathComponent()
+        let alreadyManaged = folderStore.rootFolders.contains { root in
+            parent == root.url || parent.path.hasPrefix(root.url.path + "/")
+        }
+        if alreadyManaged {
+            folderStore.selectFolder(parent)
+        } else {
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.directoryURL = parent
+            panel.prompt = "浏览此文件夹"
+            guard panel.runModal() == .OK, let chosen = panel.url else { return }
+            folderStore.addFolder(from: chosen)  // 持久化 bookmark + discoverTree + selectFolder
+        }
+        externalOpenUrls = nil
+        quickViewerEntry = nil
+        quickViewerIndex = nil
     }
 
     var body: some View {
@@ -245,7 +335,9 @@ struct ContentView: View {
                         handleFindSimilar(sourceUrl: sourceUrl)
                     },
                     currentSupportsFeaturePrint: currentSupportsFeaturePrint(at: idx),
-                    onCommandF: { openSearch() }
+                    onCommandF: { openSearch() },
+                    // OpenWith Slice 2：仅外部打开场景显示「浏览所在文件夹」按钮（管理中文件夹 QV 内冗余）
+                    onBrowseFolder: quickViewerEntry == .externalOpen ? { url in handleBrowseFolder(url) } : nil
                 )
                 .transition(.asymmetric(insertion: .identity, removal: .opacity))
             }
@@ -254,6 +346,16 @@ struct ContentView: View {
         // OpenWith — AppDelegate 写 coordinator.pendingOpen 后 ContentView 已 mount 的运行期路径
         .onChange(of: externalOpen.pendingOpen) { _, newValue in
             if let urls = newValue { handleExternalOpen(urls) }
+        }
+        // OpenWith warm 激活：窗口 reopen（identity 变）后重试 activate；成功抢到 key 即收尾。
+        // 窗口 reopen（identity 变）后重试激活；抢到 key 即收尾（best-effort，见 scheduleActivation 注释）。
+        .onChange(of: appState.windowIdentity) { _, _ in
+            guard externalOpenActivationRequest != nil else { return }
+            scheduleActivation()
+        }
+        .onChange(of: appState.isWindowKey) { _, isKey in
+            guard externalOpenActivationRequest != nil, isKey else { return }
+            finalizeActivation()
         }
         // QuickViewer 关闭的真源出口：按 quickViewerEntry provenance 仲裁焦点路由，不依赖
         // selectedImageIndex 是否 nil 当哨兵 — 因为 QV 方向键已经在写 selectedImageIndex

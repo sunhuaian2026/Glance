@@ -22,6 +22,9 @@ struct QuickViewerOverlay: View {
     /// M3 Slice M — QV 内按 ⌘F → ContentView 同帧关 QV + 浮 search overlay。
     /// nil = 无搜索能力（caller 未提供时静默 fallback 到全屏切换）。
     let onCommandF: (() -> Void)?
+    /// OpenWith Slice 2 — 点「浏览所在文件夹」触发，caller 传入当前图 URL。
+    /// nil → 不渲染按钮（仅外部打开场景 caller 提供；管理中文件夹 QV 内冗余故不传）。
+    let onBrowseFolder: ((URL) -> Void)?
 
     @FocusState private var isFocused: Bool
     @State private var controlsVisible = true
@@ -34,7 +37,8 @@ struct QuickViewerOverlay: View {
         onIndexChange: @escaping (Int) -> Void,
         onFindSimilar: ((URL) -> Void)? = nil,
         currentSupportsFeaturePrint: Bool = true,
-        onCommandF: (() -> Void)? = nil
+        onCommandF: (() -> Void)? = nil,
+        onBrowseFolder: ((URL) -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: QuickViewerViewModel(images: images, startIndex: startIndex))
         self.onDismiss = onDismiss
@@ -42,6 +46,7 @@ struct QuickViewerOverlay: View {
         self.onFindSimilar = onFindSimilar
         self.currentSupportsFeaturePrint = currentSupportsFeaturePrint
         self.onCommandF = onCommandF
+        self.onBrowseFolder = onBrowseFolder
     }
 
     var body: some View {
@@ -305,6 +310,13 @@ struct QuickViewerOverlay: View {
                     }
                 }
                 .opacity(currentSupportsFeaturePrint ? DS.Similarity.buttonEnabledOpacity : DS.Similarity.buttonDisabledOpacity)
+            }
+            if let onBrowseFolder {
+                toolbarButton(title: "浏览所在文件夹", systemImage: "folder") {
+                    if let current = viewModel.images[safe: viewModel.currentIndex] {
+                        onBrowseFolder(current)
+                    }
+                }
             }
             toolbarButton(title: "全屏 (F)", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : DS.Icon.fullscreen) {
                 appState.toggleFullScreen()

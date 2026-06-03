@@ -43,6 +43,18 @@
 
 - [ ] (2026-06-03 / `9bee287` / 方案 3 Slice 2) **加载失败显占位**：自然遇到"图在索引里但读不到"时（真删磁盘文件的 FSEvents race / 损坏文件 / 不支持格式），grid cell / 预览 / QV 应显「无法加载」占位（photo.badge.exclamationmark）而非无限转圈。难按需复现，自然遇到时确认。可人工触发：受管文件夹放损坏图（.txt 改名 .jpg）或 QV 开着时 Finder 删当前图
 
+### OpenWith Slice 2 — 浏览所在文件夹（待验证）
+
+- [ ] (2026-06-03 / `<本次>` / Slice 2) **按钮出现**：Finder「打开方式」开单图 → QV 底部工具栏「找类似」「全屏」之间出现 folder 图标按钮
+- [ ] (2026-06-03 / `<本次>` / Slice 2) **未加过的文件夹**：开一张未加进 Glance 的文件夹的图 → 点 folder 按钮 → 弹「选择文件夹」对话框（预定位父目录）→ 选中 → 文件夹加入 sidebar + grid 显示全部 + 重启后还在
+- [ ] (2026-06-03 / `<本次>` / Slice 2) **已加过的文件夹**：开已管理文件夹的图 → 点 folder 按钮 → 不弹框，直接跳到该文件夹 grid
+- [ ] (2026-06-03 / `<本次>` / Slice 2) **取消**：弹框点取消 → 留在 QV，sidebar 无变化
+- [ ] (2026-06-03 / `<本次>` / Slice 2) **不该出现**：grid/preview 双击进的 QV 底部工具栏无 folder 按钮
+
+### OpenWith warm 激活 — 置顶（backlog，难修，best-effort）
+
+- [ ] (2026-06-03 / `<本次>` / backlog) **warm open 窗口置顶**：Glance 运行中 Finder「打开方式」开图 → 窗口理想应跳前台。**已知 macOS 顽疾未根治**（详见 Roadmap 待修复），当前 best-effort，窗口可能留在 Finder 后（点 Dock/窗口可调前）。功能不受影响。待 GUI 调试手段再啃
+
 ### OpenWith Slice 1 — 剩余验证
 
 - [ ] (2026-06-03 / `cc78c41` / OpenWith Slice 1) **Dock 拖放接收**：把图片文件拖到 Dock 的 Glance 图标 → 应进 QuickViewer 看该图（同 application(_:open:) 路径，未单独实测）
@@ -53,6 +65,11 @@
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### OpenWith warm open 崩溃修复（2026-06-03 用户验证通过）
+
+- [x] (2026-06-03 / `<本次>`) **warm open 不再崩溃/退出**：Glance 运行中 Finder「打开方式」开图 → app 不再退出、图打开、QV 显示（applicationShouldTerminateAfterLastWindowClosed=false 修复）✓ 2026-06-03
+- [x] (2026-06-03 / `<本次>`) **cold open 回归正常**：app 没开时打开图正常进 QV ✓ 2026-06-03
 
 ### 文件夹移除残留清理 方案 3 + nonisolated 解码（2026-06-03 回归验证通过）
 

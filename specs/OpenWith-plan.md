@@ -432,4 +432,33 @@ Slice 1（外部打开看单图）+ 实测发现并修复的 4 个 bug 一起实
 - 冷启动兜底合并进 ContentView 现有 `.onAppear`（plan 写新建一个）。
 
 ### 已知遗留（不在本 commit）
-- **侧边栏移除文件夹后智能文件夹仍残留其缩略图、点开一直 loading**：独立 bug，下一摊处理（方案 1 索引对账 + 防 wipe + 方案 3 加载失败占位）。
+- **侧边栏移除文件夹后智能文件夹仍残留其缩略图、点开一直 loading**：独立 bug，下一摊处理（方案 1 索引对账 + 防 wipe + 方案 3 加载失败占位）。→ 已于 `0a069e6`(方案1) + `9bee287`(方案3) 修复。
+
+---
+
+## Slice 2 完成详细（commit `<本次>`）
+
+Slice 2（浏览所在文件夹）+ warm open 实测发现的崩溃/置顶问题一起处理。
+
+| Task | 内容 | 状态 |
+|------|------|------|
+| 2.1 | QuickViewerOverlay 加 `onBrowseFolder` 回调 + 底部工具栏「浏览所在文件夹」folder 按钮（用现有 toolbarButton helper 零新硬编码；仅 `quickViewerEntry == .externalOpen` 时传，管理中文件夹 QV 不显） | ✅ |
+| 2.2 | ContentView `handleBrowseFolder`：父目录已加 → selectFolder；未加 → NSOpenPanel 预定位父目录授权后 addFolder。+ `import AppKit` | ✅ |
+
+### warm open（app 运行中 Finder「打开方式」）实测发现的问题
+单 `Window` scene + `CFBundleDocumentTypes` 处理 open-document 时窗口**瞬间 close/reopen**，连带两个问题：
+
+| # | 现象 | 根因 | 处理 |
+|---|------|------|------|
+| 1 | warm open → **app 直接退出**（无 crash，clean termination）| 窗口瞬间 close（窗口数→0）触发默认 `applicationShouldTerminateAfterLastWindowClosed=true` | 加 `applicationShouldTerminateAfterLastWindowClosed { false }`（关窗本就不退是 SwiftUI 既有行为，非行为变化）✅ 实测修复 |
+| 2 | warm open 不崩了，但 **Glance 窗口没置顶**（QV 显示着、但在 Finder 后面）| macOS 14 下 app 自己消费 open 事件 + 单 Window scene 瞬态，系统拒绝该 app 抢前台 | **未根治（backlog）**。试过 5 种激活：`NSApp.activate()` cooperative / `NSApp.activate(ignoringOtherApps:)` forceful / `NSRunningApplication.activate(.activateAllWindows)` + 等 didBecomeActive —— 真机全部无法可靠置顶（codex:rescue 三轮 review）。当前 best-effort：发激活请求，成则 makeKeyAndOrderFront，被拒降级 orderFrontRegaddless 抬升窗口。**功能不受影响**（图打开、QV 显示、不崩），仅自动置顶不保证。配套机制：AppState.windowIdentity + WindowAccessor attachWindow/detachWindow + ContentView scheduleActivation/waitForAppActivation |
+
+⚠️ **测试限制**：开发 Mac mini 无 GUI 会话，无法验证置顶类 GUI 行为，问题 1（进程级）可验、问题 2 全靠用户真机肉眼。
+
+### 偏离 plan
+- 按钮放底部工具栏（toolbarButton helper）而非 plan 的 topBar，零新硬编码 + 仅外部打开场景显示。
+- 「定位到这张图」（design 提到）未实现：handleBrowseFolder 只切到文件夹 grid，未滚动/高亮到刚打开那张（异步加载后定位较复杂）→ backlog。
+
+### 已知遗留（backlog）
+- **warm open 窗口不自动置顶**（见上表 #2）：macOS 顽疾，待有 GUI 调试/截图回传手段再啃；或考虑走 `onOpenURL` 原生通道重构。
+- **浏览所在文件夹后未定位到原图**。
