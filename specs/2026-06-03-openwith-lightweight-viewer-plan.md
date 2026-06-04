@@ -436,7 +436,7 @@ Slice 2 scope（来自 design D-OW9/D-OW10）：
 | 现象 | 根因 | 修复 |
 |------|------|------|
 | 看图窗只显 1×1 像素、看不到图（cold/warm 都中，表现为"主界面闪一下→无 QV→app 僵尸态点 Dock 无反应"） | `createWindow` 用 `contentViewController = NSHostingController`，AppKit 忽略传入 contentRect、改用 hosting `fittingSize` 定窗口尺寸；初始 rootView `EmptyView` fitting=0 → 窗口压成 1×1；换 QuickViewerOverlay（弹性布局 fitting 仍 0）后窗口已定死不再长大 | 改 `contentView = NSHostingView<AnyView>`（mirror `AboutWindowController` 已验证骨架，contentView 不反向驱动窗口尺寸）+ `host.autoresizingMask=[.width,.height]` 跟随 resize/全屏。**上方 T3/P2 里写的 NSHostingController 方案正是 1×1 根源——纠正记录在此** |
-| 看图窗首开键盘须先点鼠标（ESC/F/方向键不响应） | `isWindowKey` 在 QuickViewerOverlay mount **之前**就被 `windowDidBecomeKey→attachWindow` 翻 true → `.onChange(of:isWindowKey)` 补救永不触发；仅剩 onAppear 那次 `isFocused=true` 被刚 mount 帧的 focus 系统静默丢弃 | `requestKeyboardFocusIfWindowIsKey()` 设 `isFocused=true` 后 `DispatchQueue.main.async` 下一 runloop 再补一次（跨过未 ready 帧；幂等，主窗默认行为无副作用）。共享组件 QuickViewerOverlay 改动 |
+| 看图窗首开键盘须先点鼠标（ESC/F/方向键不响应） | `isWindowKey` 在 QuickViewerOverlay mount **之前**就被 `windowDidBecomeKey→attachWindow` 翻 true → `.onChange(of:isWindowKey)` 补救永不触发；仅剩 onAppear 那次 `isFocused=true` 被刚 mount 帧的 focus 系统静默丢弃 | `requestKeyboardFocusIfWindowIsKey()` 设 `isFocused=true` 后 `Task{@MainActor}+await Task.yield()` 让出一个 runloop 周期再补一次（async/await，非 callback——pre-push codex 拒 `DispatchQueue.main.async`，commit `fdadc92`；跨过未 ready 帧；幂等，主窗无副作用）。共享组件 QuickViewerOverlay 改动 |
 | 红绿灯交通灯显示冗余且丑（QV 自带 X 按钮已可关窗） | 中途为"让红灯显示"加的 `managesHostTrafficLights` 参数方向反了 | revert 参数，看图窗回到 `onAppear hideTrafficLights`（QV 永不 disappear→永久隐藏），靠 QV X 按钮关窗 |
 
 **真机验过（warm）**：✅ 置顶成功（方向2 核心赌注成立，V1 顽疾在自建独立窗下解决）/ 多图翻页 / 连换图不显旧图 / focus 自动 / ESC·⌘W·X 关窗后图库主窗在、app 不退。
