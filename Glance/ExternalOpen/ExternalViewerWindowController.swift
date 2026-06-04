@@ -3,7 +3,7 @@
 //  Glance
 //
 //  外部打开（Finder「打开方式」/ Dock 拖放）的独立看图窗（Preview/Quick Look 式）。
-//  纯 AppKit 单例：自建 NSWindow + NSHostingController(QuickViewerOverlay)，自任
+//  纯 AppKit 单例：自建 NSWindow + NSHostingView(QuickViewerOverlay)，自任
 //  NSWindowDelegate（不接 WindowAccessor，避免 delegate 被抢）。持有 ViewerSession
 //  管理 security-scope + terminateOnClose。窗口关闭统一走 windowWillClose path。
 //
@@ -16,7 +16,10 @@ final class ExternalViewerWindowController: NSObject {
     static let shared = ExternalViewerWindowController()
 
     private var window: NSWindow?
-    private var hosting: NSHostingController<AnyView>?
+    /// 用 NSHostingView 当 window.contentView（mirror AboutWindowController）。**不用**
+    /// NSHostingController 当 contentViewController——那样 AppKit 会忽略 contentRect、改用
+    /// hosting 的 fittingSize 定窗口尺寸，初始 EmptyView fitting=0 → 窗口被压成 1×1（看不见图）。
+    private var hosting: NSHostingView<AnyView>?
     /// 看图窗专属 AppState（F 全屏 / traffic light / 焦点都作用在看图窗，不碰图库窗）。
     private let viewerAppState = AppState()
     private var session: ViewerSession?
@@ -83,7 +86,8 @@ final class ExternalViewerWindowController: NSObject {
     }
 
     private func createWindow() {
-        let host = NSHostingController(rootView: AnyView(EmptyView()))
+        let host = NSHostingView(rootView: AnyView(EmptyView()))
+        host.autoresizingMask = [.width, .height]  // 跟随 window resize / 进全屏铺满
         let win = NSWindow(
             contentRect: NSRect(x: 0, y: 0,
                                 width: DS.ExternalViewer.defaultWindowWidth,
@@ -92,7 +96,7 @@ final class ExternalViewerWindowController: NSObject {
             backing: .buffered,
             defer: false
         )
-        win.contentViewController = host
+        win.contentView = host  // 用 contentView 而非 contentViewController，保住 contentRect 尺寸
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
         win.isReleasedWhenClosed = false  // 关闭后保留实例，下次 show 复用同一 window

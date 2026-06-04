@@ -426,3 +426,21 @@ Slice 2 scope（来自 design D-OW9/D-OW10）：
 | P2#6 | 红灯关闭与 QV 复用冲突（attach 时序不稳 traffic light 可能时隐时现） | 用户拍板删红灯：Slice 1 硬边界声明"不显 traffic light/不测红灯"，PENDING 移除红灯项 |
 | P2#7 | `ViewerSession` 一次 start 所有 URL 对大批量不克制 | PENDING 14 限定 Slice 1 不测大量文件 |
 | P2（确认非风险） | `AnyView`+`NSHostingController<AnyView>.rootView`+`.id` 方案站得住 | 保留原方案 |
+
+---
+
+## Slice 1 真机验证 + bug fix（2026-06-04，commit `<pending>`）
+
+真机验出 2 bug + 1 调整，修复后核心达成：
+
+| 现象 | 根因 | 修复 |
+|------|------|------|
+| 看图窗只显 1×1 像素、看不到图（cold/warm 都中，表现为"主界面闪一下→无 QV→app 僵尸态点 Dock 无反应"） | `createWindow` 用 `contentViewController = NSHostingController`，AppKit 忽略传入 contentRect、改用 hosting `fittingSize` 定窗口尺寸；初始 rootView `EmptyView` fitting=0 → 窗口压成 1×1；换 QuickViewerOverlay（弹性布局 fitting 仍 0）后窗口已定死不再长大 | 改 `contentView = NSHostingView<AnyView>`（mirror `AboutWindowController` 已验证骨架，contentView 不反向驱动窗口尺寸）+ `host.autoresizingMask=[.width,.height]` 跟随 resize/全屏。**上方 T3/P2 里写的 NSHostingController 方案正是 1×1 根源——纠正记录在此** |
+| 看图窗首开键盘须先点鼠标（ESC/F/方向键不响应） | `isWindowKey` 在 QuickViewerOverlay mount **之前**就被 `windowDidBecomeKey→attachWindow` 翻 true → `.onChange(of:isWindowKey)` 补救永不触发；仅剩 onAppear 那次 `isFocused=true` 被刚 mount 帧的 focus 系统静默丢弃 | `requestKeyboardFocusIfWindowIsKey()` 设 `isFocused=true` 后 `DispatchQueue.main.async` 下一 runloop 再补一次（跨过未 ready 帧；幂等，主窗默认行为无副作用）。共享组件 QuickViewerOverlay 改动 |
+| 红绿灯交通灯显示冗余且丑（QV 自带 X 按钮已可关窗） | 中途为"让红灯显示"加的 `managesHostTrafficLights` 参数方向反了 | revert 参数，看图窗回到 `onAppear hideTrafficLights`（QV 永不 disappear→永久隐藏），靠 QV X 按钮关窗 |
+
+**真机验过（warm）**：✅ 置顶成功（方向2 核心赌注成立，V1 顽疾在自建独立窗下解决）/ 多图翻页 / 连换图不显旧图 / focus 自动 / ESC·⌘W·X 关窗后图库主窗在、app 不退。
+
+**已知未解（归 Slice 2，同根：SwiftUI `Window` scene 仍在）**：cold 启动双窗（图库主窗+看图窗）；warm 看完关图后图库主窗被 odoc 瞬态 close 不自动回来（须点 Dock）。Slice2 移除 Window scene + AppDelegate 自建主窗（D-OW9/10）一并根治。
+
+**诊断手段教训**：NSLog 经 macOS 统一日志被按隐私策略 redact 成 `<private>`，外部 `log show`/Console grep 不到 → 改写沙盒文件 trace（`~/Library/Containers/<bundleid>/Data/`）绕开脱敏定位。诊断埋点已全部清理。

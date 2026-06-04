@@ -433,6 +433,10 @@ struct QuickViewerOverlay: View {
     private func requestKeyboardFocusIfWindowIsKey() {
         guard appState.isWindowKey else { return }
         isFocused = true
+        // 独立看图窗首开：isWindowKey 在本 view mount 前就翻 true（onChange 漏触发），只剩
+        // onAppear 这次 assert，但刚 mount 的 hosting view focus 系统未 ready，赋值被静默丢弃
+        // → 要鼠标点一下才接管键盘。下一 runloop 补一次，跨过未 ready 那帧。幂等，主窗无副作用。
+        DispatchQueue.main.async { isFocused = true }
     }
 
     // MARK: - Auto-hide
