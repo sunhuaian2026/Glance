@@ -462,9 +462,7 @@ struct ContentView: View {
         }
         // D15 终态：删除原 ContentView 兜底 ESC 状态机。子 view 各自持 ESC handler
         // （preview / ephemeral），共享 @FocusState 单仲裁者保证焦点可靠，race 消除。
-        .background {
-            WindowAccessor(appState: appState)
-        }
+        // D-OW16：WindowAccessor 已移除，NSWindow 挂接改由 MainWindowController 自任 delegate 接管。
     }
 
     // MARK: - Main Content
