@@ -73,8 +73,15 @@ struct EphemeralResultView: View {
                     .onAppear { if autoFocusOnAppear { focusTarget = .ephemeral } }
                     // 高亮兜底双路监听（codex review Q2）：焦点切到 .ephemeral 那刻搜索结果可能
                     // 还在异步途中（urls 空），单监听 focusTarget 会漏；补监听 urls 到达。
-                    .onChange(of: focusTarget) { _, _ in maybeDefaultHighlightFirst() }
-                    .onChange(of: urls) { _, _ in maybeDefaultHighlightFirst() }
+                    .onChange(of: focusTarget) { _, newValue in
+                        // 用 newValue 判断，不重读 self.focusTarget：@FocusState 在 onChange 回调里
+                        // 值可能还没稳定，重读会拿旧值导致 guard 失败、不设高亮（第一张没高亮 bug）。
+                        applyDefaultHighlight(focusIsEphemeral: newValue == .ephemeral)
+                    }
+                    .onChange(of: urls) { _, _ in
+                        // urls 变化晚于 focus 切换，此刻 focusTarget 已稳定，可直接读（兜底异步结果晚到）。
+                        applyDefaultHighlight(focusIsEphemeral: focusTarget == .ephemeral)
+                    }
                     .onKeyPress(.escape) { onClose(); return .handled }
                     // mirror V1 ImageGridView Bug 4 真解：preview/QV 内方向键已写 folderStore.selectedImageIndex
                     // → ephemeral 监听 non-nil 分支同步 highlightedURL → 退回 ephemeral 时 highlight 跟到 Z
@@ -110,10 +117,11 @@ struct EphemeralResultView: View {
     }
 
     /// 焦点进 .ephemeral 且无高亮时默认高亮第一张（gate 在 defaultHighlightFirst，M2 similar 不触发）。
-    /// 由 focusTarget / urls 双 onChange 触发，解决异步搜索结果到达晚于焦点切换的 race（codex review Q2）。
-    private func maybeDefaultHighlightFirst() {
+    /// focusIsEphemeral 由 caller 传：focusTarget onChange 用 newValue（避开 @FocusState 回调里
+    /// 重读 self 拿旧值的时序坑）；urls onChange 用当前 focusTarget（那时已稳定）。
+    private func applyDefaultHighlight(focusIsEphemeral: Bool) {
         guard defaultHighlightFirst,
-              focusTarget == .ephemeral,
+              focusIsEphemeral,
               highlightedURL == nil,
               let first = urls.first else { return }
         highlightedURL = first
