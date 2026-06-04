@@ -12,6 +12,6 @@ struct EmptySettingsView: View {
     var body: some View {
         Text("Glance · 一眼")
             .font(.headline)
-            .frame(width: 360, height: 120)
+            .frame(width: DS.Settings.placeholderWidth, height: DS.Settings.placeholderHeight)
     }
 }

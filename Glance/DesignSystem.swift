@@ -183,6 +183,12 @@ enum DS {
         static let defaultWindowHeight: CGFloat = 800
     }
 
+    enum Settings {
+        /// 方向2 Slice2：Settings scene 占位 view 尺寸（Glance 暂无设置项，最小占位）。
+        static let placeholderWidth: CGFloat = 360
+        static let placeholderHeight: CGFloat = 120
+    }
+
     // MARK: - Animation
 
     enum Anim {
