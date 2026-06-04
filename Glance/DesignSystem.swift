@@ -175,14 +175,6 @@ enum DS {
         static let overlayBorderWidth: CGFloat = 0.5
     }
 
-    // MARK: - External Open（OpenWith warm 激活重试）
-
-    enum ExternalOpen {
-        /// warm open 后等 NSApplication.didBecomeActiveNotification 的超时（毫秒）。
-        /// 超时（系统拒绝激活）降级 orderFrontRegardless。
-        static let activationBecomeActiveTimeoutMilliseconds: Int64 = 400
-    }
-
     // MARK: - External Viewer（方向2 独立看图窗）
 
     enum ExternalViewer {

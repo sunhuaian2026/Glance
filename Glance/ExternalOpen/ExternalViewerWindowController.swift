@@ -77,8 +77,7 @@ final class ExternalViewerWindowController: NSObject {
                 onIndexChange: { _ in },          // 看图窗不同步任何图库选中
                 onFindSimilar: nil,               // 纯看图，砍找类似（D-OW7）
                 currentSupportsFeaturePrint: false,
-                onCommandF: nil,                  // 纯看图，砍搜索（D-OW7）
-                onBrowseFolder: nil               // 纯看图，砍浏览所在文件夹（D-OW7）
+                onCommandF: nil                   // 纯看图，砍搜索（D-OW7）
             )
             .environmentObject(viewerAppState)
             .id(session.id)
