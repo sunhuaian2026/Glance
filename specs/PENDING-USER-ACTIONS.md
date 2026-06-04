@@ -68,11 +68,31 @@
 - [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **内存无泄漏**：反复开关看图窗 10 次后活动监视器看 Glance 内存无明显泄漏（scope 配平 + VM deinit）
 - [ ] (2026-06-03 / `7a32dff` / 方向2 Slice1 / deferred) **大量文件不在范围**：几百上千张一次打开可能撞 sandbox scope 上限，Slice1 只测几张~几十张
 
+### OpenWith 方向2 Slice2 — 剩余真机回归（lifecycle 接管后，版本 `58e98fd`）
+
+> 核心门控（菜单栏 / cold 看完即走 / warm 主窗不丢 / 普通启动 / reopen / 退出关窗驻留）2026-06-04 已真机验过（见 Done 段）。以下为删代码 + 移除 WindowAccessor 后建议回归的项。
+
+- [ ] (2026-06-04 / `58e98fd` / Slice2) **全屏 + traffic light 回归（验 WindowAccessor 移除没坏）**：图库主窗按 F 进原生全屏正常、退出正常；双击图进 QV → traffic light 隐藏、退 QV 恢复；QV 焦点正常（ESC 直接关）
+- [ ] (2026-06-04 / `58e98fd` / Slice2) **看图窗 Slice1 能力没退化（删 ContentView onChange 后）**：warm 开看图窗仍置顶 + 多图翻页 + 连换图不显旧图 + focus 自动 + 全屏 ESC 两段
+- [ ] (2026-06-04 / `58e98fd` / Slice2) **不支持 URL 冷启动**：app 没开 → Finder 用 Glance 打开非图片（.txt 改名）→ 正常建图库主窗、不崩
+- [ ] (2026-06-04 / `58e98fd` / Slice2) **folderStore 加载不重复**：启动后已存文件夹正常加载（loadSavedFolders 迁 MainWindowController 后没丢/没重复）
+- [ ] (2026-06-04 / `58e98fd` / Slice2) **About/Settings 开着关主窗**：开「关于一眼」或 ⌘, Settings 后关图库主窗 → app 不退（仍有可见窗）；全关才退
+- [ ] (2026-06-04 / `58e98fd` / Slice2) **Dock 拖放**：拖图到 Dock 的 Glance 图标 → 进看图窗（同 application(open:) 路径）
+
 ---
 
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### OpenWith 方向2 Slice2 — lifecycle 接管真机门控（2026-06-04 用户验证通过）
+
+- [x] (2026-06-04 / `b7380f1`~`3718577`) **菜单栏存活（D-OW13 最大风险）**：移除 Window scene 只留 Settings scene 后，菜单栏「一眼」有「关于一眼」可点弹 About、⌘Q 退、Edit/Window/Help 在、⌘, 弹 Settings 占位窗。**Settings-only scene 方案成立**（备选 AppKit NSMenu 未启用）✓ 2026-06-04
+- [x] (2026-06-04 / `3718577`) **cold 看完即走**：app 没开 → Finder 打开方式开图 → 只弹看图窗（无图库主窗）→ 关 → 整个 app 退出 ✓ 2026-06-04
+- [x] (2026-06-04 / `3718577`) **warm 主窗不丢（核心修复）**：warm 开看图窗 → 图库主窗原样在 → 关看图窗 → 主窗还在、app 不退（不再需点 Dock）✓ 2026-06-04
+- [x] (2026-06-04 / `3718577`) **普通启动建主窗**：双击 app/Dock → 图库主窗（sidebar+grid 正常）✓ 2026-06-04
+- [x] (2026-06-04 / `3718577`) **reopen 重建**：关图库主窗（app 驻留）→ 点 Dock → 主窗重现 ✓ 2026-06-04
+- [x] (2026-06-04 / `519a697`) **退出关窗驻留（D-OW15）**：关图库主窗 → app 驻留 dock、点 Dock 秒回、⌘Q 才真退（像 Photos）✓ 2026-06-04
 
 ### OpenWith 方向2 Slice1 核心 + 1×1/focus fix（2026-06-04 用户验证通过）
 

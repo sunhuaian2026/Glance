@@ -586,3 +586,19 @@ git commit -m "refactor(OpenWith): 删 ExternalOpenCoordinator/DS.ExternalOpen/Q
 **4. codex review 折入（2026-06-04 第一轮）**：P1-1 delegate 双持地雷 → D-OW16（MainWindowController 自任 delegate + 移除 WindowAccessor，Task 1+3）；P1-2 AppState 挂接 → 同 D-OW16；P1-3 About/Settings 边角 → D-OW15 声明可接受；P2-1 菜单升级真机硬门控（Task 3 Step 4 后停-or-go）；P2-2/P2-3 AppDelegate @MainActor + init 注释（D-OW12）；P2-4/P2-5 多次 open/不支持 URL（Task 4 + 验收矩阵）；P2-6 delegate 合并进 Task 1/3；P2-7 rg symbol 搜索删除（Task 5/6）。
 
 **5. 剩余最大不确定**：D-OW13 菜单 host —— codex verdict 是「GO 但需真机验证」，故 Task 3 Step 4 后菜单硬门控为停-or-go 关卡，不过则转纯 AppKit NSMenu（Slice 2b）。这是 CC 在 Mac mini 验不了、必须真机的点。
+
+---
+
+## Slice 2 完成详细（2026-06-04，commit `519bd74`~`58e98fd`）
+
+| Task | commit | 落地 |
+|------|--------|------|
+| Task 1 MainWindowController | `519bd74` | @MainActor 单例自建图库主窗 NSWindow + NSHostingView(ContentView+4注入) + 自任 NSWindowDelegate 接管 attach/fullscreen/key/close 驱动 appState（D-OW16）+ `hasWindow` + 首建调 `loadSavedFolders` |
+| Task 2-4 lifecycle 接管 | `b7380f1` + `3718577` | 对象 ownership 迁 `@MainActor AppDelegate`（D-OW12）+ App body 改 `Settings` scene 挂 .commands（D-OW13）+ 移除 ContentView WindowAccessor + 删 `WindowAccessor.swift`（D-OW16）+ AppDelegate 首窗/cold-warm/reopen/退出（D-OW14/15）|
+| 退出语义真机修正 | `519a697` | `shouldTerminateAfterLastWindowClosed` true→false（关窗驻留像 Photos，D-OW15；cold 看完即走由 viewer terminateOnClose 独立控制不受影响）|
+| Task 5 删 ContentView 残留 | `3b5dfdd` | 删 externalOpenUrls/handleExternalOpen/scheduleActivation/waitForAppActivation/finalizeActivation/handleBrowseFolder + 3 个 onChange + QuickViewerEntry.externalOpen case（switch 仍 exhaustive）+ QV images 源去 externalOpenUrls 三元 |
+| Task 6 删旧桥 | `58e98fd` | git rm `ExternalOpenCoordinator.swift` + 删 `DS.ExternalOpen` + QV `onBrowseFolder`（属性/init/按钮）+ ExternalViewerWindowController 那侧 onBrowseFolder:nil 实参 |
+
+**真机门控全过**（2026-06-04 用户验）：✅ 菜单栏存活（关于一眼可点/⌘Q/Edit-Window-Help/⌘,Settings）+ cold 看完即走 + warm 主窗不丢 + 普通启动建主窗 + reopen 重建 + 退出关窗驻留。
+
+**流程回顾**：design 已有 Slice2 outline（D-OW9~11）→ `writing-plans` 出 task plan（本文档）→ **两轮 codex review 收敛**（第一轮抓 P1-1 delegate 双持地雷 → D-OW16；第二轮无新 P1 + 8 P2 全折入）→ **subagent-driven 逐 task 实施**（implementer subagent + controller verify，`make build` oracle + pre-push codex 做 quality gate）→ Task4 后**真机硬门控**（菜单 + 核心行为，CC 在 Mac mini 验不了）→ 门控过继续 Task5/6 删代码 → /go 收尾。最大风险 D-OW13 菜单（Settings-only scene 是否保菜单栏）真机验证成立，未用降级方案。

@@ -79,7 +79,8 @@
 实现债（Slice 1 一并解掉，codex 上一轮 P1）：environmentObject 注入 / 二次打开换图源 / ViewerSession 持有 scope 配平 / `WindowAccessor` 不抢 controller 的 close delegate（用 notification / delegate 多路复用 / 把 window state 接进 controller）/ ESC·⌘W·红灯·windowWillClose 统一 close path。
 **Slice 1 验收（真机，CC 在 Mac mini 验不了 GUI）**：warm 下 app 前台/后台/主窗最小化/主窗隐藏；多文件一次打开；看图窗已开时再次 Finder open（不显旧图）；F 全屏后 ESC/⌘W/红灯关闭；Dock 拖多个文件；security scope 无泄漏。
 
-### Slice 2 — 收回 lifecycle，拿"冷启动看完即走"
+### Slice 2 — 收回 lifecycle，拿"冷启动看完即走" ✅ 已实施（2026-06-04）
+> **✅ 2026-06-04 已实施 + 真机验过**：task 级 plan + 决策 D-OW12~16 细化见 `specs/2026-06-04-openwith-slice2-plan.md`。两点与下方原 outline 不同：(1) 菜单 host 用 `Settings { EmptySettingsView() }` scene 挂 .commands（真机验菜单栏存活，D-OW13），非自建 NSMenu；(2) 退出语义 `applicationShouldTerminateAfterLastWindowClosed=false`（关窗驻留像 Photos，D-OW15），非"自持窗口计数"（cold 看完即走由 viewer `terminateOnClose` 独立控制已足够）。delegate 单一归属问题（codex P1）由 D-OW16 解决。下方 outline 是设计阶段原拟，实施细节以 Slice2 plan 为准。
 范围：移除真实 `Window("一眼")` scene；新增 `MainWindowController` 承载 `ContentView`；AppDelegate 决定首窗（冷启动 open 只建 viewer、普通 launch/reopen 建 main）；viewer 带 `terminateOnClose`（cold=true / warm=false）；删 ContentView externalOpen 机器 + QV overlay onBrowseFolder 按钮 + `ExternalOpenCoordinator.swift` + `DS.ExternalOpen`；`applicationShouldTerminateAfterLastWindowClosed` 退出语义改自持窗口计数。
 > 兜底升级：原"扫 `NSApp.windows` 判断有无图库窗" → **撤销**。改用 `MainWindowController` 自持状态 + `ViewerSession.terminateOnClose`，cold/warm 完全可控。
 
