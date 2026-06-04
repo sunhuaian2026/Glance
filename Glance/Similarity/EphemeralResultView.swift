@@ -27,6 +27,11 @@ struct EphemeralResultView: View {
     var showTimeBuckets: Bool = false
     /// 跟 urls 平行的 birth_time 数组（用于时间分段）。M2 .similar 传 nil；M3 .search 传非 nil。
     var datesForBuckets: [Date]? = nil
+    /// view mount 时是否自动抢 .ephemeral 焦点。默认 false（codex review：避免新 caller 隐式抢焦点）。
+    /// M2 .similar 传 true；M3 .search 传 false（焦点归 SearchOverlayView input，overlay 在时 ephemeral 只在背景显结果）。
+    var autoFocusOnAppear: Bool = false
+    /// 焦点进 .ephemeral 且无高亮时是否默认高亮第一张。默认 false 保 M2 .similar 不变；M3 .search 传 true。
+    var defaultHighlightFirst: Bool = false
 
     let onClose: () -> Void
     let onSingleClick: (Int) -> Void
@@ -65,7 +70,11 @@ struct EphemeralResultView: View {
                     .focusable()
                     .focusEffectDisabled()
                     .focused($focusTarget, equals: .ephemeral)
-                    .onAppear { focusTarget = .ephemeral }
+                    .onAppear { if autoFocusOnAppear { focusTarget = .ephemeral } }
+                    // 高亮兜底双路监听（codex review Q2）：焦点切到 .ephemeral 那刻搜索结果可能
+                    // 还在异步途中（urls 空），单监听 focusTarget 会漏；补监听 urls 到达。
+                    .onChange(of: focusTarget) { _, _ in maybeDefaultHighlightFirst() }
+                    .onChange(of: urls) { _, _ in maybeDefaultHighlightFirst() }
                     .onKeyPress(.escape) { onClose(); return .handled }
                     // mirror V1 ImageGridView Bug 4 真解：preview/QV 内方向键已写 folderStore.selectedImageIndex
                     // → ephemeral 监听 non-nil 分支同步 highlightedURL → 退回 ephemeral 时 highlight 跟到 Z
@@ -75,12 +84,8 @@ struct EphemeralResultView: View {
                             highlightedURL = urls[idx]
                         }
                     }
-                    .onKeyPress(.space) {
-                        guard !urls.isEmpty else { return .ignored }
-                        let target = highlightedURL.flatMap({ urls.firstIndex(of: $0) }) ?? 0
-                        onDoubleClick(target)
-                        return .handled
-                    }
+                    .onKeyPress(.space)  { openHighlighted() }
+                    .onKeyPress(.return) { openHighlighted() }
                     .onKeyPress(.leftArrow)  { moveHighlight(by: -1,        colCount: colCount, proxy: scrollProxy); return .handled }
                     .onKeyPress(.rightArrow) { moveHighlight(by: +1,        colCount: colCount, proxy: scrollProxy); return .handled }
                     .onKeyPress(.upArrow)    { moveHighlight(by: -colCount, colCount: colCount, proxy: scrollProxy); return .handled }
@@ -102,6 +107,24 @@ struct EphemeralResultView: View {
         withAnimation(DS.Anim.fast) {
             proxy.scrollTo(urls[next], anchor: .center)
         }
+    }
+
+    /// 焦点进 .ephemeral 且无高亮时默认高亮第一张（gate 在 defaultHighlightFirst，M2 similar 不触发）。
+    /// 由 focusTarget / urls 双 onChange 触发，解决异步搜索结果到达晚于焦点切换的 race（codex review Q2）。
+    private func maybeDefaultHighlightFirst() {
+        guard defaultHighlightFirst,
+              focusTarget == .ephemeral,
+              highlightedURL == nil,
+              let first = urls.first else { return }
+        highlightedURL = first
+    }
+
+    /// 空格 / 回车开当前高亮图（无高亮则开第一张，mirror 既有 space `?? 0` 行为）。
+    private func openHighlighted() -> KeyPress.Result {
+        guard !urls.isEmpty else { return .ignored }
+        let target = highlightedURL.flatMap({ urls.firstIndex(of: $0) }) ?? 0
+        onDoubleClick(target)
+        return .handled
     }
 
     private func computeColumnCount(width: CGFloat) -> Int {

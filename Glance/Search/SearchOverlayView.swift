@@ -20,6 +20,9 @@ struct SearchOverlayView: View {
     /// ESC / × 关闭 callback。caller 清 currentEphemeral + focusTarget = .grid。
     let onClose: () -> Void
 
+    /// 回车提交 callback。caller 收起 overlay + 结果留为 ephemeral + 焦点移结果网格（空输入 no-op）。
+    let onSubmit: (_ input: String) -> Void
+
     @State private var searchInput: String = ""
 
     var body: some View {
@@ -50,7 +53,7 @@ struct SearchOverlayView: View {
                     onInputChange(newValue, false)
                 }
                 .onKeyPress(.return) {
-                    onInputChange(searchInput, true)
+                    onSubmit(searchInput)
                     return .handled
                 }
                 .onKeyPress(.escape) {

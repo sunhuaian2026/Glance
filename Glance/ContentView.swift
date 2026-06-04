@@ -86,6 +86,23 @@ private enum EphemeralRequest: Equatable {
             return images.map { $0.birthTime }
         }
     }
+
+    /// EphemeralResultView mount 时是否自动抢 .ephemeral 焦点。
+    /// search：false（焦点归 overlay input）；similar：true（无 overlay，进结果即聚焦）。
+    var autoFocusOnAppear: Bool {
+        switch self {
+        case .similar: return true
+        case .search:  return false
+        }
+    }
+
+    /// 焦点进 .ephemeral 且无高亮时是否默认高亮第一张。search：true；similar：false（保 M2 不变）。
+    var defaultHighlightFirst: Bool {
+        switch self {
+        case .similar: return false
+        case .search:  return true
+        }
+    }
 }
 
 struct ContentView: View {
@@ -355,6 +372,8 @@ struct ContentView: View {
                     emptyStateText: req.emptyStateText,
                     showTimeBuckets: req.showTimeBuckets,
                     datesForBuckets: req.datesForBuckets,
+                    autoFocusOnAppear: req.autoFocusOnAppear,
+                    defaultHighlightFirst: req.defaultHighlightFirst,
                     onClose: {
                         switch req {
                         case .similar:
@@ -444,7 +463,8 @@ struct ContentView: View {
                     onInputChange: { input, skipDebounce in
                         runSearch(input: input, skipDebounce: skipDebounce)
                     },
-                    onClose: { closeSearch() }
+                    onClose: { closeSearch() },
+                    onSubmit: { submitSearch(input: $0) }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -712,7 +732,13 @@ struct ContentView: View {
         showSearchOverlay = true
         // 初始化空 query 的 ephemeral 让 EphemeralResultView 显示 hint 空态文案
         currentEphemeral = .search(query: "", images: [], urls: [])
-        focusTarget = .search
+        // 焦点延迟一拍设（codex review Q1）：overlay + 空 ephemeral 同帧 mount，TextField 这帧
+        // 还没进 view tree，同帧设 @FocusState 失效；ephemeral 现在 autoFocusOnAppear=false 不竞争，
+        // 延迟到下一 runloop 由本函数单点设。每次 ⌘F 都跑，覆盖重复 ⌘F（overlay 已 mount，onAppear 不再 fire）场景。
+        Task { @MainActor in
+            await Task.yield()
+            focusTarget = .search
+        }
     }
 
     /// ESC / × button 关闭路径。清 currentEphemeral 让 baseGrid 回来。
@@ -725,6 +751,18 @@ struct ContentView: View {
         }
         folderStore.selectedImageIndex = nil
         focusTarget = .grid
+    }
+
+    /// 回车提交（Enter 路径）：收起 overlay + 结果留为 ephemeral + 焦点移结果网格。
+    /// 空输入 no-op（overlay 留着不塌成空 ephemeral，codex review omission）。
+    private func submitSearch(input: String) {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        // 立即查一次确保结果最新；runSearch 内部先 cancel 上个 debounce task，无 stale 覆盖。
+        runSearch(input: input, skipDebounce: true)
+        withAnimation(DS.Anim.normal) { showSearchOverlay = false }
+        // ephemeral 已 mount（⌘F 空态那次），显式把焦点交给它；defaultHighlightFirst 兜底高亮第一张。
+        focusTarget = .ephemeral
     }
 
     /// debounce + cancel + SearchService 调用。skipDebounce=true 跳 200ms timer（Enter 路径）。
