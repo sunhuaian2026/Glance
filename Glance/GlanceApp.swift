@@ -75,9 +75,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    // 退出语义回标准 true（D-OW15）：Window scene 已移除，瞬态 close 不再发生。
+    // 退出语义（D-OW15 修正，用户拍板「关窗驻留」）：图库 app 关最后一窗不自动退、驻留 dock
+    // 可 reopen、⌘Q 才真退（像 Photos/Preview/访达）。cold 看完即走**不受影响**——由
+    // ExternalViewerWindowController 看图窗 terminateOnClose=true 主动 NSApp.terminate 控制，
+    // 与 last-window 语义独立。（Window scene 已移除，false 不再有 Slice1 的瞬态自杀风险。）
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 
     func applicationWillTerminate(_ notification: Notification) {

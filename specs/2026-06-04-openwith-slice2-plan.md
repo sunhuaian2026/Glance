@@ -38,7 +38,8 @@
 - `applicationShouldHandleReopen`（点 Dock）：`if !MainWindowController.shared.hasWindow { MainWindowController.shared.show(...) }; return true`。
 **符合 D-OW10**：cold/warm 完全由 AppDelegate 自持标志判断，不扫 `NSApp.windows`。
 
-### D-OW15 — 退出语义：`applicationShouldTerminateAfterLastWindowClosed` 回 `true`（**更新 D-OW8**）
+### D-OW15 — 退出语义：`applicationShouldTerminateAfterLastWindowClosed` = `false`（关窗驻留，真机后从 true 修正）
+> **⚠️ 真机修正（2026-06-04，用户拍板「关窗驻留」）**：原拟回 `true`（关窗即退），真机验后改 **`false`（关窗驻留，像 Photos/Preview/访达）**——图库 app 关图库主窗应驻留 dock、点 Dock reopen、⌘Q 才退，避免重看要冷启动。**cold 看完即走不受影响**（由看图窗 `terminateOnClose=true` 主动 `NSApp.terminate` 控制，与 last-window 语义独立）；warm 关看图窗/主窗都驻留、⌘Q 退。Window scene 已移除，`false` 不再有 Slice1 瞬态自杀风险。下方原"回 true"论证保留作决策演进记录。
 **design D-OW8 历史**：Slice 1 因主 `Window` scene 还在、odoc 触发瞬态 close→0 窗自杀，强制 `=false`。
 **决策（Slice 2 更新）**：移除 `Window` scene 后**瞬态 close 不再发生**（自建 NSWindow 不响应 odoc），可回 macOS 标准 `=true`。语义自洽：
 - cold open：看图窗 `terminateOnClose=true` → 关窗时 `ViewerSession` 已 `NSApp.terminate`（看完即走，主动退，不靠 last-window）。
