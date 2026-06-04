@@ -56,16 +56,16 @@
 - [ ] (2026-06-03 / `cc78c41` / OpenWith Slice 1) **Dock 拖放接收**：把图片文件拖到 Dock 的 Glance 图标 → 应进 QuickViewer 看该图（同 application(_:open:) 路径，未单独实测）
 - [ ] (2026-06-03 / `cc78c41` / OpenWith Slice 1) **多图 QV 集合导航**：多图「打开方式」进 QV 后，左右方向键 / filmstrip 点击能在选中集合内切换
 
-### OpenWith 方向2 Slice1 — 剩余真机验（1×1+focus fix 后版本 `<pending>`）
+### OpenWith 方向2 Slice1 — 剩余真机验（1×1+focus fix 后版本 `a3e4ae0`）
 
 > 核心项（warm 置顶 / 显图 / focus / 多图翻页 / 连换图 / 全屏 ESC 两段 / ⌘W 关窗 / 交通灯隐藏）2026-06-04 已验证通过（见 Done 段）。以下为 1×1 fix 后尚未单独验的项（1×1 修复前看图窗根本不可见、无法验）。冷启动双窗 + warm 关图后主窗丢失是 SwiftUI `Window` scene 同根缺陷，归 Slice2 解决（见 Roadmap 待修复）。
 
-- [ ] (2026-06-04 / `7a32dff`+`<pending>` / 方向2 Slice1) **非全屏 ESC 关窗 app 不退**：非全屏按 ESC → 看图窗关、图库主窗在、app 不退（⌘W 路径已验，ESC 补验）
-- [ ] (2026-06-04 / `7a32dff`+`<pending>` / 方向2 Slice1) **全屏⌘W后下次 ESC（验 P1#1）**：全屏态直接 ⌘W 关窗 → 再开一张图 → 第一下 ESC **就关窗**（不是退全屏，验 close path reset isFullScreen）
-- [ ] (2026-06-04 / `7a32dff`+`<pending>` / 方向2 Slice1) **Dock 拖多文件**：Dock 图标拖多个图片文件 → 同多文件打开
-- [ ] (2026-06-04 / `7a32dff`+`<pending>` / 方向2 Slice1) **后台抢前台**：app 切后台时收 Finder open → 看图窗能抢到前台（deferred reassert 加固）
-- [ ] (2026-06-04 / `7a32dff`+`<pending>` / 方向2 Slice1) **多显示器**：看图窗出现在合理屏幕（主屏 / 鼠标所在屏）
-- [ ] (2026-06-04 / `7a32dff`+`<pending>` / 方向2 Slice1) **内存无泄漏**：反复开关看图窗 10 次后活动监视器看 Glance 内存无明显泄漏（scope 配平 + VM deinit）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **非全屏 ESC 关窗 app 不退**：非全屏按 ESC → 看图窗关、图库主窗在、app 不退（⌘W 路径已验，ESC 补验）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **全屏⌘W后下次 ESC（验 P1#1）**：全屏态直接 ⌘W 关窗 → 再开一张图 → 第一下 ESC **就关窗**（不是退全屏，验 close path reset isFullScreen）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **Dock 拖多文件**：Dock 图标拖多个图片文件 → 同多文件打开
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **后台抢前台**：app 切后台时收 Finder open → 看图窗能抢到前台（deferred reassert 加固）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **多显示器**：看图窗出现在合理屏幕（主屏 / 鼠标所在屏）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **内存无泄漏**：反复开关看图窗 10 次后活动监视器看 Glance 内存无明显泄漏（scope 配平 + VM deinit）
 - [ ] (2026-06-03 / `7a32dff` / 方向2 Slice1 / deferred) **大量文件不在范围**：几百上千张一次打开可能撞 sandbox scope 上限，Slice1 只测几张~几十张
 
 ---
@@ -76,14 +76,14 @@
 
 ### OpenWith 方向2 Slice1 核心 + 1×1/focus fix（2026-06-04 用户验证通过）
 
-- [x] (2026-06-04 / `7a32dff`+`<pending>`) **warm 置顶（核心赌注）**：Glance 运行中 Finder「打开方式」→ 独立看图窗弹出并置顶到前台。**方向2 核心赌注成立**——V1 那个 macOS 14 warm 置顶顽疾（5 种激活 API 全败）在自建独立窗下解决 ✓ 2026-06-04
-- [x] (2026-06-04 / `<pending>`) **看图窗能显图（1×1 fix）**：看图窗 1280×800 正常显图（修掉 `contentViewController=NSHostingController` 的 1×1 压缩 bug → `contentView=NSHostingView`）✓ 2026-06-04
-- [x] (2026-06-04 / `<pending>`) **首开 focus 自动**：看图窗弹出后不点鼠标，直接 ESC/F/方向键就响应（`requestKeyboardFocusIfWindowIsKey` 下一 runloop 补 assert）✓ 2026-06-04
+- [x] (2026-06-04 / `7a32dff`+`a3e4ae0`) **warm 置顶（核心赌注）**：Glance 运行中 Finder「打开方式」→ 独立看图窗弹出并置顶到前台。**方向2 核心赌注成立**——V1 那个 macOS 14 warm 置顶顽疾（5 种激活 API 全败）在自建独立窗下解决 ✓ 2026-06-04
+- [x] (2026-06-04 / `a3e4ae0`) **看图窗能显图（1×1 fix）**：看图窗 1280×800 正常显图（修掉 `contentViewController=NSHostingController` 的 1×1 压缩 bug → `contentView=NSHostingView`）✓ 2026-06-04
+- [x] (2026-06-04 / `a3e4ae0`) **首开 focus 自动**：看图窗弹出后不点鼠标，直接 ESC/F/方向键就响应（`requestKeyboardFocusIfWindowIsKey` 下一 runloop 补 assert）✓ 2026-06-04
 - [x] (2026-06-04 / `7a32dff`) **多图翻页 + 多文件打开**：多张「打开方式」→ 看图窗显第一张 + 方向键/胶片条切全部 ✓ 2026-06-04
 - [x] (2026-06-04 / `7a32dff`) **二次打开换图（验 P1#2）**：看图窗开着再打开另一张 → 复用同窗显新图、连换不显旧图 ✓ 2026-06-04
 - [x] (2026-06-04 / `7a32dff`) **全屏 ESC 两段**：F 进全屏 → ESC 先退全屏 → 再 ESC 关窗 ✓ 2026-06-04
 - [x] (2026-06-04 / `7a32dff`) **⌘W 关窗 app 不退**：⌘W → 看图窗关、图库主窗在、app 不退 ✓ 2026-06-04
-- [x] (2026-06-04 / `<pending>`) **交通灯隐藏 + X 按钮关窗**：看图窗无红绿灯（冗余且丑），靠 QV 自带 X 按钮关窗 ✓ 2026-06-04
+- [x] (2026-06-04 / `a3e4ae0`) **交通灯隐藏 + X 按钮关窗**：看图窗无红绿灯（冗余且丑），靠 QV 自带 X 按钮关窗 ✓ 2026-06-04
 - [x] (2026-06-04 / `7a32dff` / 过渡态确认) **冷启动双窗 = 预期非bug**：cold「打开方式」同时显图库主窗+看图窗，已确认是 Slice1 过渡态预期，Slice2 移除 Window scene 后只显看图窗 ✓ 2026-06-04
 
 ### OpenWith warm open 崩溃修复（2026-06-03 用户验证通过）

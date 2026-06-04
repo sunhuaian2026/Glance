@@ -429,7 +429,7 @@ Slice 2 scope（来自 design D-OW9/D-OW10）：
 
 ---
 
-## Slice 1 真机验证 + bug fix（2026-06-04，commit `<pending>`）
+## Slice 1 真机验证 + bug fix（2026-06-04，commit `a3e4ae0`）
 
 真机验出 2 bug + 1 调整，修复后核心达成：
 
