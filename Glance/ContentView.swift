@@ -140,7 +140,7 @@ struct ContentView: View {
         // mirror previewOverlay / QuickViewer .overlay 的 image source 选择：V2 mode 用
         // 本地 v2Urls，V1 mode 用 folderStore.images。前者是 commit 26c457a 拆出来的本地
         // @State，避免 V1 排序保护逻辑误关 V2 QV
-        let images = smartFolderStore.selected != nil ? v2Urls : folderStore.images
+        let images = (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images
         guard let idx = folderStore.selectedImageIndex,
               idx < images.count else { return nil }
         return images[idx]
@@ -229,7 +229,7 @@ struct ContentView: View {
         .overlay {
             if let idx = quickViewerIndex {
                 QuickViewerOverlay(
-                    images: smartFolderStore.selected != nil ? v2Urls : folderStore.images,
+                    images: (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images,
                     startIndex: idx,
                     onDismiss: {
                         withAnimation(DS.Anim.normal) {
@@ -515,7 +515,7 @@ struct ContentView: View {
         if let idx = folderStore.selectedImageIndex, quickViewerIndex == nil {
             ImagePreviewView(
                 vm: previewVM,
-                images: smartFolderStore.selected != nil ? v2Urls : folderStore.images,
+                images: (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images,
                 startIndex: idx,
                 focusTarget: $focusTarget,
                 onDismiss: {
@@ -702,7 +702,7 @@ struct ContentView: View {
 
     /// M2 Slice J — 查 idx 处图片的 supports_feature_print。读不到（idx 越界 / 行不存在）→ true 默认（不主动 disable，让用户点了再失败提示）。
     private func currentSupportsFeaturePrint(at idx: Int) -> Bool {
-        let images = smartFolderStore.selected != nil ? v2Urls : folderStore.images
+        let images = (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images
         guard idx < images.count, let store = indexStoreHolder.store else { return true }
         let url = images[idx]
         return (try? store.sync { db -> Bool in
@@ -729,6 +729,9 @@ struct ContentView: View {
             quickViewerEntry = nil
             quickViewerIndex = nil
         }
+        // ⌘F-from-preview：无条件清 selectedImageIndex 关掉在途 preview，否则其图源会被下方
+        // `currentEphemeral != nil` 条件误切到 stale v2Urls（codex 二审 Q3，必须无条件、不能嵌 if）。
+        folderStore.selectedImageIndex = nil
         showSearchOverlay = true
         // 初始化空 query 的 ephemeral 让 EphemeralResultView 显示 hint 空态文案
         currentEphemeral = .search(query: "", images: [], urls: [])
