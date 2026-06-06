@@ -56,7 +56,9 @@ nonisolated enum SearchService {
 
     /// type:png / type:jpeg → .atom(format = ?)
     private static func parseTypeValue(_ expr: String) -> SmartFolderAtom? {
-        // 允许 case-insensitive 但 IndexStore.format 存的是 lowercase string，所以归一 lower
+        // type: 须 case-insensitive（design § 6.1）。DB format 实际存**大写**标签（"PNG"/"WebP"，
+        // 见 ImageMetadataReader.formatLabel）；这里 lowercased 仅归一，实际大小写无关匹配靠
+        // SmartFolderQueryBuilder 对 format 列加 COLLATE NOCASE 实现（大写归一对 "WebP" 无效）。
         let normalized = expr.lowercased()
         // 简单 sanity check：非空 + 仅 alnum（防止 type:>png 这种带 op 的瞎用）
         guard !normalized.isEmpty,

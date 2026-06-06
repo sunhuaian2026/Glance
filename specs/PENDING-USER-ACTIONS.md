@@ -39,6 +39,12 @@
 
 - [ ] (2026-05-11 / `d315c78` / Slice M / deferred) **性能验收**：1 万图库典型 keyword 搜索响应时间 < 200ms（实测数字记录此处）
 
+### V2 M3 — type: modifier case-insensitive 修复（待真机验，`<pending>`）
+
+- [ ] (2026-06-06 / `<pending>`) **type:png 能搜到**：⌘F 输入 `type:png`（或 `type:PNG`/`type:Png` 任意大小写）→ 搜出所有 PNG 图（修前 type:png 是 0 结果）
+- [ ] (2026-06-06 / `<pending>`) **type:webp / type:jpeg**：混合大小写标签也大小写无关能搜到（验 "WebP" COLLATE NOCASE 覆盖）
+- [ ] (2026-06-06 / `<pending>`) **回归 size:/birth:/keyword**：`size:>1mb`、`birth:>2026-01-01`、纯关键字搜索仍正常（本来就 work，确认没被带坏）
+
 ### 文件夹移除残留清理 方案 3（Slice 2）— 占位效果（尽力，难按需触发）
 
 - [ ] (2026-06-03 / `9bee287` / 方案 3 Slice 2) **加载失败显占位**：自然遇到"图在索引里但读不到"时（真删磁盘文件的 FSEvents race / 损坏文件 / 不支持格式），grid cell / 预览 / QV 应显「无法加载」占位（photo.badge.exclamationmark）而非无限转圈。难按需复现，自然遇到时确认。可人工触发：受管文件夹放损坏图（.txt 改名 .jpg）或 QV 开着时 Finder 删当前图

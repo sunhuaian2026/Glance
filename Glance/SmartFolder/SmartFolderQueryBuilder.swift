@@ -60,8 +60,13 @@ nonisolated enum SmartFolderQueryBuilder {
             """
         case .dedupCanonicalOrNull:
             return "(dedup_canonical IS NULL OR dedup_canonical = 1)"
-        case .filename, .relativePath, .format:
+        case .filename, .relativePath:
             return try emitStringAtom(a, column: a.field.rawValue, params: &params)
+        case .format:
+            // type: modifier 须 case-insensitive（design § 6.1）；DB format 存大写标签
+            // （"PNG"/"WebP"，见 ImageMetadataReader.formatLabel），用户输入 lowercase，
+            // 靠 COLLATE NOCASE 在 SQL 层匹配（大写归一对 "WebP" 混合大小写无效）。
+            return try emitStringAtom(a, column: a.field.rawValue, params: &params, caseInsensitive: true)
         case .fileSize, .dimensionsWidth, .dimensionsHeight:
             return try emitIntAtom(a, column: a.field.rawValue, params: &params)
         case .birthTime:
@@ -69,16 +74,19 @@ nonisolated enum SmartFolderQueryBuilder {
         }
     }
 
-    private static func emitStringAtom(_ a: SmartFolderAtom, column: String, params: inout [Any]) throws -> String {
+    private static func emitStringAtom(_ a: SmartFolderAtom, column: String, params: inout [Any], caseInsensitive: Bool = false) throws -> String {
+        // caseInsensitive 仅作用于 eq/ne（type: 的精确比对）；contains/startsWith 走 LIKE，
+        // SQLite LIKE 对 ASCII 默认已 case-insensitive，无需 COLLATE。
+        let collate = caseInsensitive ? " COLLATE NOCASE" : ""
         switch a.op {
         case .eq:
             guard case .string(let v) = a.value else { throw SmartFolderQueryError.typeMismatch(field: a.field, value: a.value) }
             params.append(v)
-            return "\(column) = ?"
+            return "\(column) = ?\(collate)"
         case .ne:
             guard case .string(let v) = a.value else { throw SmartFolderQueryError.typeMismatch(field: a.field, value: a.value) }
             params.append(v)
-            return "\(column) != ?"
+            return "\(column) != ?\(collate)"
         case .contains:
             guard case .string(let v) = a.value else { throw SmartFolderQueryError.typeMismatch(field: a.field, value: a.value) }
             params.append("%\(v)%")
