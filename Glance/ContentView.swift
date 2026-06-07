@@ -126,6 +126,8 @@ struct ContentView: View {
     @State private var showSearchOverlay: Bool = false
     /// M3 Slice M — 当前搜索后台 Task（cancel 用，避免 stale 覆盖）
     @State private var searchTask: Task<Void, Never>? = nil
+    /// M3 chips — chip 选中态（D22 独立筛选状态）。openSearch 重置、closeSearch 清空（D27）。
+    @State private var searchFilterState = SearchFilterState()
     /// D15 终态：父持有的单一 @FocusState，向所有可聚焦子 view（grid / preview / ephemeral）
     /// 通过 FocusState.Binding 下发。替代原 3 个 UUID trigger（gridFocusTrigger /
     /// previewFocusTrigger / ephemeralFocusTrigger）+ 子 view 各自 @FocusState 模式 —
@@ -461,7 +463,7 @@ struct ContentView: View {
                 SearchOverlayView(
                     focusTarget: $focusTarget,
                     onInputChange: { input, skipDebounce in
-                        runSearch(input: input, skipDebounce: skipDebounce)
+                        runSearch(keyword: input, filterState: searchFilterState, skipDebounce: skipDebounce)
                     },
                     onClose: { closeSearch() },
                     onSubmit: { submitSearch(input: $0) }
@@ -735,6 +737,7 @@ struct ContentView: View {
         showSearchOverlay = true
         // 初始化空 query 的 ephemeral 让 EphemeralResultView 显示 hint 空态文案
         currentEphemeral = .search(query: "", images: [], urls: [])
+        searchFilterState = SearchFilterState()   // D27：进入即空白
         // 焦点延迟一拍设（codex review Q1）：overlay + 空 ephemeral 同帧 mount，TextField 这帧
         // 还没进 view tree，同帧设 @FocusState 失效；ephemeral 现在 autoFocusOnAppear=false 不竞争，
         // 延迟到下一 runloop 由本函数单点设。每次 ⌘F 都跑，覆盖重复 ⌘F（overlay 已 mount，onAppear 不再 fire）场景。
@@ -752,87 +755,64 @@ struct ContentView: View {
             showSearchOverlay = false
             currentEphemeral = nil
         }
+        searchFilterState = SearchFilterState()   // D27：清空
         folderStore.selectedImageIndex = nil
         focusTarget = .grid
     }
 
     /// 回车提交（Enter 路径）：收起 overlay + 结果留为 ephemeral + 焦点移结果网格。
-    /// 空输入 no-op（overlay 留着不塌成空 ephemeral，codex review omission）。
     private func submitSearch(input: String) {
         let trimmed = input.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        // 立即查一次确保结果最新；runSearch 内部先 cancel 上个 debounce task，无 stale 覆盖。
-        runSearch(input: input, skipDebounce: true)
+        guard !(trimmed.isEmpty && searchFilterState.isEmpty) else { return }   // codex：chip-only Enter 也生效
+        runSearch(keyword: input, filterState: searchFilterState, skipDebounce: true)
         withAnimation(DS.Anim.normal) { showSearchOverlay = false }
-        // ephemeral 已 mount（⌘F 空态那次），显式把焦点交给它；defaultHighlightFirst 兜底高亮第一张。
         focusTarget = .ephemeral
     }
 
-    /// debounce + cancel + SearchService 调用。skipDebounce=true 跳 200ms timer（Enter 路径）。
-    private func runSearch(input: String, skipDebounce: Bool) {
+    /// chips + keyword 合并查询。chip 点选 skipDebounce=true 即时；keyword onChange debounce。
+    private func runSearch(keyword: String, filterState: SearchFilterState, skipDebounce: Bool) {
         searchTask?.cancel()
-        let trimmed = input.trimmingCharacters(in: .whitespaces)
-
-        // 空输入 → 立即 reset 到 hint 状态（不查 SQL）
-        guard !trimmed.isEmpty else {
+        let trimmed = keyword.trimmingCharacters(in: .whitespaces)
+        // codex 修正：chip-only（keyword 空但有 chip）不能被挡，条件改双空。
+        guard !(trimmed.isEmpty && filterState.isEmpty) else {
             currentEphemeral = .search(query: "", images: [], urls: [])
             return
         }
-
         guard let store = indexStoreHolder.store else { return }
-        let holderRef = indexStoreHolder
-
+        // 一致快照：debounce 期间 chip tap 可能改 filterState（codex R3）。
+        let snapKeyword = keyword
+        let snapFilter = filterState
+        let snapNow = Date()
         searchTask = Task.detached(priority: .userInitiated) {
-            // ① debounce sleep
             if !skipDebounce {
                 try? await Task.sleep(for: .milliseconds(DS.Search.debounceMs))
                 guard !Task.isCancelled else { return }
             }
-
-            // ② parse + compile + fetch
-            let parsed = SearchService.parse(input)
-            guard !parsed.isEmpty else { return }
-            let predicate = SearchService.compile(parsed)
-            let folder = SmartFolder(
-                id: "ephemeral-search",
-                displayName: "搜索",
-                predicate: predicate,
-                sortBy: .birthTime,
-                sortDescending: true,
-                isBuiltIn: false
-            )
+            let predicate = SearchService.compile(filterState: snapFilter, keyword: snapKeyword, now: snapNow)
+            let folder = SmartFolder(id: "ephemeral-search", displayName: "搜索",
+                                     predicate: predicate, sortBy: .birthTime, sortDescending: true, isBuiltIn: false)
             let images: [IndexedImage]
             do {
-                let compiled = try SmartFolderQueryBuilder.compile(folder, now: Date())
+                let compiled = try SmartFolderQueryBuilder.compile(folder, now: snapNow)
                 images = try store.fetch(compiled, limit: nil)
             } catch {
-                await MainActor.run {
-                    holderRef.lastError = "搜索失败：\(error.localizedDescription)"
-                }
+                await MainActor.run { indexStoreHolder.lastError = "搜索失败：\(error.localizedDescription)" }
                 return
             }
-
             guard !Task.isCancelled else { return }
-
-            // ③ resolve URL：images 跟 urls 必须 codomain 同构（同长度 + 同 idx 对齐），
-            // 否则 EphemeralResultView 的 datesForBuckets.count == urls.count guard 不通过 →
-            // 静默退化成 flat grid 丢失时间分段；用 (image, url) pair 一起 compactMap 保两数组同步过滤
             let resolvedPairs: [(IndexedImage, URL)] = images.compactMap { img in
                 var stale = false
-                guard let rootURL = try? URL(
-                    resolvingBookmarkData: img.urlBookmark,
-                    options: [.withSecurityScope],
-                    bookmarkDataIsStale: &stale
-                ) else { return nil }
+                guard let rootURL = try? URL(resolvingBookmarkData: img.urlBookmark,
+                                             options: [.withSecurityScope], bookmarkDataIsStale: &stale) else { return nil }
                 return (img, rootURL.appendingPathComponent(img.relativePath))
             }
             let resolvedImages = resolvedPairs.map { $0.0 }
             let urls = resolvedPairs.map { $0.1 }
-
-            // ④ 写状态（MainActor + cancel guard）
             await MainActor.run {
                 guard !Task.isCancelled else { return }
-                self.currentEphemeral = .search(query: input, images: resolvedImages, urls: urls)
+                // query 文案：keyword 优先，否则示意 chip 生效
+                let q = snapKeyword.isEmpty ? "筛选" : snapKeyword
+                self.currentEphemeral = .search(query: q, images: resolvedImages, urls: urls)
             }
         }
     }
