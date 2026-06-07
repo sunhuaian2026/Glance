@@ -17,7 +17,7 @@
 
 | 文件 | 责任 | 动作 |
 |---|---|---|
-| `Glance/Search/SearchFilterState.swift` | chip 选中态值类型 + `SizeBucket`/`TimeBucket` enum + `toAtoms` + 「今天」预计算 + `_debugSelfCheck` | Create |
+| `Glance/Search/SearchFilterState.swift` | chip 选中态值类型 + `SearchSizeBucket`/`SearchTimeBucket` enum + `toAtoms` + 「今天」预计算 + `_debugSelfCheck` | Create |
 | `Glance/Search/SearchChipBar.swift` | chip 行 UI + 三 popover + 选中态/清除 + ESC/焦点交接 | Create |
 | `Glance/Search/SearchService.swift` | 加 `compile(filterState:keyword:)` 单一出口；`_debugSelfCheck` 扩验 | Modify |
 | `Glance/IndexStore/ImageMetadataReader.swift` | `formatLabel` 公开化 + `static let canonicalFormatLabels` | Modify |
@@ -43,7 +43,7 @@
     /// 必须与 formatLabel 输出的标签**逐字符一致**（含 "WebP" 混合大小写），
     /// 否则 chip 的 `format IN (...)` 精确匹配会漏命中（design R5）。
     /// 新增格式时：formatLabel 加分支 + 此处加标签，两处同步。
-    static let canonicalFormatLabels: [String] = ["PNG", "JPEG", "HEIC", "GIF", "WebP", "RAW"]
+    static let canonicalFormatLabels: [String] = ["PNG", "JPEG", "HEIC", "GIF", "WebP", "TIFF", "BMP", "RAW"]
 
     static func formatLabel(for utType: UTType) -> String {   // 去掉 private
 ```
@@ -83,8 +83,8 @@ import Foundation
 
 nonisolated struct SearchFilterState: Equatable {
     var selectedFormats: Set<String> = []      // 值 = ImageMetadataReader.canonicalFormatLabels 子集
-    var selectedSize: SizeBucket? = nil
-    var selectedTime: TimeBucket? = nil
+    var selectedSize: SearchSizeBucket? = nil
+    var selectedTime: SearchTimeBucket? = nil
 
     var isEmpty: Bool { selectedFormats.isEmpty && selectedSize == nil && selectedTime == nil }
 
@@ -107,14 +107,17 @@ nonisolated struct SearchFilterState: Equatable {
 }
 
 /// 大小档（decimal，与 size: modifier 一致；1MB=1_000_000）。
-nonisolated enum SizeBucket: CaseIterable {
+/// Hashable：SearchFilterState Equatable + ForEach(id:\.self) 需要（codex）。
+nonisolated enum SearchSizeBucket: CaseIterable, Hashable {
     case mb1, mb5, mb10
     var bytes: Int64 { switch self { case .mb1: return 1_000_000; case .mb5: return 5_000_000; case .mb10: return 10_000_000 } }
     var label: String { switch self { case .mb1: return ">1MB"; case .mb5: return ">5MB"; case .mb10: return ">10MB" } }
 }
 
 /// 时间档。今天=本地午夜预计算 ISO（resolveRelativeTime 无此 token）；其余滚动窗 -Nd。
-nonisolated enum TimeBucket: CaseIterable {
+/// 命名 SearchTimeBucket 避开 Glance/FolderBrowser/TimeBucket.swift 既有类型（codex 编译冲突）。
+/// Hashable：同 SearchSizeBucket。
+nonisolated enum SearchTimeBucket: CaseIterable, Hashable {
     case today, week, month, year
     var label: String { switch self { case .today: return "今天"; case .week: return "本周"; case .month: return "本月"; case .year: return "今年" } }
 
@@ -203,7 +206,7 @@ git commit -m "feat(Search): SearchFilterState — chip 选中态值类型 + toA
 
 ```swift
     /// chips + keyword 合并出口。common filter 只在此注入一次。
-    /// now 注入：与 runSearch 的一致快照对齐（TimeBucket.today / -Nd 都依赖 now）。
+    /// now 注入：与 runSearch 的一致快照对齐（SearchTimeBucket.today / -Nd 都依赖 now）。
     static func compile(filterState: SearchFilterState, keyword: String, now: Date = Date()) -> SmartFolderPredicate {
         var atoms: [SmartFolderPredicate] = [
             .atom(.init(field: .managed, op: .eq, value: .bool(true))),
@@ -348,10 +351,16 @@ git commit -m "feat(Search): compile(filterState:keyword:) 单一出口合并 ch
         searchFilterState = SearchFilterState()   // D27：清空
 ```
 
-`submitSearch(input:)` 内 `runSearch(input: input, skipDebounce: true)` 改为：
+`submitSearch(input:)`：guard 改为认 filterState（codex：chip-only 按 Enter 也要进网格），runSearch 改新签名：
 
 ```swift
+    private func submitSearch(input: String) {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        guard !(trimmed.isEmpty && searchFilterState.isEmpty) else { return }   // codex：chip-only Enter 也生效
         runSearch(keyword: input, filterState: searchFilterState, skipDebounce: true)
+        withAnimation(DS.Anim.normal) { showSearchOverlay = false }
+        focusTarget = .ephemeral
+    }
 ```
 
 - [ ] **Step 4: 改 SearchOverlayView 调用点的 onInputChange（keyword 路径）**
@@ -470,6 +479,7 @@ struct SearchChipBar: View {
                 Button("清除") { filterState.selectedFormats = []; onChange() }.buttonStyle(.plain)
             }
             .padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
+            .onExitCommand { showTypePopover = false }   // codex R4：ESC 关本 popover，不冒泡到 overlay
         }
     }
     private var typeTitle: String {
@@ -484,7 +494,7 @@ struct SearchChipBar: View {
                    selected: filterState.selectedSize != nil) { showSizePopover = true }
         .popover(isPresented: $showSizePopover, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                ForEach(SizeBucket.allCases, id: \.self) { b in
+                ForEach(SearchSizeBucket.allCases, id: \.self) { b in
                     Button {
                         filterState.selectedSize = (filterState.selectedSize == b) ? nil : b
                         onChange(); showSizePopover = false
@@ -496,6 +506,7 @@ struct SearchChipBar: View {
                     }.buttonStyle(.plain)
                 }
             }.padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
+            .onExitCommand { showSizePopover = false }   // codex R4
         }
     }
 
@@ -505,7 +516,7 @@ struct SearchChipBar: View {
                    selected: filterState.selectedTime != nil) { showTimePopover = true }
         .popover(isPresented: $showTimePopover, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                ForEach(TimeBucket.allCases, id: \.self) { b in
+                ForEach(SearchTimeBucket.allCases, id: \.self) { b in
                     Button {
                         filterState.selectedTime = (filterState.selectedTime == b) ? nil : b
                         onChange(); showTimePopover = false
@@ -517,13 +528,14 @@ struct SearchChipBar: View {
                     }.buttonStyle(.plain)
                 }
             }.padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
+            .onExitCommand { showTimePopover = false }   // codex R4
         }
     }
 
     // MARK: chip 按钮通用
     private func chipButton(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: DS.Spacing.xxs) {
+            HStack(spacing: DS.Spacing.xs) {
                 Text(title).font(.caption)
                 Image(systemName: "chevron.down").font(.caption2)
             }
@@ -538,7 +550,7 @@ struct SearchChipBar: View {
 }
 ```
 
-> 注：`DS.Spacing.xxs` 若不存在，用 `DS.Spacing.xs`。实施时 grep 确认 `DS.Spacing` 现有键，不存在的换最接近的既有键（CLAUDE.md：禁硬编码 + 引用已存在符号前 grep）。
+> 注：`DS.Spacing` 现有键 = zero/xs/sm/md/lg/xl（codex 确认无 xxs），上面已用 `xs`。其余引用已存在符号前仍按 CLAUDE.md grep 确认。
 
 - [ ] **Step 2: 编译 + commit**
 
@@ -556,51 +568,44 @@ git commit -m "feat(Search): SearchChipBar — 三组 chip + 原生 popover（�
 - Modify: `Glance/Search/SearchOverlayView.swift`
 - Modify: `Glance/ContentView.swift`
 
-- [ ] **Step 1: SearchOverlayView 加 filterState binding + onFilterChange + 插入 chip 行**
+> codex 修正：**不**把 `searchInput` 提升为 `@Binding`（否则 closeSearch 重置会触发 overlay `.onChange(searchInput)` → 重新 fire search → 重建刚清空的结果，close-loop bug）。`searchInput` 保持 SearchOverlayView local `@State`；chip 变更时由 overlay 把当前 `searchInput` 经 callback 带出。closeSearch 收 overlay 后 view 重建，local searchInput 自动清空，无需父重置 keyword。
 
-`SearchOverlayView` 加成员：
+- [ ] **Step 1: SearchOverlayView 加 filterState binding + onChipChange + 插入 chip 行**
+
+`SearchOverlayView` 加成员（`searchInput` 维持现有 local `@State` 不动）：
 
 ```swift
     @Binding var filterState: SearchFilterState
-    /// chip 变更 → caller 即时查询（skipDebounce）。
-    let onFilterChange: () -> Void
+    /// chip 变更 → caller 即时查询。参数 = 当前 keyword（searchInput），让 chip + keyword 合并。
+    let onChipChange: (_ keyword: String) -> Void
 ```
 
-`body` 的 `VStack` 内、`inputRow` 与 `hintRow` 之间插入：
+`body` 的 `VStack` 内、`inputRow` 与 `hintRow` 之间插入（onChange 带上当前 searchInput）：
 
 ```swift
-            SearchChipBar(filterState: $filterState, onChange: onFilterChange)
+            SearchChipBar(filterState: $filterState, onChange: { onChipChange(searchInput) })
 ```
 
-hint 行文案确认仍是命令式提示（缩小灰字，已有），无需改。
+hint 行文案（命令式提示，缩小灰字）已有，无需改。
 
-- [ ] **Step 2: ContentView 调用点传 filterState binding + onFilterChange（即时查）**
+- [ ] **Step 2: ContentView 调用点传 filterState binding + onChipChange（即时查）**
 
 `mainContent` 的 `SearchOverlayView(...)` 加参数：
 
 ```swift
                     filterState: $searchFilterState,
-                    onFilterChange: {
-                        // chip 变更即时查（skipDebounce=true），keyword 取当前输入框值由 onInputChange 维护的状态…
-                        // SearchOverlayView 的 searchInput 是其内部 @State；chip 路径用空 keyword + filterState 即可，
-                        // keyword 已通过 onInputChange 独立驱动。为合并最新 keyword，提升 keyword 到 ContentView：见 Step 3。
-                        runSearch(keyword: currentSearchKeyword, filterState: searchFilterState, skipDebounce: true)
+                    onChipChange: { keyword in
+                        runSearch(keyword: keyword, filterState: searchFilterState, skipDebounce: true)
                     },
 ```
 
-- [ ] **Step 3: 把 keyword 提升到 ContentView（chip 与 keyword 需在同一 runSearch 合并）**
+> keyword 路径（onInputChange）已在 N1.4 Step4 改为带 `searchFilterState`；chip 路径在此。两路都带 `searchFilterState`，合并一致。无需 `currentSearchKeyword`（codex：消除前向引用 + binding 副作用）。
 
-SearchOverlayView 的 `@State searchInput` 改为父绑定，确保 chip 即时查时能带上当前 keyword：
+- [ ] **Step 3: ESC 两段 + 焦点（design §6 / codex R4）**
 
-ContentView 加：
-```swift
-    @State private var currentSearchKeyword: String = ""
-```
-SearchOverlayView 的 `@State private var searchInput` 改为 `@Binding var searchInput: String`，调用点加 `searchInput: $currentSearchKeyword`。`openSearch`/`closeSearch` 重置处一并 `currentSearchKeyword = ""`。
-
-- [ ] **Step 4: ESC 两段 + popover 焦点归还（design §6 / codex R4）**
-
-SearchChipBar 的每个 `.popover` 关闭时（`onChange` 已处理选择；dismiss 焦点）确保 ESC：原生 `.popover` 的 ESC 默认关 popover。overlay 层 ESC 仍由 SearchOverlayView 的 TextField `.onKeyPress(.escape)` 处理（关 overlay）。两段天然分离（popover 开时 ESC 归 popover，关后归 TextField）。**验证点（PENDING 真机）**：popover 开 → ESC 关 popover 不关 overlay；再 ESC 关 overlay。若 macOS 实测 popover ESC 未拦截而直接冒泡到 overlay，则在 SearchChipBar 加 `.onExitCommand { showXxxPopover = false }` 兜底。
+- popover ESC：N2.2 每个 popover content 已挂 `.onExitCommand { showXxxPopover = false }`（关本 popover，不冒泡）
+- overlay ESC：仍由 SearchOverlayView TextField `.onKeyPress(.escape)` → `onClose` 关 overlay（现有，不动）
+- 焦点：popover 关后 SwiftUI 默认把焦点交回触发它的 chip 按钮。**留 PENDING 真机决定**：若实测 popover 关后不能继续打字（焦点没回 TextField），再把 `@FocusState.Binding` 透传给 SearchChipBar 并在 dismiss 时显式 `focusTarget = .search`；先不预加透传（YAGNI）。
 
 - [ ] **Step 5: 编译**
 
@@ -651,6 +656,8 @@ git commit -m "feat(Search): chip bar 接入 overlay + keyword 提升 + 即时�
 
 **2. Placeholder scan:** 无 TBD/TODO 残留；UI 代码完整给出；唯一「实施时确认」是 `DS.Spacing.xxs` 是否存在（已标 grep 兜底，非 placeholder 是真实工程注意项）。
 
-**3. Type consistency:** `SearchFilterState`/`SizeBucket`/`TimeBucket`/`toAtoms(now:)`/`compile(filterState:keyword:now:)`/`runSearch(keyword:filterState:skipDebounce:)`/`canonicalFormatLabels` 跨 task 命名一致；chip 标签值 = `canonicalFormatLabels`（与 DB formatLabel 同源）。
+**3. Type consistency:** `SearchFilterState`/`SearchSizeBucket`/`SearchTimeBucket`/`toAtoms(now:)`/`compile(filterState:keyword:now:)`/`runSearch(keyword:filterState:skipDebounce:)`/`canonicalFormatLabels` 跨 task 命名一致；chip 标签值 = `canonicalFormatLabels`（与 DB formatLabel 同源）。
 
 **4. Slice 纪律:** N1 端到端可跑（写死 filterState 验 chip-only，Step6）+ 独立可 ship（keyword 路径不退化）；N2 用户可感知完整 chip 交互。各片满足三条。
+
+**5. codex plan review 吸收（第二轮 8 点）:** `TimeBucket`→`SearchTimeBucket` 避冲突（N1.2）/ 两 enum 加 `Hashable`（N1.2）/ `searchInput` 不 promote `@Binding` 避 close-loop（N2.3）/ N2.3 前向引用消除 / `canonicalFormatLabels` 补 TIFF·BMP（N1.1）/ chip-only Enter（N1.4 submitSearch）/ popover `.onExitCommand`（N2.2）/ `DS.Spacing.xxs`→`xs`（N2.2）。codex 确认对的：call site 全覆盖 / compile 单点注入 / 符号名 / SmartFolder init / _debugSelfCheck 断言。
