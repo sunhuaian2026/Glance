@@ -173,6 +173,13 @@ enum DS {
         static let overlayBorderOpacity: Double = 0.12
         /// overlay strokeBorder lineWidth（hairline）。
         static let overlayBorderWidth: CGFloat = 0.5
+        // M3 chips
+        static let chipSpacing: CGFloat = 8
+        static let chipCornerRadius: CGFloat = 8
+        static let chipHPadding: CGFloat = 10
+        static let chipVPadding: CGFloat = 5
+        static let chipSelectedOpacity: CGFloat = 0.18   // 选中态 accent 填充
+        static let popoverMinWidth: CGFloat = 180
     }
 
     // MARK: - External Viewer（方向2 独立看图窗）
