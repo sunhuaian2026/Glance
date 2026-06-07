@@ -22,7 +22,7 @@ struct SearchChipBar: View {
             typeChip
             sizeChip
             timeChip
-            Spacer(minLength: 0)
+            Spacer(minLength: DS.Spacing.zero)
         }
     }
 
@@ -108,10 +108,10 @@ struct SearchChipBar: View {
                 Image(systemName: "chevron.down").font(.caption2)
             }
             .padding(.horizontal, DS.Search.chipHPadding).padding(.vertical, DS.Search.chipVPadding)
-            .background(selected ? Color.accentColor.opacity(DS.Search.chipSelectedOpacity) : Color.secondary.opacity(0.12),
+            .background(selected ? Color.accentColor.opacity(DS.Search.chipSelectedOpacity) : Color.secondary.opacity(DS.Search.chipUnselectedOpacity),
                         in: RoundedRectangle(cornerRadius: DS.Search.chipCornerRadius))
             .overlay(RoundedRectangle(cornerRadius: DS.Search.chipCornerRadius)
-                .strokeBorder(selected ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1))
+                .strokeBorder(selected ? Color.accentColor.opacity(DS.Search.chipStrokeOpacity) : .clear, lineWidth: DS.Search.chipStrokeWidth))
         }
         .buttonStyle(.plain)
     }

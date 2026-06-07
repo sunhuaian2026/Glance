@@ -178,7 +178,10 @@ enum DS {
         static let chipCornerRadius: CGFloat = 8
         static let chipHPadding: CGFloat = 10
         static let chipVPadding: CGFloat = 5
-        static let chipSelectedOpacity: CGFloat = 0.18   // 选中态 accent 填充
+        static let chipSelectedOpacity: CGFloat = 0.18     // 选中态 accent 填充
+        static let chipUnselectedOpacity: CGFloat = 0.12   // 未选 chip 背景填充
+        static let chipStrokeOpacity: CGFloat = 0.5        // 选中态 accent 描边
+        static let chipStrokeWidth: CGFloat = 1
         static let popoverMinWidth: CGFloat = 180
     }
 
