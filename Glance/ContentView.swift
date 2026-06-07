@@ -466,7 +466,11 @@ struct ContentView: View {
                         runSearch(keyword: input, filterState: searchFilterState, skipDebounce: skipDebounce)
                     },
                     onClose: { closeSearch() },
-                    onSubmit: { submitSearch(input: $0) }
+                    onSubmit: { submitSearch(input: $0) },
+                    filterState: $searchFilterState,
+                    onChipChange: { keyword in
+                        runSearch(keyword: keyword, filterState: searchFilterState, skipDebounce: true)
+                    }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .frame(maxWidth: .infinity, alignment: .center)

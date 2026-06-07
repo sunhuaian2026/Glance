@@ -23,11 +23,16 @@ struct SearchOverlayView: View {
     /// 回车提交 callback。caller 收起 overlay + 结果留为 ephemeral + 焦点移结果网格（空输入 no-op）。
     let onSubmit: (_ input: String) -> Void
 
+    @Binding var filterState: SearchFilterState
+    /// chip 变更 → caller 即时查询。参数 = 当前 keyword（searchInput），让 chip + keyword 合并。
+    let onChipChange: (_ keyword: String) -> Void
+
     @State private var searchInput: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.xs) {
             inputRow
+            SearchChipBar(filterState: $filterState, onChange: { onChipChange(searchInput) })
             hintRow
         }
         .padding(DS.Search.overlayPadding)
