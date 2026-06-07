@@ -661,3 +661,26 @@ git commit -m "feat(Search): chip bar 接入 overlay + keyword 提升 + 即时�
 **4. Slice 纪律:** N1 端到端可跑（写死 filterState 验 chip-only，Step6）+ 独立可 ship（keyword 路径不退化）；N2 用户可感知完整 chip 交互。各片满足三条。
 
 **5. codex plan review 吸收（第二轮 8 点）:** `TimeBucket`→`SearchTimeBucket` 避冲突（N1.2）/ 两 enum 加 `Hashable`（N1.2）/ `searchInput` 不 promote `@Binding` 避 close-loop（N2.3）/ N2.3 前向引用消除 / `canonicalFormatLabels` 补 TIFF·BMP（N1.1）/ chip-only Enter（N1.4 submitSearch）/ popover `.onExitCommand`（N2.2）/ `DS.Spacing.xxs`→`xs`（N2.2）。codex 确认对的：call site 全覆盖 / compile 单点注入 / 符号名 / SmartFolder init / _debugSelfCheck 断言。
+
+---
+
+## Slice N1/N2 完成详细（2026-06-07 实施追溯）
+
+subagent-driven 实施（N1、N2 各一 implementer subagent 干完整 slice，一 task 一 commit，每 task `./scripts/verify.sh` 编译把关 0 error 0 warning）。Roadmap「Slice N 完成详细」表同步。
+
+| Task | Goal | Commit |
+|---|---|---|
+| N1.1 | `ImageMetadataReader.formatLabel` private→internal + `canonicalFormatLabels`（chip 类型选项唯一权威，与 formatLabel 输出逐字符同源，含 WebP/TIFF/BMP）| `928f620` |
+| N1.2 | `SearchFilterState` 值类型 + `SearchSizeBucket`/`SearchTimeBucket` enum（避 FolderBrowser/TimeBucket 命名冲突，Hashable）+ `toAtoms`（类型 inSet / 大小 > / 时间 between；今天=本地午夜预计算 ISO）+ `_debugSelfCheck` | `e98d1a9` |
+| N1.3 | `SearchService.compile(filterState:keyword:now:)` 单一出口合并 chip atoms + keyword 解析（全 AND，common filter 单点注入避叠加）+ 扩 `_debugSelfCheck`（chip-only/chip+keyword/命令式共存）| `929283a` |
+| N1.4 | `ContentView.runSearch` 改签名 keyword+filterState + chip-only early-exit（双空 guard）+ 一致快照（snapKeyword/snapFilter/snapNow 防 debounce 期 chip tap race）+ open/closeSearch D27 生命周期 | `b3ccabf` |
+| N2.1 | `DS.Search.chip*` 常量 | `72f31c9` |
+| N2.2 | `SearchChipBar` UI — 三组 chip + 原生 `.popover`（类型 checkbox 多选 / 大小·时间单选）+ 每 popover `.onExitCommand` ESC 两段不冒泡 | `6e6e82c` |
+| N2.3 | chip bar 接入 SearchOverlayView（`@Binding filterState` + onChipChange，插 inputRow/hintRow 间）+ ContentView 即时查（skipDebounce）；searchInput 保持 local @State 避 closeSearch close-loop | `482c773` |
+
+**收尾 codex pre-push review（2 轮 P1）：**
+- 轮 1 P1：`SearchChipBar.chipButton` 硬编码 opacity `0.12`/`0.5` + `lineWidth: 1` + `Spacer(minLength: 0)` 违反 DS.* → 抽 `DS.Search.chipUnselectedOpacity/chipStrokeOpacity/chipStrokeWidth` + `DS.Spacing.zero`（commit `2a283e9`）。
+- 轮 2 P1：plan 文档缺本「完成详细」段 → 本段补齐。
+- **待军哥拍板**：(a) codex 仍要求 `Color.accentColor`/`Color.secondary`/`.clear` 系统语义色也 DS 化 —— 经核**判定假阳**（项目 `SmartFolderGridView`/`SmartFolderListView` 等 7+ 处同款系统语义色均未 DS 化，是既有惯例）；(b) P2：`SearchTimeBucket` label「本周/本月/今年」vs 实现 `-7d/-30d/-365d` 滚动窗语义不符（产品文案 vs 自然边界决策）。
+
+**PENDING 真机验** 见 `specs/PENDING-USER-ACTIONS.md` Slice N 段 9 项。
