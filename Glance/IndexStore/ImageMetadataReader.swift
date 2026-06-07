@@ -46,7 +46,13 @@ nonisolated enum ImageMetadataReader {
         )
     }
 
-    private static func formatLabel(for utType: UTType) -> String {
+    /// chip 类型选项的唯一权威来源。顺序 = chip 显示顺序。
+    /// 必须与 formatLabel 输出的标签**逐字符一致**（含 "WebP" 混合大小写），
+    /// 否则 chip 的 `format IN (...)` 精确匹配会漏命中（design R5）。
+    /// 新增格式时：formatLabel 加分支 + 此处加标签，两处同步。
+    static let canonicalFormatLabels: [String] = ["PNG", "JPEG", "HEIC", "GIF", "WebP", "TIFF", "BMP", "RAW"]
+
+    static func formatLabel(for utType: UTType) -> String {   // 去掉 private
         if utType.conforms(to: .png) { return "PNG" }
         if utType.conforms(to: .jpeg) { return "JPEG" }
         if utType.conforms(to: .heic) { return "HEIC" }
