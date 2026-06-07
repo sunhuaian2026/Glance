@@ -149,6 +149,28 @@ nonisolated enum SearchService {
 
     // MARK: - Compile
 
+    /// chips + keyword 合并出口。common filter 只在此注入一次。
+    /// now 注入：与 runSearch 的一致快照对齐（SearchTimeBucket.today / -Nd 都依赖 now）。
+    static func compile(filterState: SearchFilterState, keyword: String, now: Date = Date()) -> SmartFolderPredicate {
+        var atoms: [SmartFolderPredicate] = [
+            .atom(.init(field: .managed, op: .eq, value: .bool(true))),
+            .atom(.init(field: .hidden, op: .eq, value: .bool(false))),
+            .atom(.init(field: .dedupCanonicalOrNull, op: .eq, value: .bool(true)))
+        ]
+        // chip atoms（类型 inSet / 大小 > / 时间 between）
+        atoms.append(contentsOf: filterState.toAtoms(now: now).map { .atom($0) })
+        // keyword 内仍解析命令式 modifier + 自由关键字
+        let parsed = parse(keyword)
+        atoms.append(contentsOf: parsed.modifiers.map { .atom($0) })
+        if !parsed.keyword.isEmpty {
+            atoms.append(.or([
+                .atom(.init(field: .filename, op: .contains, value: .string(parsed.keyword))),
+                .atom(.init(field: .relativePath, op: .contains, value: .string(parsed.keyword)))
+            ]))
+        }
+        return .and(atoms)
+    }
+
     /// 把 ParsedSearch 编译成 SmartFolderPredicate（D18 hide 继承 + common filter 自动加）。
     static func compile(_ parsed: ParsedSearch) -> SmartFolderPredicate {
         var atoms: [SmartFolderPredicate] = [
@@ -238,6 +260,25 @@ extension SearchService {
         } else {
             assertionFailure("compile should produce .and(...)")
         }
+
+        // --- chips compile 合并 ---
+        // chip-only：类型 PNG，无 keyword → 3 common + 1 format inSet
+        var fcOnly = SearchFilterState(); fcOnly.selectedFormats = ["PNG"]
+        if case .and(let xs) = compile(filterState: fcOnly, keyword: "") {
+            assert(xs.count == 4, "chip-only: 3 common + 1 inSet")
+        } else { assertionFailure("compile .and") }
+        // chip + keyword：类型 PNG + "cat" → 3 common + 1 inSet + 1 OR(keyword)
+        if case .and(let xs) = compile(filterState: fcOnly, keyword: "cat") {
+            assert(xs.count == 5, "chip + keyword: +OR")
+        } else { assertionFailure("compile .and") }
+        // chip + 命令式（keyword 内 size:>1mb）：3 common + 1 inSet + 1 fileSize
+        if case .and(let xs) = compile(filterState: fcOnly, keyword: "size:>1mb") {
+            assert(xs.count == 5, "chip + 命令式 modifier")
+        } else { assertionFailure("compile .and") }
+        // 空 filterState + 空 keyword → 只 3 common（runSearch 会 early-exit，这里只验结构）
+        if case .and(let xs) = compile(filterState: SearchFilterState(), keyword: "") {
+            assert(xs.count == 3, "empty → 3 common only")
+        } else { assertionFailure("compile .and") }
 
         print("[SearchService] _debugSelfCheck: all assertions passed")
     }
