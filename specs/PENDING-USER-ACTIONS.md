@@ -36,7 +36,8 @@
 - [ ] (2026-06-07 / `482c773` / Slice N) **「今天」档非空且只今天**：点时间「今天」→ 出今天新增的图、非空（验 SearchTimeBucket.today 本地午夜 ISO 预计算，codex 硬缺陷点）
 - [ ] (2026-06-07 / `482c773` / Slice N) **大小/时间档即时收窄**：点「大小 >5MB」/「时间 本周」→ 结果即时收窄
 - [ ] (2026-06-07 / `482c773` / Slice N) **chip + keyword 叠加**：勾类型 PNG + 输入框打 "cat" → 两条件 AND 合并正确
-- [ ] (2026-06-07 / `482c773` / Slice N) **popover ESC 两段 + 焦点**：chip popover 打开按 ESC → 先关 popover（overlay 还在）；再按 ESC → 关 overlay；popover 关后**能否继续在输入框打字**（焦点归还）—— 若不能则需透传 `@FocusState` 给 SearchChipBar 并 dismiss 时设回 `.search`（plan 标 YAGNI 留此真机决定）
+- [ ] (2026-06-07 / `9c79b53` / Slice N) **popover ESC 两段**：chip popover 打开按 ESC → 先关 popover（overlay 还在）；再按 ESC → 关 overlay
+- [ ] (2026-06-07 / `9c79b53` / Slice N) **⚠️ popover 关后焦点归还（codex P1 预警，重点验 + 大概率要修）**：点完 chip 关 popover 后**能否继续在输入框打字** + 第二次 ESC 是否生效。**codex 静态分析判大概率坏**：SwiftUI `@FocusState` 值不变不重新聚焦 —— 关 popover 后 `focusTarget` 仍 == `.search` 但键盘焦点没回 TextField（同上 session「⌘F 焦点不落 input」陷阱）。**push 时已 bypass 此 P1（军哥授权）走真机验**。**若实测坏的修法**：透传 `@FocusState.Binding` 给 SearchChipBar，popover dismiss 时把 `focusTarget` 弹一下（先设 nil 再设 `.search`，绕过「值不变不重聚焦」），注意时序避免新 focus race（参考上次 `Task.yield` 延迟单点设的做法）
 - [ ] (2026-06-07 / `482c773` / Slice N) **清除 / closeSearch 全清 / ⌘F 重开空白**：类型 popover「清除」清空多选；关搜索再 ⌘F 重开 chip 全空白（D27）
 - [ ] (2026-06-07 / `482c773` / Slice N) **命令式 + M2 + 纯 keyword 回归不退化**：命令式 type:/size:/birth: + QV 找类似 + 纯 keyword 搜索三条老路径行为不变
 

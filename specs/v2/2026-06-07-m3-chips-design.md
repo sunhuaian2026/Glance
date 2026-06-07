@@ -98,12 +98,12 @@
 
 | 档 | start | 实现 |
 |---|---|---|
-| 今天 | 当日 00:00（device local）| **`SearchFilterState` 层用 `Calendar.current.startOfDay(for:)` 算出 Date → ISO string** 直接塞进 `relativeTimeRange.start`；**不经** `resolveRelativeTime`（无此 token）|
-| 本周 | `-7d` | 复用 `resolveRelativeTime` `-Nd`（与「本周新增」内置 SF 同源滚动窗）|
-| 本月 | `-30d` | 同上 |
-| 今年 | `-365d` | 同上 |
+| 今天 | 当日 00:00（device local）| `Calendar.current.startOfDay(for:)` → ISO string，走 `resolveRelativeTime` ISO8601 分支 |
+| 本周 | 本周起始日 00:00（locale 决定周一/周日）| `Calendar.current.dateInterval(of: .weekOfYear, for:)?.start` → ISO |
+| 本月 | 本月 1 日 00:00 | `dateInterval(of: .month, for:)?.start` → ISO |
+| 今年 | 今年 1 月 1 日 00:00 | `dateInterval(of: .year, for:)?.start` → ISO |
 
-> end 统一 `now`。「今天」用日历午夜而非 -1d 更贴直觉；其余滚动窗。真机验后若用户期望自然边界再调（PENDING）。
+> end 统一 `now`。**各档自然边界**（device local，跟 D4 时间分段同源）：`SearchTimeBucket.startToken` 全档用 `Calendar` 预计算 Date → ISO，塞进 `relativeTimeRange.start`，走 `resolveRelativeTime` 的 ISO8601 分支。**2026-06-07 P2 codex review**：原设计「本周/本月/今年」用滚动窗 `-7d/-30d/-365d` 与 label 语义不符（label 暗示自然周期，实现是滚动窗），军哥拍板改自然边界。
 
 ---
 
