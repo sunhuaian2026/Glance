@@ -681,6 +681,7 @@ subagent-driven 实施（N1、N2 各一 implementer subagent 干完整 slice，�
 **收尾 codex pre-push review（2 轮 P1）：**
 - 轮 1 P1：`SearchChipBar.chipButton` 硬编码 opacity `0.12`/`0.5` + `lineWidth: 1` + `Spacer(minLength: 0)` 违反 DS.* → 抽 `DS.Search.chipUnselectedOpacity/chipStrokeOpacity/chipStrokeWidth` + `DS.Spacing.zero`（commit `2a283e9`）。
 - 轮 2 P1：plan 文档缺本「完成详细」段 → 本段补齐。
-- **待军哥拍板**：(a) codex 仍要求 `Color.accentColor`/`Color.secondary`/`.clear` 系统语义色也 DS 化 —— 经核**判定假阳**（项目 `SmartFolderGridView`/`SmartFolderListView` 等 7+ 处同款系统语义色均未 DS 化，是既有惯例）；(b) P2：`SearchTimeBucket` label「本周/本月/今年」vs 实现 `-7d/-30d/-365d` 滚动窗语义不符（产品文案 vs 自然边界决策）。
+- 轮 2 P1（假阳）：codex 要求 `Color.accentColor`/`Color.secondary`/`.clear` 系统语义色 DS 化 —— 经核**判定假阳**（项目 `SmartFolderGridView`/`SmartFolderListView` 等 7+ 处同款系统语义色均未 DS 化是既有惯例 + hook PROMPT 规则 7 本只 reject hex/Color(red:)，codex 自己加码）→ 军哥拍板**改 `.githooks/pre-push` 规则 2/7 加系统语义色 EXEMPTION 2**（根因修复，非 bypass）。
+- P2（codex 不阻塞）：`SearchTimeBucket` label「本周/本月/今年」原滚动窗 `-7d/-30d/-365d` 语义不符 → 军哥拍板**改自然边界**：`startToken` 全档 Calendar 预计算 ISO（本周起始日/本月1号/今年1.1，device local），走 resolveRelativeTime ISO8601 分支（mirror「今天」午夜）。
 
 **PENDING 真机验** 见 `specs/PENDING-USER-ACTIONS.md` Slice N 段 9 项。

@@ -58,7 +58,7 @@
 
 | Commit | 说明 |
 |--------|------|
-| （本次）| M3 chips Slice N2 codex pre-push P1 — `SearchChipBar.chipButton` 硬编码 `0.12`(未选背景 opacity)/`0.5`(选中 stroke opacity)/`1`(lineWidth) + `Spacer(minLength: 0)` 违反 CLAUDE.md「UI 常量必须 DS.*」。plan N2.2 代码块本身漏网（design/plan 两轮 codex review 看的是文档，没抓到落地代码硬编码 → pre-push 看代码才抓到）。修：抽 `DS.Search.chipUnselectedOpacity/chipStrokeOpacity/chipStrokeWidth` 三常量 + `Spacer(minLength: DS.Spacing.zero)`。pre-push 反馈循环触发，是真 P1 不 bypass（feedback `feedback_codex_prepush_no_easy_bypass.md`）。**同轮 codex P2 留军哥拍板**：`SearchTimeBucket` label「本周/本月/今年」vs 实现 `-7d/-30d/-365d` 滚动窗语义不符（label 暗示自然周/月/年，实现是滚动窗），是产品文案 vs 自然边界的设计决策，未擅自改 |
+| （本次）| M3 chips Slice N2 codex pre-push P1 — `SearchChipBar.chipButton` 硬编码 `0.12`(未选背景 opacity)/`0.5`(选中 stroke opacity)/`1`(lineWidth) + `Spacer(minLength: 0)` 违反 CLAUDE.md「UI 常量必须 DS.*」。plan N2.2 代码块本身漏网（design/plan 两轮 codex review 看的是文档，没抓到落地代码硬编码 → pre-push 看代码才抓到）。修：抽 `DS.Search.chipUnselectedOpacity/chipStrokeOpacity/chipStrokeWidth` 三常量 + `Spacer(minLength: DS.Spacing.zero)`。pre-push 反馈循环触发，是真 P1 不 bypass（feedback `feedback_codex_prepush_no_easy_bypass.md`）。**同轮另两项军哥拍板**：(1) codex 第二轮又要求 `Color.accentColor`/`.secondary`/`.clear` 系统语义色也 DS 化 → 经核**判定假阳**（项目 SmartFolderGridView/ListView 等 7+ 处同款惯例未 DS 化 + hook PROMPT 规则 7 本只 reject hex/Color(red:)，codex 自己加码）→ 改 `.githooks/pre-push` 规则 2/7 加系统语义色 EXEMPTION 2（根因修复非 bypass）；(2) P2 `SearchTimeBucket` label「本周/本月/今年」原滚动窗 `-7d/-30d/-365d` 语义不符 → 改自然边界：`startToken` 全档 Calendar 预计算 ISO（本周起始日/本月1号/今年1.1，device local），mirror「今天」午夜走 resolveRelativeTime ISO8601 分支 |
 | 1234d68 | QuickViewer 顶部栏改为三个独立浮动气泡，去掉全宽背景遮挡问题 |
 | 3ae95b3 | ImagePreviewView 文件名改用 `.navigationTitle`，消除与系统 toolbar 重叠 |
 | fe82225 | 切换文件夹或取消图片选择时自动关闭 Inspector |

@@ -42,24 +42,31 @@ nonisolated enum SearchSizeBucket: CaseIterable, Hashable {
     var label: String { switch self { case .mb1: return ">1MB"; case .mb5: return ">5MB"; case .mb10: return ">10MB" } }
 }
 
-/// 时间档。今天=本地午夜预计算 ISO（resolveRelativeTime 无此 token）；其余滚动窗 -Nd。
-/// 命名 SearchTimeBucket 避开 Glance/FolderBrowser/TimeBucket.swift 既有类型（codex 编译冲突）。
+/// 时间档。各档 = 自然边界（今天 00:00 / 本周起始日 / 本月 1 日 / 今年 1.1）预计算 ISO 绝对时间戳，
+/// 走 resolveRelativeTime 的 ISO8601 分支（builder 无自然周/年 token，故 startToken 直接 Calendar 预计算）。
+/// label「本周/本月/今年」与实现自然边界一致（P2 codex review：避免滚动窗 -Nd 与 label 语义不符）；timezone 跟随
+/// device local，与 D4 时间分段同源。命名 SearchTimeBucket 避开 Glance/FolderBrowser/TimeBucket.swift（codex 编译冲突）。
 /// Hashable：同 SearchSizeBucket。
 nonisolated enum SearchTimeBucket: CaseIterable, Hashable {
     case today, week, month, year
     var label: String { switch self { case .today: return "今天"; case .week: return "本周"; case .month: return "本月"; case .year: return "今年" } }
 
-    /// betweenDuration 的 start token。end 统一 "now"。
+    /// betweenDuration 的 start token = 各档自然边界预计算 ISO（device local），end 统一 "now"。
+    /// dateInterval 返回 optional，nil 时兜底当日午夜（理论不发生，?? 非 force unwrap）。
     func startToken(now: Date) -> String {
+        let cal = Calendar.current
+        let start: Date
         switch self {
         case .today:
-            // design §5.3 + codex R6：当日 00:00 无 resolveRelativeTime token，这里直接算本地午夜 → ISO。
-            let midnight = Calendar.current.startOfDay(for: now)
-            return Self.isoFormatter.string(from: midnight)
-        case .week:  return "-7d"
-        case .month: return "-30d"
-        case .year:  return "-365d"
+            start = cal.startOfDay(for: now)                                                    // 今天 00:00
+        case .week:
+            start = cal.dateInterval(of: .weekOfYear, for: now)?.start ?? cal.startOfDay(for: now)  // 本周起始日 00:00（locale 决定周一/周日）
+        case .month:
+            start = cal.dateInterval(of: .month, for: now)?.start ?? cal.startOfDay(for: now)        // 本月 1 日 00:00
+        case .year:
+            start = cal.dateInterval(of: .year, for: now)?.start ?? cal.startOfDay(for: now)         // 今年 1 月 1 日 00:00
         }
+        return Self.isoFormatter.string(from: start)
     }
 
     private static let isoFormatter: ISO8601DateFormatter = {
@@ -91,9 +98,9 @@ extension SearchFilterState {
         if case .relativeTimeRange(let start, let end) = a3[0].value {
             assert(start.contains("T") && end == "now", "today start = ISO midnight, end = now")
         } else { assertionFailure("relativeTimeRange") }
-        // 时间「本周」→ -7d
+        // 时间「本周」→ 自然周起始 ISO（含 'T'），不再是滚动窗 "-7d"
         var s4 = SearchFilterState(); s4.selectedTime = .week
-        if case .relativeTimeRange(let start, _) = s4.toAtoms(now: now)[0].value { assert(start == "-7d") }
+        if case .relativeTimeRange(let start, _) = s4.toAtoms(now: now)[0].value { assert(start.contains("T"), "week start = ISO 自然周边界") }
         // 组合 3 维 → 3 atoms
         var s5 = SearchFilterState(); s5.selectedFormats = ["PNG"]; s5.selectedSize = .mb1; s5.selectedTime = .month
         assert(s5.toAtoms(now: now).count == 3, "3 dims → 3 atoms")

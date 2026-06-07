@@ -124,7 +124,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     ├── Search/                      ← V2 M3 全局搜索（Slice M）+ 筛选 chips（Slice N）
     │   ├── SearchInput.swift                ← ParsedSearch struct + SearchSizeUnit enum
     │   ├── SearchService.swift              ← parser (Silent partial) + compile → SmartFolderPredicate；Slice N 加 compile(filterState:keyword:now:) 单一出口（chip + keyword 合并，common filter 单点注入，全 AND）
-    │   ├── SearchFilterState.swift          ← V2 Slice N chip 选中态值类型（D22 独立筛选态）+ SearchSizeBucket/SearchTimeBucket enum + toAtoms（类型 inSet / 大小 > / 时间 between；今天=本地午夜预计算 ISO）+ _debugSelfCheck
+    │   ├── SearchFilterState.swift          ← V2 Slice N chip 选中态值类型（D22 独立筛选态）+ SearchSizeBucket/SearchTimeBucket enum + toAtoms（类型 inSet / 大小 > / 时间 between；各档自然边界预计算 ISO：今天午夜/本周起始日/本月1号/今年1.1，device local）+ _debugSelfCheck
     │   ├── SearchChipBar.swift              ← V2 Slice N chip 行 UI（三组 chip + 原生 .popover；类型 checkbox 多选 / 大小·时间单选 + .onExitCommand ESC 两段）
     │   └── SearchOverlayView.swift          ← 顶部 Spotlight 式 overlay + ⌘F 入口 + ESC dismiss；Slice N 在 inputRow/hintRow 间插 SearchChipBar（searchInput 保持 local @State 避 closeSearch close-loop）
     └── SmartFolder/                 ← V2 智能文件夹规则与查询
