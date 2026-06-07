@@ -107,7 +107,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── DedupPass.swift                  ← V2 Slice H cheap-first dedup 算法（runFullPass + reEvaluateGroup + orphan cleanup）；canonical = earliest birth_time + 最小 id tie-breaker
     │   ├── ManagedFolder.swift              ← folders 表 record struct + registerRoot 幂等 + Slice D hide CRUD（setRootHidden/upsertSubfolderHide/effectiveHidden）+ Slice G.1 deleteRoot（FK CASCADE）+ Slice I.2 last_processed_path CRUD（resume from cursor）+ fetchRootPaths（对账）/ deleteOrphanImages（NOT EXISTS 防御性孤儿清扫）
     │   ├── CompiledSmartFolderQuery.swift   ← Builder → Engine 之间的 SQL injection-safe contract
-    │   ├── ImageMetadataReader.swift        ← URL → birth_time / file_size / format / dimensions（ImageIO，不解码像素）
+    │   ├── ImageMetadataReader.swift        ← URL → birth_time / file_size / format / dimensions（ImageIO，不解码像素）；Slice N formatLabel 公开化（internal）+ canonicalFormatLabels（chip 类型选项唯一权威，与 formatLabel 输出逐字符同源大写标签）
     │   ├── FolderScanner.swift              ← 递归 enumerator + INSERT OR IGNORE 幂等 + Slice I.2 Task.isCancelled 检测 + resumeFrom 字典序 skip + 每 100 张写 cursor
     │   ├── IndexingProgress.swift           ← V2 Slice I.1 进度 record（rootName/scanned/indexed）
     │   ├── IndexingProgressView.swift       ← V2 Slice I.1 chip 形态进度 UI（mirror Slice B chip：Capsule+thickMaterial+strokeBorder + Slice I.2 X 取消按钮）
@@ -121,10 +121,12 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── FeaturePrintIndexingProgress.swift ← progress record（indexed/total/lastImageName）
     │   ├── FeaturePrintProgressView.swift     ← chip 形态进度 UI（mirror Slice I 紫色调区分）
     │   └── EphemeralResultView.swift          ← 临时结果视图（layout + ThumbnailCell 复用 + banner 槽）
-    ├── Search/                      ← V2 M3 Slice M 全局搜索
+    ├── Search/                      ← V2 M3 全局搜索（Slice M）+ 筛选 chips（Slice N）
     │   ├── SearchInput.swift                ← ParsedSearch struct + SearchSizeUnit enum
-    │   ├── SearchService.swift              ← parser (Silent partial) + compile → SmartFolderPredicate
-    │   └── SearchOverlayView.swift          ← 顶部 Spotlight 式 overlay + ⌘F 入口 + ESC dismiss
+    │   ├── SearchService.swift              ← parser (Silent partial) + compile → SmartFolderPredicate；Slice N 加 compile(filterState:keyword:now:) 单一出口（chip + keyword 合并，common filter 单点注入，全 AND）
+    │   ├── SearchFilterState.swift          ← V2 Slice N chip 选中态值类型（D22 独立筛选态）+ SearchSizeBucket/SearchTimeBucket enum + toAtoms（类型 inSet / 大小 > / 时间 between；今天=本地午夜预计算 ISO）+ _debugSelfCheck
+    │   ├── SearchChipBar.swift              ← V2 Slice N chip 行 UI（三组 chip + 原生 .popover；类型 checkbox 多选 / 大小·时间单选 + .onExitCommand ESC 两段）
+    │   └── SearchOverlayView.swift          ← 顶部 Spotlight 式 overlay + ⌘F 入口 + ESC dismiss；Slice N 在 inputRow/hintRow 间插 SearchChipBar（searchInput 保持 local @State 避 closeSearch close-loop）
     └── SmartFolder/                 ← V2 智能文件夹规则与查询
         ├── SmartFolder.swift                ← struct（id/displayName/predicate/sortBy/builtIn）
         ├── SmartFolderRule.swift            ← Predicate enum (AND/OR/ATOM) + Atom struct + Op + Value（D6 Spotlight-like 平铺）

@@ -347,6 +347,20 @@ V2 引入跨文件夹聚合（智能文件夹）+ 找回（搜索 + 类似图）
 
 33. **D20 M3 SearchService = 新 `Glance/Search/` module（不扩 SmartFolderEngine）**：新增 `Glance/Search/` 目录含 `SearchService.swift` + `SearchInput.swift` + `SearchOverlayView.swift`；SearchService 只做 parser + 编译成 SmartFolderPredicate；最终 SQL 仍走 SmartFolderQueryBuilder + IndexStore.fetch 复用既有 query 路径。Why: (a) mirror M2 `Glance/Similarity/` module 边界 — search 是独立 feature 不污染 SmartFolderEngine；(b) SmartFolderEngine 当前职责仅 "已注册 SmartFolder 编译执行"，search 是 ephemeral 即时构造的 SmartFolder-shape 查询，语义不同；(c) 后期 M4 用户自定义 SmartFolder 编辑器复用 SearchService 的 parser（"保存搜索为 SmartFolder" → parser 输出 predicate 直接持久化）→ module 独立利于演化。How to apply: 新建 `Glance/Search/` 顶层，3 文件清单 fixed；SearchService.parse 输入 String → ParsedSearch struct（modifiers + keyword）；SearchService.compile(ParsedSearch) → SmartFolderPredicate；不需要新建 SearchQueryEngine（直接借 SmartFolderQueryBuilder + IndexStore.fetch）。
 
+### M3 搜索筛选 chips 决策（2026-06-07 brainstorming + 两轮 codex review 收敛，Slice N）
+
+完整设计见 `specs/v2/2026-06-07-m3-chips-design.md`（D21-D27），实施 plan 见 `specs/v2/2026-06-07-m3-chips-implementation-plan.md`（Slice N1/N2）。下面是 Roadmap 级索引（编号用 chips-design 原生 D 号，不接上方全局序号）。
+
+- **D21 三组 chip = 类型/大小/时间**：⌘F overlay 输入框下加三组可视化 chip，类型多选（checkbox）/ 大小·时间单选。普通用户点选不用记 `type:png` 语法，power user 命令式照旧。
+- **D22 独立筛选状态**：chip 选中态存独立值类型 `SearchFilterState`，与 keyword（输入框）分离、互不耦合；避免和 keyword 解析耦合。
+- **D23 类型走现有 `.inSet` + 同源大写标签**：类型多选编译成单个 `.inSet` atom，标签取 `ImageMetadataReader.canonicalFormatLabels`（与 DB `formatLabel` 输出逐字符同源，含混合大小写「WebP」），SQL builder 零改。
+- **D24 只预设档，精确值留命令式**：大小档 >1/5/10MB、时间档 今天/本周/本月/今年；精确值（`size:>3.5mb` / `birth:2024-01`）仍走命令式 modifier。
+- **D25 布局 = 输入框 + chip 行 + 缩小命令式 hint**。
+- **D26 chip + 命令式同维冲突都 AND 不消解**：chip 选 PNG + 输入 `type:jpeg` → 两个 format 条件 AND（结果可能空），不做智能消解（可预测 > 智能）。
+- **D27 生命周期**：openSearch 重置 chip / closeSearch 清空 chip（进入即空白）。
+- **合并出口**：`SearchService.compile(filterState:keyword:now:)` 单点合并 chip atoms + keyword 解析（全 AND，common filter 单点注入）；「今天」档因 `resolveRelativeTime` 无当日午夜 token，在 `SearchTimeBucket.startToken` 预计算本地午夜 ISO；`runSearch` early-exit 条件改「keyword 空 AND filterState 空」（chip-only 不被挡）。
+- **codex 两轮 review 抓 15 点已折入**：design 7（formatLabel 同源 / 今天预计算 / chip-only early-exit / common filter 单点 / popover ESC 两段 / 状态生命周期 / 「零改」诚实改成 3 处辅助改）+ plan 8（TimeBucket→SearchTimeBucket 避编译冲突 / 两 enum 加 Hashable / searchInput 不 promote @Binding 避 close-loop / 前向引用消除 / canonicalFormatLabels 补 TIFF·BMP / chip-only Enter / popover .onExitCommand / DS.Spacing.xxs→xs）。
+
 ### OpenWith 方向 2 决策（2026-06-03 brainstorming + 三轮 codex review 收敛）
 
 完整设计见 `specs/2026-06-03-openwith-lightweight-viewer-design.md`（D-OW5~D-OW11 + "为什么没有 SwiftUI 原生捷径"），实施 plan + codex 折入记录见 `specs/2026-06-03-openwith-lightweight-viewer-plan.md`。下面是 Roadmap 级索引。
@@ -555,6 +569,7 @@ A.18 实测发现 plan A.16 把 V2 cell 标"无交互"导致用户测不下去�
 |---|---|---|---|---|
 | **L** 三个新内置 SmartFolder（上个月 / 截图 / 大图）| ✅ 完成 | V2.2-beta1 | 2026-05-11 | 见下方表格 |
 | **M** ⌘F 全局搜索（filename/path LIKE + modifier parser）| ✅ 完成 | V2.2 GA | 2026-05-11 | 见下方表格 |
+| **N** 搜索筛选 chips（类型/大小/时间三组可视化 chip）| ✅ 完成（待真机验）| V2.2 GA | 2026-06-07 | 见下方表格 |
 
 ### Slice L 完成详细（2 task）
 
@@ -574,4 +589,18 @@ A.18 实测发现 plan A.16 把 V2 cell 标"无交互"导致用户测不下去�
 | M.5 | ContentView ⌘F search 集成（EphemeralRequest.search + searchTask debounce/cancel + QV 同帧切换）| `d315c78` |
 | M.6 | /go 收尾 + tag v2.2 | （本次）|
 | M.7 | 真机验发现 2 交互 bug 修复（codex review 收敛）：⌘F 焦点不落 input（焦点竞争 → `autoFocusOnAppear` gate + `Task.yield` 延迟单点设焦点）+ 回车无反应（改语义=收 overlay 进结果网格浏览，回车/空格开图，`defaultHighlightFirst` 双 onChange 兜底高亮）| （本次）|
+
+### Slice N 完成详细（搜索筛选 chips，7 task）
+
+> design `specs/v2/2026-06-07-m3-chips-design.md`（D21-D27）+ plan `specs/v2/2026-06-07-m3-chips-implementation-plan.md`（N1/N2，两轮 codex review 折入）。subagent-driven 实施，一 task 一 commit，每 task verify.sh 编译把关（0 error 0 warning）。
+
+| Task | Goal | Commit |
+|---|---|---|
+| N1.1 | `ImageMetadataReader.formatLabel` 公开化（private→internal）+ `canonicalFormatLabels`（chip 类型选项唯一权威，与 formatLabel 输出逐字符同源大写标签，含 WebP/TIFF/BMP）| `928f620` |
+| N1.2 | `SearchFilterState` 值类型 + `SearchSizeBucket`/`SearchTimeBucket` enum（避开 FolderBrowser/TimeBucket 命名冲突）+ `toAtoms`（类型 inSet / 大小 > / 时间 between；今天=本地午夜预计算 ISO）+ `_debugSelfCheck` | `e98d1a9` |
+| N1.3 | `SearchService.compile(filterState:keyword:now:)` 单一出口合并 chip atoms + keyword 解析（全 AND，common filter 单点注入避叠加）+ 扩 `_debugSelfCheck` 验 chip-only/chip+keyword/命令式共存 | `929283a` |
+| N1.4 | `ContentView.runSearch` 改签名 keyword+filterState + chip-only early-exit（双空 guard）+ 一致快照（snapKeyword/snapFilter/snapNow 防 debounce 期 chip tap race）+ open/closeSearch D27 生命周期 | `b3ccabf` |
+| N2.1 | `DS.Search.chip*` 常量（chipSpacing/cornerRadius/H·VPadding/selectedOpacity/popoverMinWidth）| `72f31c9` |
+| N2.2 | `SearchChipBar` UI — 三组 chip + 原生 `.popover`（类型 checkbox 多选 / 大小·时间单选 largecircle）+ 每 popover `.onExitCommand` ESC 两段不冒泡 | `6e6e82c` |
+| N2.3 | chip bar 接入 SearchOverlayView（`@Binding filterState` + onChipChange，插在 inputRow/hintRow 间）+ ContentView 调用点即时查（skipDebounce）；searchInput 保持 local @State 避 closeSearch close-loop | `482c773` |
 
