@@ -12,6 +12,9 @@ struct SearchChipBar: View {
     @Binding var filterState: SearchFilterState
     /// 任一 chip 变更 → 通知父即时查询（skipDebounce）。
     let onChange: () -> Void
+    /// 父（ContentView）持有的单一 @FocusState binding，透过 SearchOverlayView 链式下发。
+    /// popover dismiss 后把焦点弹回搜索框 .search（根因修复：否则关 popover 后无法继续打字/回车提交）。
+    @FocusState.Binding var focusTarget: AppFocus?
 
     @State private var showTypePopover = false
     @State private var showSizePopover = false
@@ -49,6 +52,7 @@ struct SearchChipBar: View {
             .padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
             .onExitCommand { showTypePopover = false }   // codex R4：ESC 关本 popover，不冒泡到 overlay
         }
+        .onChange(of: showTypePopover) { _, isOpen in if !isOpen { returnFocusToSearch() } }   // 根因：popover 关后焦点弹回搜索框
     }
     private var typeTitle: String {
         let s = filterState.selectedFormats.sorted()
@@ -76,6 +80,7 @@ struct SearchChipBar: View {
             }.padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
             .onExitCommand { showSizePopover = false }   // codex R4
         }
+        .onChange(of: showSizePopover) { _, isOpen in if !isOpen { returnFocusToSearch() } }   // 根因：同 typeChip
     }
 
     // MARK: 时间（单选）
@@ -97,6 +102,18 @@ struct SearchChipBar: View {
                 }
             }.padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
             .onExitCommand { showTimePopover = false }   // codex R4
+        }
+        .onChange(of: showTimePopover) { _, isOpen in if !isOpen { returnFocusToSearch() } }   // 根因：同 typeChip
+    }
+
+    /// popover dismiss 后把焦点弹回搜索框。先 nil 再延迟设 .search，绕过「@FocusState 值不变不
+    /// 重新聚焦」（关 popover 时 focusTarget 仍 == .search，直接重设无效）。mirror
+    /// ContentView.openSearch 的 Task.yield 延迟单点设法。
+    private func returnFocusToSearch() {
+        focusTarget = nil
+        Task { @MainActor in
+            await Task.yield()
+            focusTarget = .search
         }
     }
 

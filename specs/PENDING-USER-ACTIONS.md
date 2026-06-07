@@ -37,7 +37,7 @@
 - [ ] (2026-06-07 / `482c773` / Slice N) **大小/时间档即时收窄**：点「大小 >5MB」/「时间 本周」→ 结果即时收窄
 - [ ] (2026-06-07 / `482c773` / Slice N) **chip + keyword 叠加**：勾类型 PNG + 输入框打 "cat" → 两条件 AND 合并正确
 - [ ] (2026-06-07 / `9c79b53` / Slice N) **popover ESC 两段**：chip popover 打开按 ESC → 先关 popover（overlay 还在）；再按 ESC → 关 overlay
-- [ ] (2026-06-07 / `9c79b53` / Slice N) **⚠️ popover 关后焦点归还（codex P1 预警，重点验 + 大概率要修）**：点完 chip 关 popover 后**能否继续在输入框打字** + 第二次 ESC 是否生效。**codex 静态分析判大概率坏**：SwiftUI `@FocusState` 值不变不重新聚焦 —— 关 popover 后 `focusTarget` 仍 == `.search` 但键盘焦点没回 TextField（同上 session「⌘F 焦点不落 input」陷阱）。**push 时已 bypass 此 P1（军哥授权）走真机验**。**若实测坏的修法**：透传 `@FocusState.Binding` 给 SearchChipBar，popover dismiss 时把 `focusTarget` 弹一下（先设 nil 再设 `.search`，绕过「值不变不重聚焦」），注意时序避免新 focus race（参考上次 `Task.yield` 延迟单点设的做法）
+- [ ] (2026-06-07 / `（本次）` / Slice N) **popover 关后焦点归还（根因修复已实施，验证是否生效）**：选完 chip 关 popover（ESC / 点外部 / 大小·时间单选项选完自动关）后，焦点应自动回搜索框。**验证点**：① 关 popover 后光标回到搜索框、能继续打字 ② 关 popover 后**直接回车 → 收 overlay 停在 chip 过滤结果网格**能浏览/开图（chip-only 也要能提交）③ 反复开关 popover 焦点不丢、不闪、无 race。修法=SearchChipBar 透传 `@FocusState.Binding`，三 popover dismiss 时 `returnFocusToSearch()`（先 `focusTarget=nil` 再 `Task.yield` 设 `.search` 弹一下，绕过「@FocusState 值不变不重聚焦」，mirror openSearch）。**若仍不行（focus race），反馈现象我再调时序**
 - [ ] (2026-06-07 / `482c773` / Slice N) **清除 / closeSearch 全清 / ⌘F 重开空白**：类型 popover「清除」清空多选；关搜索再 ⌘F 重开 chip 全空白（D27）
 - [ ] (2026-06-07 / `482c773` / Slice N) **命令式 + M2 + 纯 keyword 回归不退化**：命令式 type:/size:/birth: + QV 找类似 + 纯 keyword 搜索三条老路径行为不变
 

@@ -32,7 +32,7 @@ struct SearchOverlayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.xs) {
             inputRow
-            SearchChipBar(filterState: $filterState, onChange: { onChipChange(searchInput) })
+            SearchChipBar(filterState: $filterState, onChange: { onChipChange(searchInput) }, focusTarget: $focusTarget)
             hintRow
         }
         .padding(DS.Search.overlayPadding)
