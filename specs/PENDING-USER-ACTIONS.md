@@ -26,21 +26,6 @@
 
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
-### V2 M3 Slice N — 搜索筛选 chips 真机验
-
-> 实施完成（commit `928f620`~`482c773`，7 task verify.sh 编译全绿），交互/查询结果需真机验。CC 在 Mac mini 无 GUI 无法自验。
-
-- [ ] (2026-06-07 / `482c773` / Slice N) **chip 类型多选即时出结果**：⌘F → 点「类型」chip 勾 PNG+JPEG → 不按回车即时只出 PNG/JPEG 图（验 inSet 同源大写标签精确匹配）
-- [ ] (2026-06-07 / `482c773` / Slice N) **WebP chip 命中**：勾 WebP → 出 WebP 图（验混合大小写「WebP」精确匹配不漏）
-- [ ] (2026-06-07 / `482c773` / Slice N) **chip-only（不输字只点 chip）出结果**：⌘F 后一个字不打，只点 chip → 出结果（验 runSearch 双空 early-exit 修正，chip-only 不被挡；这是 codex 抓的硬缺陷点）
-- [ ] (2026-06-07 / `482c773` / Slice N) **「今天」档非空且只今天**：点时间「今天」→ 出今天新增的图、非空（验 SearchTimeBucket.today 本地午夜 ISO 预计算，codex 硬缺陷点）
-- [ ] (2026-06-07 / `482c773` / Slice N) **大小/时间档即时收窄**：点「大小 >5MB」/「时间 本周」→ 结果即时收窄
-- [ ] (2026-06-07 / `482c773` / Slice N) **chip + keyword 叠加**：勾类型 PNG + 输入框打 "cat" → 两条件 AND 合并正确
-- [ ] (2026-06-07 / `9c79b53` / Slice N) **popover ESC 两段**：chip popover 打开按 ESC → 先关 popover（overlay 还在）；再按 ESC → 关 overlay
-- [ ] (2026-06-07 / `（本次）` / Slice N) **popover 关后焦点归还（根因修复已实施，验证是否生效）**：选完 chip 关 popover（ESC / 点外部 / 大小·时间单选项选完自动关）后，焦点应自动回搜索框。**验证点**：① 关 popover 后光标回到搜索框、能继续打字 ② 关 popover 后**直接回车 → 收 overlay 停在 chip 过滤结果网格**能浏览/开图（chip-only 也要能提交）③ 反复开关 popover 焦点不丢、不闪、无 race。修法=SearchChipBar 透传 `@FocusState.Binding`，三 popover dismiss 时 `returnFocusToSearch()`（先 `focusTarget=nil` 再 `Task.yield` 设 `.search` 弹一下，绕过「@FocusState 值不变不重聚焦」，mirror openSearch）。**若仍不行（focus race），反馈现象我再调时序**
-- [ ] (2026-06-07 / `482c773` / Slice N) **清除 / closeSearch 全清 / ⌘F 重开空白**：类型 popover「清除」清空多选；关搜索再 ⌘F 重开 chip 全空白（D27）
-- [ ] (2026-06-07 / `482c773` / Slice N) **命令式 + M2 + 纯 keyword 回归不退化**：命令式 type:/size:/birth: + QV 找类似 + 纯 keyword 搜索三条老路径行为不变
-
 ### Slice B-α 延后项（polish，不阻塞 ship）
 
 - [ ] (2026-06-02 / `6e5169b` / Slice B-α polish) **chip 反色实底对比效果实机确认**：方案 C（反色不透明实底）已落地——`DS.SectionHeader.chipFill/chipText`，dark 模式 chip 用浅底（0.84 灰）深字 / light 模式深底（0.30 灰）浅字，告别 `.thickMaterial` 半透明（参考 macOS Photos.app 日期 pill）。两处 chip 同步：智能文件夹 grid 时间分段「今天 · N 张」(`SmartFolderGridView`) + 搜索/找类似结果 section header (`EphemeralResultView`)。**待实机确认**：dark/light × cell 明暗 四种组合下，chip 跟背景对比是否够"跳"、是否过抢或过暗；不满意则反馈调 `chipFill/chipText` 的 RGB（当前 light 底 0.30 / dark 底 0.84）。**已选方案 C 替代了原 PENDING 列的 A/B/D**（material 加厚 / ultraThick+shadow / accent tint 均放弃）
@@ -94,6 +79,20 @@
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### V2 M3 Slice N — 搜索筛选 chips（2026-06-07 用户验证全部通过）
+
+- [x] (2026-06-07 / `482c773`) **chip 类型多选即时出结果**：⌘F → 类型 chip 勾 PNG+JPEG → 不回车即时只出 PNG/JPEG（inSet 同源大写标签精确匹配）✓ 2026-06-07
+- [x] (2026-06-07 / `482c773`) **WebP chip 命中**：勾 WebP → 出 WebP 图（混合大小写「WebP」精确匹配）✓ 2026-06-07
+- [x] (2026-06-07 / `b3ccabf`) **chip-only 出结果**：⌘F 不输字只点 chip → 出结果（runSearch 双空 early-exit，codex 硬缺陷点）✓ 2026-06-07
+- [x] (2026-06-07 / `e98d1a9`) **「今天」档非空且只今天**：本地午夜 ISO 预计算（codex 硬缺陷点）✓ 2026-06-07
+- [x] (2026-06-07 / `9c79b53`) **「本周/本月/今年」自然边界**：P2 codex review 改自然边界（本周起始日/本月1号/今年1.1，Calendar 预计算 ISO）✓ 2026-06-07
+- [x] (2026-06-07 / `482c773`) **大小/时间档即时收窄** ✓ 2026-06-07
+- [x] (2026-06-07 / `929283a`) **chip + keyword 叠加 AND 合并** ✓ 2026-06-07
+- [x] (2026-06-07 / `6e6e82c`) **popover ESC 两段**：先关 popover 再关 overlay（.onExitCommand 不冒泡）✓ 2026-06-07
+- [x] (2026-06-07 / `cd0e30c`) **popover 关后焦点归还（根因修复）**：选完 chip 关 popover 后焦点回搜索框 → 能继续打字 + 回车提交进 chip 过滤结果网格；反复开关不丢焦不闪。修=SearchChipBar 透传 @FocusState.Binding，三 popover dismiss 时 returnFocusToSearch（先 nil 再 Task.yield 设 .search 弹一下，绕过 @FocusState 值不变不重聚焦）✓ 2026-06-07
+- [x] (2026-06-07 / `b3ccabf`) **清除 / closeSearch 全清 / ⌘F 重开空白**（D27）✓ 2026-06-07
+- [x] (2026-06-07 / `482c773`) **命令式 type:/size:/birth: + M2 找类似 + 纯 keyword 回归不退化** ✓ 2026-06-07
 
 ### V2 M3 搜索交互修复 — 焦点 + 回车 + 图源错位（2026-06-06 用户验证通过）
 
