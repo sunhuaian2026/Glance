@@ -51,6 +51,9 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     private var pendingDismissReason: QVDismissalReason = .normal
     /// 幂等 guard：close 已触发后再次进入直接 return。
     private var isClosing = false
+    /// show 代次（I2）：防快速 show→close→show 串扰。show 自增；windowWillClose 捕获当时值，
+    /// 延迟 drain 的 onDismiss 回调里 guard 代次未变才触发（变了说明已有更新 session，skip 旧回调）。
+    private var showGeneration = 0
     /// 同框 frame 跟随：监听主窗 didMove/didResize 同步 QV 窗 frame。
     private var frameObservers: [NSObjectProtocol] = []
 
@@ -62,6 +65,10 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
               currentSupportsFeaturePrint: Bool,
               onIndexChange: @escaping (Int) -> Void,
               onDismiss: @escaping (QVDismissalReason, QuickViewerEntry) -> Void) {
+        // M6：isClosing 复位前移到方法开头，empty-images 早退路径也对称复位。
+        isClosing = false
+        // I2：新 session 自增代次，让上个 session 延迟 drain 的 onDismiss guard 失配被 skip。
+        showGeneration += 1
         guard !images.isEmpty else { return }
 
         if window == nil {
@@ -75,7 +82,6 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         self.entry = entry
         self.mainWindow = mainWindow
         self.pendingDismissReason = .normal
-        self.isClosing = false
 
         // 同框定位：盖住主窗（完整跟随见 frame observer；全屏跟随留 Slice 2）。
         win.setFrame(mainWindow.frame, display: true)
@@ -191,16 +197,19 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         viewerAppState.detachWindow(win)
         isPresenting = false
 
-        // 2. 在清 closure 之前捕获到 local。
+        // 2. 在清 closure 之前捕获到 local（含 I2 代次）。
         let reason = pendingDismissReason
         let savedEntry = entry
         let onDismiss = self.onDismiss
         let mainWin = self.mainWindow
+        let gen = showGeneration
 
         // 3. 延迟到主窗 become key 后触发 onDismiss（主 hosting 已 key，focusTarget 赋值才生效）。
         //    绝不在此处直接设主窗 focusTarget——主 hosting 尚未 become key，SwiftUI 会静默丢弃。
+        //    I2：drain 时 guard 代次未变；变了说明已有更新 session，skip 旧回调避免状态串扰。
         if let savedEntry {
-            MainWindowController.shared.runAfterNextBecomeKey {
+            MainWindowController.shared.runAfterNextBecomeKey { [weak self] in
+                guard self?.showGeneration == gen else { return }
                 onDismiss?(reason, savedEntry)
             }
         }

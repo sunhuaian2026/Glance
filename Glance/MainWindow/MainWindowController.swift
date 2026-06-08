@@ -28,8 +28,18 @@ final class MainWindowController: NSObject {
     private override init() { super.init() }
 
     /// 注册「主窗下次 become key 后执行一次」的回调。QV 关闭归还焦点时序地基（Task 1.2 用）。
+    /// I1 fallback：若主窗当前已是 key window（QV 显示期间没真正 resign key / 激活竞态），则
+    /// makeKeyAndOrderFront 是 no-op、不产生 become-key transition、block 永不 drain → focus 死结。
+    /// 此时直接调度（mirror drain 路径同样的 Task.yield 让 SwiftUI 焦点请求生效），不入队等永不来的下次 become key。
     func runAfterNextBecomeKey(_ block: @escaping () -> Void) {
-        pendingBecomeKeyBlocks.append(block)
+        if window?.isKeyWindow == true {
+            Task { @MainActor in
+                await Task.yield()
+                block()
+            }
+        } else {
+            pendingBecomeKeyBlocks.append(block)
+        }
     }
 
     /// 建/复用图库主窗。注入集由 AppDelegate 传入（ownership 在 AppDelegate，D-OW12）。
