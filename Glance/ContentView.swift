@@ -120,9 +120,9 @@ struct ContentView: View {
     /// M2 Slice J — 类似图查找结果视图状态。non-nil 时主区域换 EphemeralResultView 替代 baseGrid。
     @State private var currentEphemeral: EphemeralRequest?
     @State private var showInspector = false
-    @State private var quickViewerIndex: Int? = nil
-    // QV 入口来源：onDoubleClick / onQuickView 设值，QV onDismiss 仲裁后清回 nil
-    @State private var quickViewerEntry: QuickViewerEntry? = nil
+    /// QV 已迁到独立 NSWindow（controller 持窗 + 退出仲裁），ContentView 仅观察 isPresenting
+    /// 决定底层 hit-testing / previewOverlay 渲染条件，进出 QV 走 presentQuickViewer / handleQVDismiss。
+    @ObservedObject private var qvController = MainQuickViewerWindowController.shared
     /// M3 Slice M — search overlay 显隐控制
     @State private var showSearchOverlay: Bool = false
     /// M3 Slice M — 当前搜索后台 Task（cancel 用，避免 stale 覆盖）
@@ -183,7 +183,7 @@ struct ContentView: View {
                     // QV 是全屏 modal overlay：激活时底层 grid 不该再响应鼠标。顺带让底层
                     // cell 的 .help tooltip tracking area 失活，修复 V2 smart folder cell 的
                     // relativePath tooltip 串到 QV 工具栏的串扰（V1 cell 无显式 .help 故不受影响）。
-                    .allowsHitTesting(quickViewerIndex == nil)
+                    .allowsHitTesting(!qvController.isPresenting)
                 if showInspector {
                     // V1 已删独立 Divider（commit 086ade2 改用 Inspector 自带 leading overlay）
                     ImageInspectorView(
@@ -228,62 +228,8 @@ struct ContentView: View {
             }
             .environmentObject(smartFolderStore)
         }
-        // QuickViewerOverlay 用 .overlay 挂在 NavigationSplitView 上，确保铺满整个内容区
-        .overlay {
-            if let idx = quickViewerIndex {
-                QuickViewerOverlay(
-                    images: (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images,
-                    startIndex: idx,
-                    onDismiss: {
-                        withAnimation(DS.Anim.normal) {
-                            quickViewerIndex = nil
-                        }
-                        // 关闭后焦点路由迁移到 onChange(of: quickViewerIndex)，统一覆盖
-                        // onDismiss + onChange(of: images) 强制关闭 两条路径
-                    },
-                    onIndexChange: { newIdx in
-                        // QV 内 nav button / filmstrip / 方向键 任意路径切图都触发 viewModel.currentIndex 变 →
-                        // QuickViewerOverlay 一处 onChange(of: viewModel.currentIndex) 上报这里
-                        // → 写 selectedImageIndex → ImageGridView b44a175 onChange non-nil 分支自动同步 highlightedURL
-                        // → ESC 退 QV 后 grid highlight (路径 1) / preview (路径 2) 都跟到 Z
-                        folderStore.selectedImageIndex = newIdx
-                    },
-                    onFindSimilar: { sourceUrl in
-                        handleFindSimilar(sourceUrl: sourceUrl)
-                    },
-                    currentSupportsFeaturePrint: currentSupportsFeaturePrint(at: idx),
-                    onCommandF: { openSearch() }
-                )
-                .transition(.asymmetric(insertion: .identity, removal: .opacity))
-            }
-        }
-        .animation(DS.Anim.normal, value: quickViewerIndex)
-        // QuickViewer 关闭的真源出口：按 quickViewerEntry provenance 仲裁焦点路由，不依赖
-        // selectedImageIndex 是否 nil 当哨兵 — 因为 QV 方向键已经在写 selectedImageIndex
-        .onChange(of: quickViewerIndex) { oldValue, newValue in
-            guard oldValue != nil, newValue == nil else { return }
-            switch quickViewerEntry {
-            case .grid:
-                // 路径 1：双击 grid cell 进 QV → ESC 后回 grid（保 6da903c 行为）
-                // QV 期间方向键写过的 selectedImageIndex 这里清回 nil 防止 preview 反弹 mount。
-                folderStore.selectedImageIndex = nil
-                focusTarget = .grid
-            case .preview:
-                // 路径 2：preview 进 QV → ESC 退回 preview（selectedImageIndex 仍 = Z，
-                // ImagePreviewView 通过 onChange(of: startIndex) 自反应显示 Z）
-                focusTarget = .preview
-            case .ephemeral:
-                // M2 Slice J 路径 3：EphemeralResultView 双击进 QV → ESC 退 QV 回 ephemeral
-                // QV 期间方向键写过的 selectedImageIndex 这里清回 nil 防止 previewOverlay 反弹
-                folderStore.selectedImageIndex = nil
-                focusTarget = .ephemeral
-            case .none:
-                // 路径 4（M2 Slice J）：handleFindSimilar 在 QV 内点找类似时主动清 entry，
-                // QV 关闭走这里。currentEphemeral 已 set 时回 ephemeral，否则回 grid
-                focusTarget = currentEphemeral != nil ? .ephemeral : .grid
-            }
-            quickViewerEntry = nil
-        }
+        // QV 已迁到独立 NSWindow（MainQuickViewerWindowController）。退出路由由 controller
+        // 经 onDismiss(reason, entry) 回调到 handleQVDismiss 仲裁，不再走 .overlay + onChange。
         // M3 Slice M：body 级 ⌘F → openSearch（QV 不在场景下生效；QV 在时焦点在 QV，
         // QV 自己的 .onKeyPress(F) 处理 ⌘F，分支调 onCommandF 走 ContentView.openSearch）
         .onKeyPress(.init("f"), phases: .down) { event in
@@ -293,7 +239,6 @@ struct ContentView: View {
             }
             return .ignored
         }
-        .toolbar(quickViewerIndex != nil ? .hidden : .visible, for: .windowToolbar)
         // 隐藏 window toolbar 的 background material 绘制层，让 toolbar items（文件名 / ⓘ /
         // 外观切换）直接坐在 NSWindow title bar 上，避免 NavigationSplitView 默认 separated
         // 浅灰底色横条跟下方 ImagePreviewView 紫黑底色 (appBackground #121217) 断层。
@@ -309,17 +254,17 @@ struct ContentView: View {
                 withAnimation(DS.Anim.normal) { showInspector = false }
                 previewVM.clearCache()
                 // preview 关闭归 nil 时若 QV 不在 → 焦点回上一层：ephemeral 还显示则回 ephemeral，
-                // 否则回 baseGrid。quickViewerIndex == nil 保护避开 preview→QV 路径的 spurious fire
-                // （那条路径走 .onChange(of: quickViewerIndex) 的 .preview 分支单独仲裁焦点）
-                if quickViewerIndex == nil {
+                // 否则回 baseGrid。!qvController.isPresenting 保护避开 preview→QV 路径的 spurious fire
+                // （那条路径由 controller onDismiss → handleQVDismiss 的 .preview 分支单独仲裁焦点）
+                if !qvController.isPresenting {
                     focusTarget = currentEphemeral != nil ? .ephemeral : .grid
                 }
             }
         }
         // 排序导致 images 数组变化时，关闭 QuickViewer 防止旧索引错位
         .onChange(of: folderStore.images) { _, _ in
-            if quickViewerIndex != nil {
-                quickViewerIndex = nil
+            if qvController.isPresenting {
+                qvController.close(reason: .normal)
             }
             previewVM.clearCache()
         }
@@ -401,8 +346,7 @@ struct ContentView: View {
                         v2Urls = req.urls
                         folderStore.selectedImageIndex = nil
                         // 用 .ephemeral provenance，QV 关闭时回 ephemeral（D8 amendment 分层 modal 模型）
-                        quickViewerEntry = .ephemeral
-                        quickViewerIndex = idx
+                        presentQuickViewer(images: req.urls, startIndex: idx, entry: .ephemeral)
                     },
                     focusTarget: $focusTarget
                 )
@@ -493,12 +437,12 @@ struct ContentView: View {
                     folderStore.selectedImageIndex = idx
                 },
                 onDoubleClick: { idx in
-                    v2Urls = computeV2Urls()
+                    let urls = computeV2Urls()
+                    v2Urls = urls
                     // 双击时单击 handler 也会触发并设置 selectedImageIndex，此处清除，确保 QuickViewer
                     // 关闭后回到列表页而非预览页（同 V1 ImageGridView onDoubleClick 逻辑）
                     folderStore.selectedImageIndex = nil
-                    quickViewerEntry = .grid
-                    quickViewerIndex = idx
+                    presentQuickViewer(images: urls, startIndex: idx, entry: .grid)
                 },
                 focusTarget: $focusTarget
             )
@@ -508,8 +452,7 @@ struct ContentView: View {
                 focusTarget: $focusTarget,
                 onDoubleClick: { index in
                     folderStore.selectedImageIndex = nil
-                    quickViewerEntry = .grid
-                    quickViewerIndex = index
+                    presentQuickViewer(images: folderStore.images, startIndex: index, entry: .grid)
                 }
             )
         }
@@ -517,9 +460,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var previewOverlay: some View {
-        // 收紧渲染条件：QV 期间 (quickViewerIndex != nil) 不渲染 ImagePreviewView，
+        // 收紧渲染条件：QV 期间 (qvController.isPresenting) 不渲染 ImagePreviewView，
         // 避免 QV 内方向键写 selectedImageIndex 时 preview 在后台 loadImage
-        if let idx = folderStore.selectedImageIndex, quickViewerIndex == nil {
+        if let idx = folderStore.selectedImageIndex, !qvController.isPresenting {
             ImagePreviewView(
                 vm: previewVM,
                 images: (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images,
@@ -529,8 +472,11 @@ struct ContentView: View {
                     folderStore.selectedImageIndex = nil
                 },
                 onQuickView: { index in
-                    quickViewerEntry = .preview
-                    quickViewerIndex = index
+                    presentQuickViewer(
+                        images: (currentEphemeral != nil || smartFolderStore.selected != nil) ? v2Urls : folderStore.images,
+                        startIndex: index,
+                        entry: .preview
+                    )
                 }
             )
             // D15 refactor 后删 .id(idx)：rebuild 会让 .focused($focusTarget, equals: .preview)
@@ -559,6 +505,54 @@ struct ContentView: View {
                 bookmarkDataIsStale: &stale
             ) else { return nil }
             return rootURL.appendingPathComponent(image.relativePath)
+        }
+    }
+
+    // MARK: - QuickViewer present / dismiss（独立 NSWindow 入口 + 退出仲裁）
+
+    /// 统一进 QV 入口：所有 grid / preview / ephemeral 双击都经此打开独立 QV 窗。
+    /// images 由 caller 计算好传入（V1 folderStore.images / V2 v2Urls），与原 overlay 取源一致。
+    private func presentQuickViewer(images: [URL], startIndex: Int, entry: QuickViewerEntry) {
+        guard let mainWindow = appState.window else { return }
+        qvController.show(
+            images: images,
+            startIndex: startIndex,
+            entry: entry,
+            mainWindow: mainWindow,
+            currentSupportsFeaturePrint: currentSupportsFeaturePrint(at: startIndex),
+            // QV 内 nav button / filmstrip / 方向键切图上报 → 写 selectedImageIndex，
+            // ESC 退出后 grid highlight / preview 都跟到当前位（同原 overlay onIndexChange）。
+            onIndexChange: { folderStore.selectedImageIndex = $0 },
+            onDismiss: { reason, entry in handleQVDismiss(reason: reason, entry: entry) }
+        )
+    }
+
+    /// QV 退出仲裁（迁自原 .onChange(of: quickViewerIndex) 路由）。
+    /// controller 在主窗重新 become key 后回调，此时设 focusTarget 才生效。
+    private func handleQVDismiss(reason: QVDismissalReason, entry: QuickViewerEntry) {
+        switch reason {
+        case .normal:
+            switch entry {
+            case .grid:
+                // 路径 1：双击 grid cell 进 QV → 退出回 grid（保 6da903c 行为）。
+                // QV 期间方向键写过的 selectedImageIndex 这里清回 nil 防止 preview 反弹 mount。
+                folderStore.selectedImageIndex = nil
+                focusTarget = .grid
+            case .preview:
+                // 路径 2：preview 进 QV → 退回 preview（selectedImageIndex 仍 = 当前位）。
+                focusTarget = .preview
+            case .ephemeral:
+                // 路径 3：EphemeralResultView 双击进 QV → 退回 ephemeral。
+                folderStore.selectedImageIndex = nil
+                focusTarget = .ephemeral
+            }
+        case .findSimilar(let url):
+            // 原 .none 分支的"QV 内点找类似"路径：现由 controller close(.findSimilar) 显式表达，
+            // handleFindSimilar 内部设 currentEphemeral + 清 selectedImageIndex（不再自关 QV）。
+            handleFindSimilar(sourceUrl: url)
+        case .commandF:
+            // 原 ⌘F-from-QV 路径：QV 已由 controller close(.commandF) 关闭，openSearch 浮 overlay。
+            openSearch()
         }
     }
 
@@ -683,13 +677,9 @@ struct ContentView: View {
             await MainActor.run {
                 self.currentEphemeral = .similar(sourceUrl: sourceUrl, results: urls, banner: banner)
                 // 修复 2：清 selectedImageIndex 防止 QV 关闭后 previewOverlay 渲染条件成立，
-                // preview 弹回压在 ephemeral 上方（Scenario 1 根因）
+                // preview 弹回压在 ephemeral 上方（Scenario 1 根因）。
+                // QV 已由 controller close(.findSimilar) 关闭（本函数经 onDismiss 触发），不再自关。
                 self.folderStore.selectedImageIndex = nil
-                // 修复 D：清 quickViewerEntry，让 QV close onChange 走 .none 分支不动 currentEphemeral
-                // （否则若上一次 entry == .ephemeral，新设的 currentEphemeral 会被抹掉）
-                self.quickViewerEntry = nil
-                // 关闭 QV（让 ephemeral 视图占主区）
-                self.quickViewerIndex = nil
             }
         }
     }
@@ -729,13 +719,8 @@ struct ContentView: View {
 
     /// ⌘F 入口。从任意 layer（baseGrid / preview / ephemeral / QV）触发。
     private func openSearch() {
-        // 路径 1：QV 内按 ⌘F → 同帧关 QV + 浮 overlay（D16）。
-        // 顺序：先清 entry 再清 quickViewerIndex，让 onChange(of: quickViewerIndex) 走 .none
-        // 分支不动 currentEphemeral；随后我们覆写 focusTarget = .search 优先。
-        if quickViewerIndex != nil {
-            quickViewerEntry = nil
-            quickViewerIndex = nil
-        }
+        // QV 内按 ⌘F 走 controller close(.commandF) → onDismiss → 本函数（QV 已关），
+        // body / preview / ephemeral 入口 QV 本不在场，故此处不再处理关 QV。
         // ⌘F-from-preview：无条件清 selectedImageIndex 关掉在途 preview，否则其图源会被下方
         // `currentEphemeral != nil` 条件误切到 stale v2Urls（codex 二审 Q3，必须无条件、不能嵌 if）。
         folderStore.selectedImageIndex = nil
