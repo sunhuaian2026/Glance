@@ -219,8 +219,11 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     // MARK: - 同框 frame 跟随（windowedCover 最小集）
 
     /// 监听主窗 didMove/didResize/didChangeScreen，把 QV 窗 frame 同步成主窗 frame（盖住）；
-    /// 监听主窗 didMiniaturize → close QV（top-level 同框盖窗在主窗最小化后悬空无意义，
-    /// 关掉比同步 miniaturize 干净：避免 Dock 出现一个孤立 QV 缩略图 + 复杂的 deminiaturize 复位）。
+    /// 监听主窗 didMiniaturize / willClose → close QV（top-level 同框盖窗依附主窗，主窗最小化或
+    /// 关闭后盖窗悬空无意义：minimize 关掉比同步干净避免 Dock 孤立缩略图 + 复杂复位；
+    /// willClose 防止用户独立关主窗（⌘W/红灯，不经 QV）时 QV 窗成孤立悬挂盖窗）。
+    /// 注：close(reason:) 有 transitioning guard，若主窗 willClose 时 QV 正全屏过渡会被吞，
+    /// 这种极罕见同时发生的边界可接受——QV 窗 isReleasedWhenClosed=false 留实例，下次 show 复用。
     private func registerFrameObservers(mainWindow: NSWindow, viewerWindow: NSWindow) {
         removeFrameObservers()
         let center = NotificationCenter.default
@@ -239,16 +242,18 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
                 center.addObserver(forName: name, object: mainWindow, queue: .main, using: sync)
             )
         }
-        // 主窗最小化 → 关 QV（见上注释）。
-        let closeOnMiniaturize: @Sendable (Notification) -> Void = { [weak self] _ in
+        // 主窗最小化 / 关闭 → 关 QV（见上注释）。同一 closure 注册到两个 notification。
+        let closeQV: @Sendable (Notification) -> Void = { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.close(reason: .normal)
             }
         }
-        frameObservers.append(
-            center.addObserver(forName: NSWindow.didMiniaturizeNotification, object: mainWindow,
-                               queue: .main, using: closeOnMiniaturize)
-        )
+        for name in [NSWindow.didMiniaturizeNotification,
+                     NSWindow.willCloseNotification] {
+            frameObservers.append(
+                center.addObserver(forName: name, object: mainWindow, queue: .main, using: closeQV)
+            )
+        }
     }
 
     private func removeFrameObservers() {
