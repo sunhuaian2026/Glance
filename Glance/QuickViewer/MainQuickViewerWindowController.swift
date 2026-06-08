@@ -176,6 +176,10 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         case .inheritedMainFullScreen:
             // 首 ESC/F：退主窗全屏（QV 本就没物理全屏，不能 toggle QV）。主窗 didExitFullScreen
             // 监听负责把 QV 切回 fullScreenPrimary + 对齐尺寸 + 转 windowedCover。
+            // M-1：过渡发生在主窗、QV 自己 will/didExitFullScreen 不触发，故主动设 transitioning，
+            // 否则退全屏动画期再按 ESC 会重入本分支二次 toggle（AppKit 未定义行为）。
+            // transitioning→windowedCover 的闭环由 mainExitFullScreenObserver fire 时兜上。
+            presentation = .transitioning
             mainWindow?.toggleFullScreen(nil)
         case .transitioning:
             // 过渡期忽略，防重复触发把状态机搅乱。
@@ -291,6 +295,8 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
     func windowDidEnterFullScreen(_ notification: Notification) {
         viewerAppState.isFullScreen = true
         presentation = .qvNativeFullScreen
+        // I-3：离开 inheritedMain 语义，清掉主窗退全屏监听（否则之后主窗退全屏会强拉脱节的 QV）。
+        removeMainExitFullScreenObserver()
     }
 
     func windowWillExitFullScreen(_ notification: Notification) {
@@ -300,6 +306,8 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
     func windowDidExitFullScreen(_ notification: Notification) {
         viewerAppState.isFullScreen = false
         presentation = .windowedCover
+        // I-3：离开 inheritedMain 语义，清掉主窗退全屏监听（幂等，重复调安全）。
+        removeMainExitFullScreenObserver()
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
@@ -362,6 +370,11 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         self.isClosing = false
         // 复位 presentation，让下次 show 干净重判初始态（窗口复用，不复位会带上次残留态）。
         self.presentation = .windowedCover
+        // I-1：复位 collectionBehavior（状态对称）。若在 inheritedMainFullScreen 态直接关 QV
+        // （⌘W/红灯/findSimilar/commandF 不经 toggleFullScreenFromViewer），.fullScreenAuxiliary
+        // 会残留在复用窗上；此处恢复默认，不再依赖下次 show 全量重设兜底。
+        window?.collectionBehavior.remove(.fullScreenAuxiliary)
+        window?.collectionBehavior.insert(.fullScreenPrimary)
         removeFrameObservers()
         removeMainExitFullScreenObserver()
     }
