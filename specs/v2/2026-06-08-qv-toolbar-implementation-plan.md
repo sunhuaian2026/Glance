@@ -68,6 +68,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 
 # Slice 1 — 最小可用纯净看图（windowedCover 态）
 
+> ✅ **实施完成 + 真机验 9 项全过（2026-06-08，commit `ebd88bf`~`4cb1323`）**。下方 task 步骤为执行记录，全部已落地。
+
 **Ship 价值**：4 入口进 QV titlebar 完全纯净，退出回原位 focus 正确，找类似/⌘F 不退化。全屏鲁棒留 Slice 2。**独立可 ship**。
 
 ### Task 1.1：契约骨架（QuickViewerEntry internal + QVDismissalReason + controller 公开面 + become-key API）
@@ -136,6 +138,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 ---
 
 # Slice 2 — 全屏 4 态状态机（D-QVT6）
+
+> ✅ **实施完成（2026-06-08，commit `5d47b3c`~`134aaf1`），待真机验**（含 review 防御修复 I-1/I-3/M-1 + close transitioning guard + 主窗 willClose/miniaturize→close）。下方 task 步骤为执行记录，全部已落地。Task2.2+2.3 合并实施。
 
 **Ship 价值**：全屏看图纯净 + 正确 ESC + 主窗已全屏下进 QV 正常。**独立可 ship**。
 
