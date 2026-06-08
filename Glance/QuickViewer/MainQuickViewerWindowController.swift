@@ -175,6 +175,14 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 // MARK: - NSWindowDelegate（key 跟踪 + 统一 close path 的 focus 4 步时序）
 
 extension MainQuickViewerWindowController: NSWindowDelegate {
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        viewerAppState.isFullScreen = true
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        viewerAppState.isFullScreen = false
+    }
+
     func windowDidBecomeKey(_ notification: Notification) {
         guard let win = notification.object as? NSWindow else { return }
         viewerAppState.attachWindow(win)
@@ -228,5 +236,5 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         removeFrameObservers()
     }
 
-    // TODO: [2026-06-08] Slice 2: windowDidEnterFullScreen / windowDidExitFullScreen（全屏状态机 + 全屏 frame 跟随）
+    // TODO: [2026-06-08] Slice 2: 4 态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning）+ fullScreenAuxiliary 继承主窗全屏 + 全屏 frame 跟随（基本 isFullScreen 跟踪已在 Slice 1 补）
 }
