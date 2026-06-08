@@ -83,7 +83,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── QuickViewerViewModel.swift  ← ZoomMode + 缩放/导航逻辑 + deinit 取消在途 imageLoadTask/prefetch（.id 重建 teardown 卫生）
     │   ├── ZoomScrollView.swift        ← NSViewRepresentable（滚轮/双击/拖拽）
     │   ├── QuickViewerOverlay.swift    ← 全窗口覆盖层（TopBar + NavButtons + BottomToolbar + Filmstrip）+ 加载失败 ImageLoadFailedView + Slice 2「浏览所在文件夹」按钮（onBrowseFolder，仅外部打开场景传）
-    │   └── MainQuickViewerWindowController.swift ← QV-toolbar Slice1：主窗 QV 独立无装饰窗单例（mirror ExternalViewer 砍 ViewerSession/scope）+ 专属 viewerAppState + QVDismissalReason enum + show/close + 同框 frame 跟随 + windowWillClose focus 4 步时序（runAfterNextBecomeKey 延迟设 focusTarget + I1 已-key fallback + I2 generation guard）；全屏4态/边界 Slice2/3 TODO
+    │   └── MainQuickViewerWindowController.swift ← QV-toolbar Slice1：主窗 QV 独立无装饰窗单例（mirror ExternalViewer 砍 ViewerSession/scope）+ 专属 viewerAppState + QVDismissalReason enum + show/close + 同框 frame 跟随 + windowWillClose focus 4 步时序（runAfterNextBecomeKey 延迟设 focusTarget + I1 已-key fallback + I2 generation guard）；全屏4态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning + fullScreenAuxiliary 继承主窗全屏 + 首ESC退全屏次ESC关 + 主窗 didExitFullScreen observer + I1/I3/M1 防御）Slice2 已实现；边界硬化 Slice3 TODO
     ├── Inspector/
     │   ├── ImageInspectorViewModel.swift  ← ImageInfo struct + EXIF 读取
     │   └── ImageInspectorView.swift       ← Form + Section 布局

@@ -40,6 +40,19 @@
 - [ ] (2026-06-08 / Slice1) **重开 / 不叠窗（I2）**：关 QV 后重开正常；已开着时再双击不叠第二个窗；快速 show→close→show 焦点不串
 - [ ] (2026-06-08 / Slice1 / M5 待观察) **QV show 可靠抢 key**：双击进 QV 后 QV 窗立即是 key（键盘/方向键直接作用 QV）；若发现 show 后焦点没在 QV，需 port ExternalViewer 的 deferred re-assert
 
+### QV toolbar Slice 2 — 全屏 4 态状态机（2026-06-08 待真机验）
+
+> 全屏输入经 controller 路由 + 4 态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning）+ fullScreenAuxiliary 继承主窗全屏（commit `5d47b3c`~`48acfc5`）。全屏跨 Space 是重灾区，Mac mini 验不了，以下必须真机验过才进 Slice 3。
+
+- [ ] (2026-06-08 / Slice2) **windowedCover F 进全屏**：非全屏下双击进 QV → 按 F → QV 进原生全屏纯净；再按 F / ESC → 退回同框 windowedCover
+- [ ] (2026-06-08 / Slice2 / 最高不确定度) **inheritedMainFullScreen（fullScreenAuxiliary）**：先让主窗全屏（grid 模式按 F）→ 双击进 QV → **QV 应显示在主窗同一全屏 Space 上层、盖满、纯净**（不新建黑屏 Space、不把你踢出主窗 Space）
+- [ ] (2026-06-08 / Slice2) **inheritedMain 首 ESC 退全屏 / 次 ESC 关**：主窗全屏下进 QV → 第一下 ESC → 退主窗全屏 + QV 回同框 windowedCover；第二下 ESC → 关 QV
+- [ ] (2026-06-08 / Slice2 / M-1) **全屏过渡期快速双 ESC/F**：进/退全屏动画期间猛按 ESC/F → 不崩、不卡死态、不反弹（transitioning 保护）
+- [ ] (2026-06-08 / Slice2) **qvNativeFullScreen ESC 两段**：windowedCover 进 QV → F 全屏 → 第一下 ESC 退全屏、第二下 ESC 关 QV
+- [ ] (2026-06-08 / Slice2) **主窗最小化关 QV**：QV 开着时最小化主窗（⌘M）→ QV 自动关（didMiniaturize→close），无 Dock 孤立缩略图
+- [ ] (2026-06-08 / Slice2) **全屏下退出焦点归还**：全屏看图各路径（F/ESC/关闭按钮）退出后主窗拿回焦点、grid 高亮正确
+- [ ] (2026-06-08 / Slice2) **换屏 / resize**：全屏/同框态下主窗换屏幕、resize → QV frame 跟随正确
+
 ### Slice B-α 延后项（polish，不阻塞 ship）
 
 - [ ] (2026-06-02 / `6e5169b` / Slice B-α polish) **chip 反色实底对比效果实机确认**：方案 C（反色不透明实底）已落地——`DS.SectionHeader.chipFill/chipText`，dark 模式 chip 用浅底（0.84 灰）深字 / light 模式深底（0.30 灰）浅字，告别 `.thickMaterial` 半透明（参考 macOS Photos.app 日期 pill）。两处 chip 同步：智能文件夹 grid 时间分段「今天 · N 张」(`SmartFolderGridView`) + 搜索/找类似结果 section header (`EphemeralResultView`)。**待实机确认**：dark/light × cell 明暗 四种组合下，chip 跟背景对比是否够"跳"、是否过抢或过暗；不满意则反馈调 `chipFill/chipText` 的 RGB（当前 light 底 0.30 / dark 底 0.84）。**已选方案 C 替代了原 PENDING 列的 A/B/D**（material 加厚 / ultraThick+shadow / accent tint 均放弃）
