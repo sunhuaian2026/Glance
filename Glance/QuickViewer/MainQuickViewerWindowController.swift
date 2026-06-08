@@ -41,6 +41,10 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 
     /// QV 内导航上报回调，透传给 QuickViewerOverlay。
     private var onIndexChange: ((Int) -> Void)?
+    /// 同步退出准备回调（design 6.3 step 1）：windowWillClose 第 1 步**之前**同步触发，
+    /// 用来清非焦点状态（如 selectedImageIndex），防 previewOverlay 在 isPresenting 翻 false 后
+    /// 用 stale selectedImageIndex remount。区别于延迟的 onDismiss（只管 focus + 后续动作）。
+    private var onPrepareDismiss: ((QVDismissalReason, QuickViewerEntry) -> Void)?
     /// 退出回调：windowWillClose 时经 MainWindowController.runAfterNextBecomeKey 延迟触发。
     private var onDismiss: ((QVDismissalReason, QuickViewerEntry) -> Void)?
     /// 本次 show 的进入路径，原样回传给 onDismiss。
@@ -64,6 +68,7 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
               mainWindow: NSWindow,
               currentSupportsFeaturePrint: Bool,
               onIndexChange: @escaping (Int) -> Void,
+              onPrepareDismiss: @escaping (QVDismissalReason, QuickViewerEntry) -> Void,
               onDismiss: @escaping (QVDismissalReason, QuickViewerEntry) -> Void) {
         // M6：isClosing 复位前移到方法开头，empty-images 早退路径也对称复位。
         isClosing = false
@@ -78,6 +83,7 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 
         // 存实例状态供 windowWillClose 归还焦点 + 回调使用。
         self.onIndexChange = onIndexChange
+        self.onPrepareDismiss = onPrepareDismiss
         self.onDismiss = onDismiss
         self.entry = entry
         self.mainWindow = mainWindow
@@ -122,9 +128,9 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         let host = NSHostingView(rootView: AnyView(EmptyView()))
         host.autoresizingMask = [.width, .height]  // 跟随 window resize / 进全屏铺满
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0,
-                                width: DS.ExternalViewer.defaultWindowWidth,
-                                height: DS.ExternalViewer.defaultWindowHeight),
+            contentRect: NSRect(origin: .zero,
+                                size: NSSize(width: DS.ExternalViewer.defaultWindowWidth,
+                                             height: DS.ExternalViewer.defaultWindowHeight)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -200,6 +206,13 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let win = notification.object as? NSWindow else { return }
 
+        // 0. 同步 prepareDismiss（design 6.3 step 1）：必须在 isPresenting=false **之前**触发，
+        //    让 caller 同步清非焦点状态（selectedImageIndex），否则 isPresenting 翻 false 后
+        //    previewOverlay 会用 stale selectedImageIndex remount 显旧图（find-similar 尤甚）。
+        if let savedEntryForPrepare = entry {
+            onPrepareDismiss?(pendingDismissReason, savedEntryForPrepare)
+        }
+
         // 1. 清 QV 态：无条件 reset isFullScreen（全屏中关窗后残留会让下次 ESC 被误判为退全屏）+ detach + 收起。
         viewerAppState.isFullScreen = false
         viewerAppState.detachWindow(win)
@@ -228,6 +241,7 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
 
         // 5. 清实例存的 closure/状态 + 移除 frame observer。
         self.onDismiss = nil
+        self.onPrepareDismiss = nil
         self.onIndexChange = nil
         self.entry = nil
         self.mainWindow = nil

@@ -523,6 +523,18 @@ struct ContentView: View {
             // QV 内 nav button / filmstrip / 方向键切图上报 → 写 selectedImageIndex，
             // ESC 退出后 grid highlight / preview 都跟到当前位（同原 overlay onIndexChange）。
             onIndexChange: { folderStore.selectedImageIndex = $0 },
+            // 同步清非焦点状态（windowWillClose 第 0 步，isPresenting 翻 false 之前）：
+            // 防 previewOverlay 用 stale selectedImageIndex remount 显旧图。focusTarget 设置仍留
+            // 延迟的 onDismiss（需主 hosting become key）。
+            onPrepareDismiss: { reason, entry in
+                switch reason {
+                case .normal:
+                    // grid / ephemeral 退出不回 preview → 清；preview 退出要回 preview → 保留 selectedImageIndex。
+                    if entry == .grid || entry == .ephemeral { folderStore.selectedImageIndex = nil }
+                case .findSimilar, .commandF:
+                    folderStore.selectedImageIndex = nil
+                }
+            },
             onDismiss: { reason, entry in handleQVDismiss(reason: reason, entry: entry) }
         )
     }
@@ -532,18 +544,17 @@ struct ContentView: View {
     private func handleQVDismiss(reason: QVDismissalReason, entry: QuickViewerEntry) {
         switch reason {
         case .normal:
+            // selectedImageIndex 的清理已移到 onPrepareDismiss 同步阶段（防 stale preview remount）。
+            // 此处只设 focusTarget（延迟到主窗 become key 后才生效）。
             switch entry {
             case .grid:
                 // 路径 1：双击 grid cell 进 QV → 退出回 grid（保 6da903c 行为）。
-                // QV 期间方向键写过的 selectedImageIndex 这里清回 nil 防止 preview 反弹 mount。
-                folderStore.selectedImageIndex = nil
                 focusTarget = .grid
             case .preview:
-                // 路径 2：preview 进 QV → 退回 preview（selectedImageIndex 仍 = 当前位）。
+                // 路径 2：preview 进 QV → 退回 preview（selectedImageIndex 仍 = 当前位，onPrepareDismiss 不清）。
                 focusTarget = .preview
             case .ephemeral:
                 // 路径 3：EphemeralResultView 双击进 QV → 退回 ephemeral。
-                folderStore.selectedImageIndex = nil
                 focusTarget = .ephemeral
             }
         case .findSimilar(let url):
