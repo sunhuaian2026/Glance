@@ -22,7 +22,8 @@ enum AppFocus: Hashable {
 // QV 入口来源：用 enum 而非裸 Bool/Optional 让 dismiss 路由按 provenance 走，不依赖
 // selectedImageIndex 是否 nil 当哨兵 — 这样 QV 方向键写 selectedImageIndex 同步 grid
 // highlight + preview 时不会反向破坏 6da903c 修过的"双击 cell 进 QV 后退出回 grid 不进 preview"
-private enum QuickViewerEntry {
+// File-level internal (not private): MainQuickViewerWindowController references it across files.
+enum QuickViewerEntry {
     case grid       // 路径 1: grid 双击 cell 直接进 QV
     case preview    // 路径 2: grid → preview → 双击 → QV
     case ephemeral  // 路径 3 (M2 Slice J): EphemeralResultView 双击 cell 进 QV → 退出直接回 baseGrid，不卡在 ephemeral 无焦点态

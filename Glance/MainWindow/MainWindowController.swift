@@ -19,11 +19,18 @@ final class MainWindowController: NSObject {
     /// delegate 回调驱动图库 appState（attach/fullscreen/key）。ownership 在 AppDelegate，
     /// 此处弱引用避免循环（AppDelegate 持 appState 整个 app 生命周期，回调时必非 nil）。
     private weak var appState: AppState?
+    /// 「主窗下次 become key 后执行一次」的回调队列（QV 关闭后归还焦点的时序地基，Task 1.2 用）。
+    private var pendingBecomeKeyBlocks: [() -> Void] = []
 
     /// AppDelegate 查"图库主窗是否已建且在场"决定首窗/reopen（D-OW14，禁扫 NSApp.windows）。
     var hasWindow: Bool { window != nil }
 
     private override init() { super.init() }
+
+    /// 注册「主窗下次 become key 后执行一次」的回调。QV 关闭归还焦点时序地基（Task 1.2 用）。
+    func runAfterNextBecomeKey(_ block: @escaping () -> Void) {
+        pendingBecomeKeyBlocks.append(block)
+    }
 
     /// 建/复用图库主窗。注入集由 AppDelegate 传入（ownership 在 AppDelegate，D-OW12）。
     func show(
@@ -87,6 +94,15 @@ extension MainWindowController: NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         guard let win = notification.object as? NSWindow else { return }
         appState?.attachWindow(win)
+        // Drain one-shot become-key blocks. 包一层 Task + Task.yield 让 SwiftUI 焦点请求在
+        // 本帧 attach 之后生效（QV 关闭后归还焦点的时序地基）。
+        guard !pendingBecomeKeyBlocks.isEmpty else { return }
+        let blocks = pendingBecomeKeyBlocks
+        pendingBecomeKeyBlocks.removeAll()
+        Task { @MainActor in
+            await Task.yield()
+            blocks.forEach { $0() }
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {
