@@ -27,6 +27,21 @@ enum QVDismissalReason {
 final class MainQuickViewerWindowController: NSObject, ObservableObject {
     static let shared = MainQuickViewerWindowController()
 
+    /// QV 窗全屏呈现态（D-QVT6 4 态状态机）。viewerAppState.isFullScreen 是「语义全屏」
+    /// 镜像（给 QuickViewerOverlay 判 ESC），presentation 是「物理 + 来源」真值，二者不能合一：
+    /// inheritedMainFullScreen 下 QV 窗物理没全屏但语义在全屏环境。
+    private enum Presentation {
+        /// QV top-level 同框盖主窗 + `.fullScreenPrimary`；F 切 QV 原生全屏。
+        case windowedCover
+        /// QV 自己拥有全屏 Space（windowedCover 下按 F 进），主窗不变。
+        case qvNativeFullScreen
+        /// 主窗已全屏；QV 以 `.fullScreenAuxiliary` 在主窗的全屏 Space 上层展示，QV 物理未全屏。
+        case inheritedMainFullScreen
+        /// 全屏进/出过渡期，拒绝重复 F 触发。
+        case transitioning
+    }
+    private var presentation: Presentation = .windowedCover
+
     @Published private(set) var isPresenting: Bool = false
 
     private var window: NSWindow?
@@ -58,8 +73,12 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     /// show 代次（I2）：防快速 show→close→show 串扰。show 自增；windowWillClose 捕获当时值，
     /// 延迟 drain 的 onDismiss 回调里 guard 代次未变才触发（变了说明已有更新 session，skip 旧回调）。
     private var showGeneration = 0
-    /// 同框 frame 跟随：监听主窗 didMove/didResize 同步 QV 窗 frame。
+    /// 同框 frame 跟随：监听主窗 didMove/didResize/didChangeScreen 同步 QV 窗 frame，
+    /// 监听主窗 didMiniaturize（→ close QV 避免悬空）。
     private var frameObservers: [NSObjectProtocol] = []
+    /// inheritedMainFullScreen 专用：监听主窗 didExitFullScreen，触发 QV 切回 fullScreenPrimary +
+    /// 对齐主窗恢复尺寸 + 转 windowedCover。仅在进入 inheritedMainFullScreen 时注册，close 时清。
+    private var mainExitFullScreenObserver: NSObjectProtocol?
 
     private override init() { super.init() }
 
@@ -89,7 +108,27 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         self.mainWindow = mainWindow
         self.pendingDismissReason = .normal
 
-        // 同框定位：盖住主窗（完整跟随见 frame observer；全屏跟随留 Slice 2）。
+        // 初始态判定（D-QVT6）：主窗已全屏 → inheritedMainFullScreen，否则 windowedCover。
+        // collectionBehavior 每次 show 按态重设（窗口复用，不能只在 createWindow 设一次）。
+        if mainWindow.styleMask.contains(.fullScreen) {
+            // 主窗已在全屏 Space：QV 用 fullScreenAuxiliary（**不是** fullScreenPrimary）显在该 Space
+            // 上层，**不调** QV toggleFullScreen（那会新建独立 Space 把用户踢出主窗 Space）。
+            win.collectionBehavior.remove(.fullScreenPrimary)
+            win.collectionBehavior.insert(.fullScreenAuxiliary)
+            // 关键：QV 窗物理没全屏，但语义在全屏环境。主动置 isFullScreen=true，否则
+            // QuickViewerOverlay 首 ESC 会走关窗而非「退全屏」。
+            viewerAppState.isFullScreen = true
+            presentation = .inheritedMainFullScreen
+            // 注册主窗退全屏监听：用户在主窗 Space 退全屏时把 QV 拉回 windowedCover。
+            registerMainExitFullScreenObserver(mainWindow: mainWindow, viewerWindow: win)
+        } else {
+            win.collectionBehavior.remove(.fullScreenAuxiliary)
+            win.collectionBehavior.insert(.fullScreenPrimary)
+            viewerAppState.isFullScreen = false
+            presentation = .windowedCover
+        }
+
+        // 同框定位：盖住主窗（完整跟随见 frame observer）。
         win.setFrame(mainWindow.frame, display: true)
 
         // 先 attach（播种 window 指针，让 QV onAppear 时 viewerAppState.window 非 nil），再换 rootView。
@@ -125,11 +164,23 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         window?.close()
     }
 
-    /// QV 全屏切换入口。Task2.1 占位 = 直接 toggle QV 窗；Task2.2 改为按 4 态状态机路由
-    /// （windowedCover→toggle QV / inheritedMainFullScreen→toggle 主窗 等）。
+    /// QV 全屏切换入口（F / overlay 退全屏均经此）。按 4 态状态机路由（D-QVT6）。
     private func toggleFullScreenFromViewer() {
-        // TODO: [2026-06-08] Task2.2: 按 presentation 状态机决定 toggle QV 窗 vs 主窗
-        viewerAppState.toggleFullScreen()
+        switch presentation {
+        case .windowedCover:
+            // 进 QV 原生全屏。物理过渡由 QV delegate 接管：will→transitioning，did→qvNativeFullScreen。
+            window?.toggleFullScreen(nil)
+        case .qvNativeFullScreen:
+            // 退回 windowedCover（QV delegate 的 willExit→transitioning，didExit→windowedCover）。
+            window?.toggleFullScreen(nil)
+        case .inheritedMainFullScreen:
+            // 首 ESC/F：退主窗全屏（QV 本就没物理全屏，不能 toggle QV）。主窗 didExitFullScreen
+            // 监听负责把 QV 切回 fullScreenPrimary + 对齐尺寸 + 转 windowedCover。
+            mainWindow?.toggleFullScreen(nil)
+        case .transitioning:
+            // 过渡期忽略，防重复触发把状态机搅乱。
+            break
+        }
     }
 
     private func createWindow() {
@@ -147,7 +198,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
         win.isReleasedWhenClosed = false  // 关闭后保留实例，下次 show 复用同一 window
-        win.collectionBehavior.insert(.fullScreenPrimary)  // 允许 F 进原生全屏
+        // collectionBehavior 不在此处定死：show 时按 presentation 态设
+        // fullScreenPrimary（windowedCover）或 fullScreenAuxiliary（inheritedMainFullScreen）。
         win.center()
         win.delegate = self
         self.window = win
@@ -156,8 +208,9 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 
     // MARK: - 同框 frame 跟随（windowedCover 最小集）
 
-    /// 监听主窗 didMove/didResize，把 QV 窗 frame 同步成主窗 frame（盖住）。
-    /// didChangeScreen/miniaturize/全屏跟随留 Slice 2。
+    /// 监听主窗 didMove/didResize/didChangeScreen，把 QV 窗 frame 同步成主窗 frame（盖住）；
+    /// 监听主窗 didMiniaturize → close QV（top-level 同框盖窗在主窗最小化后悬空无意义，
+    /// 关掉比同步 miniaturize 干净：避免 Dock 出现一个孤立 QV 缩略图 + 复杂的 deminiaturize 复位）。
     private func registerFrameObservers(mainWindow: NSWindow, viewerWindow: NSWindow) {
         removeFrameObservers()
         let center = NotificationCenter.default
@@ -169,13 +222,22 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
                 viewerWindow.setFrame(mainWindow.frame, display: true)
             }
         }
+        for name in [NSWindow.didMoveNotification,
+                     NSWindow.didResizeNotification,
+                     NSWindow.didChangeScreenNotification] {
+            frameObservers.append(
+                center.addObserver(forName: name, object: mainWindow, queue: .main, using: sync)
+            )
+        }
+        // 主窗最小化 → 关 QV（见上注释）。
+        let closeOnMiniaturize: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.close(reason: .normal)
+            }
+        }
         frameObservers.append(
-            center.addObserver(forName: NSWindow.didMoveNotification, object: mainWindow,
-                               queue: .main, using: sync)
-        )
-        frameObservers.append(
-            center.addObserver(forName: NSWindow.didResizeNotification, object: mainWindow,
-                               queue: .main, using: sync)
+            center.addObserver(forName: NSWindow.didMiniaturizeNotification, object: mainWindow,
+                               queue: .main, using: closeOnMiniaturize)
         )
     }
 
@@ -184,17 +246,60 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         frameObservers.forEach { center.removeObserver($0) }
         frameObservers.removeAll()
     }
+
+    // MARK: - inheritedMainFullScreen 退出处理
+
+    /// 监听主窗 didExitFullScreen：用户在主窗全屏 Space 退出全屏时（首 ESC/F 经
+    /// toggleFullScreenFromViewer 调 mainWindow.toggleFullScreen，或用户直接操作主窗），
+    /// QV 切回 fullScreenPrimary + 对齐主窗恢复后尺寸 + 转 windowedCover + isFullScreen=false。
+    private func registerMainExitFullScreenObserver(mainWindow: NSWindow, viewerWindow: NSWindow) {
+        removeMainExitFullScreenObserver()
+        let center = NotificationCenter.default
+        let onExit: @Sendable (Notification) -> Void = { [weak self, weak viewerWindow, weak mainWindow] _ in
+            MainActor.assumeIsolated {
+                guard let self, let viewerWindow, let mainWindow else { return }
+                viewerWindow.collectionBehavior.remove(.fullScreenAuxiliary)
+                viewerWindow.collectionBehavior.insert(.fullScreenPrimary)
+                viewerWindow.setFrame(mainWindow.frame, display: true)
+                self.viewerAppState.isFullScreen = false
+                self.presentation = .windowedCover
+                // 一次性使命完成：退出 inheritedMainFullScreen 后不再需要本监听。
+                self.removeMainExitFullScreenObserver()
+            }
+        }
+        mainExitFullScreenObserver = center.addObserver(
+            forName: NSWindow.didExitFullScreenNotification, object: mainWindow,
+            queue: .main, using: onExit
+        )
+    }
+
+    private func removeMainExitFullScreenObserver() {
+        if let obs = mainExitFullScreenObserver {
+            NotificationCenter.default.removeObserver(obs)
+            mainExitFullScreenObserver = nil
+        }
+    }
 }
 
 // MARK: - NSWindowDelegate（key 跟踪 + 统一 close path 的 focus 4 步时序）
 
 extension MainQuickViewerWindowController: NSWindowDelegate {
+    func windowWillEnterFullScreen(_ notification: Notification) {
+        presentation = .transitioning
+    }
+
     func windowDidEnterFullScreen(_ notification: Notification) {
         viewerAppState.isFullScreen = true
+        presentation = .qvNativeFullScreen
+    }
+
+    func windowWillExitFullScreen(_ notification: Notification) {
+        presentation = .transitioning
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         viewerAppState.isFullScreen = false
+        presentation = .windowedCover
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
@@ -255,8 +360,9 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         self.mainWindow = nil
         self.pendingDismissReason = .normal
         self.isClosing = false
+        // 复位 presentation，让下次 show 干净重判初始态（窗口复用，不复位会带上次残留态）。
+        self.presentation = .windowedCover
         removeFrameObservers()
+        removeMainExitFullScreenObserver()
     }
-
-    // TODO: [2026-06-08] Slice 2: 4 态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning）+ fullScreenAuxiliary 继承主窗全屏 + 全屏 frame 跟随（基本 isFullScreen 跟踪已在 Slice 1 补）
 }
