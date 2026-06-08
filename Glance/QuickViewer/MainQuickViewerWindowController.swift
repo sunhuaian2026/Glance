@@ -70,6 +70,10 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     private var pendingDismissReason: QVDismissalReason = .normal
     /// 幂等 guard：close 已触发后再次进入直接 return。
     private var isClosing = false
+    /// 终结信号：close(force: true)（主窗 willClose/miniaturize）置 true，windowWillClose 据此
+    /// 走「只清 QV 自身、不碰主窗」的终结路径，跳过 focus 4 步（主窗已没/最小化，归还焦点有害 +
+    /// onDismiss 会对死 ContentView 跑）。清状态那步复位回 false。
+    private var isTerminating = false
     /// show 代次（I2）：防快速 show→close→show 串扰。show 自增；windowWillClose 捕获当时值，
     /// 延迟 drain 的 onDismiss 回调里 guard 代次未变才触发（变了说明已有更新 session，skip 旧回调）。
     private var showGeneration = 0
@@ -168,10 +172,14 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         // 永久被吞，需超时兜底；toggleFullScreen 基本可靠故暂不实现，真机遇到再加。
         if !force {
             guard presentation != .transitioning else { return }
+        } else {
+            // 主窗终结信号：标记终结路径，windowWillClose 跳 focus 归还。
+            isTerminating = true
         }
         guard !isClosing else { return }
         isClosing = true
         pendingDismissReason = reason
+        // 终结路径走 window.close()（不触发 windowShouldClose，故 transitioning 也能强制关）。
         window?.close()
     }
 
@@ -337,11 +345,33 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         viewerAppState.isWindowKey = false
     }
 
+    /// 全屏进/出过渡期拒绝关闭：⌘W/红灯/menu 走 performClose→windowShouldClose，
+    /// 此处拦住防过渡中途关窗卡死 AppKit（程序化 close(force:false) 由其自身 transitioning guard 拦；
+    /// 主窗终结 force close 走 window.close() 不经 shouldClose，不受此拦截，确保能强制关）。
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        return presentation != .transitioning
+    }
+
     /// 统一 close path：ESC（onDismiss→close）/ ⌘W / 红灯 / 系统关闭都汇到这。
-    /// focus 4 步时序（D-QVT7，**别改次序**）：先清 QV 态 → 捕获回调 → 延迟到主窗 become key
-    /// 后触发 onDismiss（此时主 hosting 已 key，SwiftUI focusTarget 赋值才生效）→ 拉主窗回前台 → 清状态。
+    /// 按 isTerminating 分两路：
+    /// - **终结路径**（主窗 willClose/miniaturize → force close）：只清 QV 自身状态 + observer，
+    ///   跳过 focus 4 步（主窗都没了/最小化了，归还焦点有害 + onDismiss 对死 ContentView 跑）。
+    /// - **正常路径**（用户关 QV / images 变化）：走完整 focus 4 步时序（D-QVT7，**别改次序**）：
+    ///   先清 QV 态 → 捕获回调 → 延迟到主窗 become key 后触发 onDismiss（此时主 hosting 已 key，
+    ///   SwiftUI focusTarget 赋值才生效）→ 拉主窗回前台 → 清状态。
     func windowWillClose(_ notification: Notification) {
         guard let win = notification.object as? NSWindow else { return }
+
+        if isTerminating {
+            // 终结路径：主窗已没/最小化，只清 QV 自身、不碰主窗 state，也不归还焦点。
+            // 跳过 prepareDismiss（ContentView 在销毁，selectedImageIndex 清不清无所谓，
+            // 保持「只清 QV 自身」干净语义）。
+            viewerAppState.isFullScreen = false
+            viewerAppState.detachWindow(win)
+            isPresenting = false
+            resetInstanceStateAfterClose()
+            return
+        }
 
         // 0. 同步 prepareDismiss（design 6.3 step 1）：必须在 isPresenting=false **之前**触发，
         //    让 caller 同步清非焦点状态（selectedImageIndex），否则 isPresenting 翻 false 后
@@ -377,6 +407,12 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         // 5. 清实例存的 closure/状态 + 移除 frame observer。
+        resetInstanceStateAfterClose()
+    }
+
+    /// windowWillClose 两条路径共用的「清 QV 自身实例状态 + observer」收尾。
+    /// 不碰主窗 state（焦点归还/onDismiss 由正常路径在调本方法前自行处理；终结路径整段跳过）。
+    private func resetInstanceStateAfterClose() {
         self.onDismiss = nil
         self.onPrepareDismiss = nil
         self.onIndexChange = nil
@@ -384,6 +420,7 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         self.mainWindow = nil
         self.pendingDismissReason = .normal
         self.isClosing = false
+        self.isTerminating = false
         // 复位 presentation，让下次 show 干净重判初始态（窗口复用，不复位会带上次残留态）。
         self.presentation = .windowedCover
         // I-1：复位 collectionBehavior（状态对称）。若在 inheritedMainFullScreen 态直接关 QV
