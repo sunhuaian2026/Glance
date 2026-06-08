@@ -26,6 +26,20 @@
 
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
+### QV toolbar Slice 1 — 独立看图窗 windowedCover（2026-06-08 待真机验）
+
+> 方案2：QV 从 ContentView overlay 迁到 MainQuickViewerWindowController 独立无装饰窗（commit `ebd88bf`~`07619c8`）。窗口/focus/全屏 Mac mini 验不了，以下必须真机验过才进 Slice 2。
+
+- [ ] (2026-06-08 / Slice1) **titlebar 纯净（核心目标）**：4 入口（V1 grid 双击 / SmartFolder grid 双击 / preview 双击图 / ephemeral 双击）进 QV → titlebar 完全纯净（无 +/分栏/ⓘ/外观/slider/排序 + 无文件名标题），截图对比外部看图窗
+- [ ] (2026-06-08 / Slice1) **QV 同框盖主窗 + 跟随**：QV 窗盖住主窗位置/尺寸；拖动主窗 / resize 主窗 → QV 跟随同框
+- [ ] (2026-06-08 / Slice1) **方向键 highlight 跟随**：QV 内方向键切图 → 退出后 grid highlight 跟到当前图
+- [ ] (2026-06-08 / Slice1) **退出 focus 归还（重灾区 I1）**：每条关闭路径（ESC / Space / 关闭按钮 / ⌘W / 红绿灯）退出后主窗拿回 key + 键盘焦点（方向键/Space 立即可用），三入口（grid/preview/ephemeral）focusTarget 落点正确
+- [ ] (2026-06-08 / Slice1) **QV 内找类似**：→ 关 QV 回 ephemeral grid 结果 + 焦点到结果（autoFocusOnAppear 接管；**重点验「从 ephemeral 内再找类似」边界焦点是否落空**）
+- [ ] (2026-06-08 / Slice1) **QV 内 ⌘F**：→ 关 QV + 主窗搜索框真正拿到键盘焦点（能打字，非只见 overlay）
+- [ ] (2026-06-08 / Slice1) **状态保留（方案2 核心收益）**：退出 QV 后 grid 缩略图无重载闪 / 滚动位置不变 / sidebar 展开态不变 / NavigationSplitView 列宽不变
+- [ ] (2026-06-08 / Slice1) **重开 / 不叠窗（I2）**：关 QV 后重开正常；已开着时再双击不叠第二个窗；快速 show→close→show 焦点不串
+- [ ] (2026-06-08 / Slice1 / M5 待观察) **QV show 可靠抢 key**：双击进 QV 后 QV 窗立即是 key（键盘/方向键直接作用 QV）；若发现 show 后焦点没在 QV，需 port ExternalViewer 的 deferred re-assert
+
 ### Slice B-α 延后项（polish，不阻塞 ship）
 
 - [ ] (2026-06-02 / `6e5169b` / Slice B-α polish) **chip 反色实底对比效果实机确认**：方案 C（反色不透明实底）已落地——`DS.SectionHeader.chipFill/chipText`，dark 模式 chip 用浅底（0.84 灰）深字 / light 模式深底（0.30 灰）浅字，告别 `.thickMaterial` 半透明（参考 macOS Photos.app 日期 pill）。两处 chip 同步：智能文件夹 grid 时间分段「今天 · N 张」(`SmartFolderGridView`) + 搜索/找类似结果 section header (`EphemeralResultView`)。**待实机确认**：dark/light × cell 明暗 四种组合下，chip 跟背景对比是否够"跳"、是否过抢或过暗；不满意则反馈调 `chipFill/chipText` 的 RGB（当前 light 底 0.30 / dark 底 0.84）。**已选方案 C 替代了原 PENDING 列的 A/B/D**（material 加厚 / ultraThick+shadow / accent tint 均放弃）
