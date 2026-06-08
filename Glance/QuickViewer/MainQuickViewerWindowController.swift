@@ -157,13 +157,18 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     }
 
     /// 关闭 QV 窗。统一 close path：window.close() → windowWillClose 完成 focus 归还 + onDismiss。
-    func close(reason: QVDismissalReason) {
+    /// force=true 绕过 transitioning guard：仅用于主窗终结信号（willClose/miniaturize），
+    /// 此时主窗已关/最小化，QV 必须跟着终结，即使在全屏过渡中（过渡卡死无所谓，会话已结束）。
+    /// 用户 ESC/Space 等正常关闭用 force=false（默认），保留 transitioning guard 防过渡中途关窗。
+    func close(reason: QVDismissalReason, force: Bool = false) {
         // 全屏进/出过渡期忽略 close：在 toggleFullScreen 动画中途 window.close() 会让 AppKit
         // 全屏状态卡死/未定义。过渡由 QV delegate windowDidEnter/ExitFullScreen 清回
         // qvNativeFullScreen/windowedCover，之后 close 正常。过渡 <1s，用户体感是过渡期按 ESC 被吞一次。
         // TODO: [2026-06-08] Slice3: 过渡失败（AppKit 未发 did*）时 transitioning 不自清会导致 close
         // 永久被吞，需超时兜底；toggleFullScreen 基本可靠故暂不实现，真机遇到再加。
-        guard presentation != .transitioning else { return }
+        if !force {
+            guard presentation != .transitioning else { return }
+        }
         guard !isClosing else { return }
         isClosing = true
         pendingDismissReason = reason
@@ -222,8 +227,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     /// 监听主窗 didMiniaturize / willClose → close QV（top-level 同框盖窗依附主窗，主窗最小化或
     /// 关闭后盖窗悬空无意义：minimize 关掉比同步干净避免 Dock 孤立缩略图 + 复杂复位；
     /// willClose 防止用户独立关主窗（⌘W/红灯，不经 QV）时 QV 窗成孤立悬挂盖窗）。
-    /// 注：close(reason:) 有 transitioning guard，若主窗 willClose 时 QV 正全屏过渡会被吞，
-    /// 这种极罕见同时发生的边界可接受——QV 窗 isReleasedWhenClosed=false 留实例，下次 show 复用。
+    /// 注：主窗 willClose/miniaturize 是一次性终结信号，调 close(force: true) 绕过 transitioning
+    /// guard——主窗关后无第二次 willClose 重试机会，过渡中被 guard 吞会让 QV 悬挂成孤立窗。
     private func registerFrameObservers(mainWindow: NSWindow, viewerWindow: NSWindow) {
         removeFrameObservers()
         let center = NotificationCenter.default
@@ -245,7 +250,7 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         // 主窗最小化 / 关闭 → 关 QV（见上注释）。同一 closure 注册到两个 notification。
         let closeQV: @Sendable (Notification) -> Void = { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.close(reason: .normal)
+                self?.close(reason: .normal, force: true)
             }
         }
         for name in [NSWindow.didMiniaturizeNotification,
