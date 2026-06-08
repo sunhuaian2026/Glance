@@ -103,7 +103,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
                 onIndexChange: onIndexChange,
                 onFindSimilar: { [weak self] url in self?.close(reason: .findSimilar(url)) },
                 currentSupportsFeaturePrint: currentSupportsFeaturePrint,
-                onCommandF: { [weak self] in self?.close(reason: .commandF) }
+                onCommandF: { [weak self] in self?.close(reason: .commandF) },
+                onToggleFullScreen: { [weak self] in self?.toggleFullScreenFromViewer() }
             )
             .environmentObject(viewerAppState)
             .id(UUID())
@@ -122,6 +123,13 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         isClosing = true
         pendingDismissReason = reason
         window?.close()
+    }
+
+    /// QV 全屏切换入口。Task2.1 占位 = 直接 toggle QV 窗；Task2.2 改为按 4 态状态机路由
+    /// （windowedCover→toggle QV / inheritedMainFullScreen→toggle 主窗 等）。
+    private func toggleFullScreenFromViewer() {
+        // TODO: [2026-06-08] Task2.2: 按 presentation 状态机决定 toggle QV 窗 vs 主窗
+        viewerAppState.toggleFullScreen()
     }
 
     private func createWindow() {

@@ -22,6 +22,9 @@ struct QuickViewerOverlay: View {
     /// M3 Slice M — QV 内按 ⌘F → ContentView 同帧关 QV + 浮 search overlay。
     /// nil = 无搜索能力（caller 未提供时静默 fallback 到全屏切换）。
     let onCommandF: (() -> Void)?
+    /// Slice 2 Task2.1 — 全屏切换经 controller 路由（4 态状态机前提）。
+    /// nil → 退化到 appState.toggleFullScreen()（ExternalViewer 等独立看图窗不路由）。
+    let onToggleFullScreen: (() -> Void)?
 
     @FocusState private var isFocused: Bool
     @State private var controlsVisible = true
@@ -34,7 +37,8 @@ struct QuickViewerOverlay: View {
         onIndexChange: @escaping (Int) -> Void,
         onFindSimilar: ((URL) -> Void)? = nil,
         currentSupportsFeaturePrint: Bool = true,
-        onCommandF: (() -> Void)? = nil
+        onCommandF: (() -> Void)? = nil,
+        onToggleFullScreen: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: QuickViewerViewModel(images: images, startIndex: startIndex))
         self.onDismiss = onDismiss
@@ -42,6 +46,7 @@ struct QuickViewerOverlay: View {
         self.onFindSimilar = onFindSimilar
         self.currentSupportsFeaturePrint = currentSupportsFeaturePrint
         self.onCommandF = onCommandF
+        self.onToggleFullScreen = onToggleFullScreen
     }
 
     var body: some View {
@@ -176,7 +181,7 @@ struct QuickViewerOverlay: View {
                 onCommandF()
                 return .handled
             }
-            appState.toggleFullScreen()
+            if let onToggleFullScreen { onToggleFullScreen() } else { appState.toggleFullScreen() }
             return .handled
         }
         // 捏合手势
@@ -307,7 +312,7 @@ struct QuickViewerOverlay: View {
                 .opacity(currentSupportsFeaturePrint ? DS.Similarity.buttonEnabledOpacity : DS.Similarity.buttonDisabledOpacity)
             }
             toolbarButton(title: "全屏 (F)", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : DS.Icon.fullscreen) {
-                appState.toggleFullScreen()
+                if let onToggleFullScreen { onToggleFullScreen() } else { appState.toggleFullScreen() }
             }
         }
         .padding(.horizontal, DS.Spacing.md)
@@ -406,7 +411,7 @@ struct QuickViewerOverlay: View {
 
     private func handleDismissOrExitFullScreen() {
         if appState.isFullScreen {
-            appState.toggleFullScreen()
+            if let onToggleFullScreen { onToggleFullScreen() } else { appState.toggleFullScreen() }
         } else {
             // 先撤焦点再 dismiss：.transition(.opacity) 退场期 overlay 仍存活，若仍是
             // active key target 用户随后按方向键会被本 view onKeyPress 接走（QV B-side
