@@ -26,9 +26,9 @@
 
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
-### QV toolbar Slice 1 — 独立看图窗 windowedCover（2026-06-08 待真机验）
+### QV toolbar Slice 1 — 独立看图窗 windowedCover（✅ 2026-06-08 真机验 9 项全通过）
 
-> 方案2：QV 从 ContentView overlay 迁到 MainQuickViewerWindowController 独立无装饰窗（commit `ebd88bf`~`07619c8`）。窗口/focus/全屏 Mac mini 验不了，以下必须真机验过才进 Slice 2。
+> 方案2：QV 从 ContentView overlay 迁到 MainQuickViewerWindowController 独立无装饰窗（commit `ebd88bf`~`4cb1323`）。**2026-06-08 军哥真机验 9 项全过**（titlebar 纯净 / 同框跟随 / 方向键 highlight / 焦点归还 I1 / 找类似 P1-A / ⌘F / 状态保留 / 重开不叠窗 I2 / 全屏 ESC P1-2）。整 QV toolbar feature 完成（Slice 2/3 全过）后本节随 feature 移 Done。
 
 - [ ] (2026-06-08 / Slice1) **titlebar 纯净（核心目标）**：4 入口（V1 grid 双击 / SmartFolder grid 双击 / preview 双击图 / ephemeral 双击）进 QV → titlebar 完全纯净（无 +/分栏/ⓘ/外观/slider/排序 + 无文件名标题），截图对比外部看图窗
 - [ ] (2026-06-08 / Slice1) **QV 同框盖主窗 + 跟随**：QV 窗盖住主窗位置/尺寸；拖动主窗 / resize 主窗 → QV 跟随同框
