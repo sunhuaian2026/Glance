@@ -41,13 +41,13 @@ struct SearchChipBar: View {
                         onChange()
                     } label: {
                         HStack {
-                            Image(systemName: filterState.selectedFormats.contains(fmt) ? "checkmark.square.fill" : "square")
-                            Text(fmt); Spacer()
+                            Image(systemName: filterState.selectedFormats.contains(fmt) ? "checkmark.square.fill" : "square").imageScale(.small)
+                            Text(fmt).font(.caption); Spacer()
                         }
                     }.buttonStyle(.plain)
                 }
                 Divider()
-                Button("清除") { filterState.selectedFormats = []; onChange() }.buttonStyle(.plain)
+                Button("清除") { filterState.selectedFormats = []; onChange() }.buttonStyle(.plain).font(.caption)
             }
             .padding(DS.Spacing.sm).frame(minWidth: DS.Search.popoverMinWidth)
             .onExitCommand { showTypePopover = false }   // codex R4：ESC 关本 popover，不冒泡到 overlay
@@ -72,8 +72,8 @@ struct SearchChipBar: View {
                         onChange(); showSizePopover = false
                     } label: {
                         HStack {
-                            Image(systemName: filterState.selectedSize == b ? "largecircle.fill.circle" : "circle")
-                            Text(b.label); Spacer()
+                            Image(systemName: filterState.selectedSize == b ? "largecircle.fill.circle" : "circle").imageScale(.small)
+                            Text(b.label).font(.caption); Spacer()
                         }
                     }.buttonStyle(.plain)
                 }
@@ -95,8 +95,8 @@ struct SearchChipBar: View {
                         onChange(); showTimePopover = false
                     } label: {
                         HStack {
-                            Image(systemName: filterState.selectedTime == b ? "largecircle.fill.circle" : "circle")
-                            Text(b.label); Spacer()
+                            Image(systemName: filterState.selectedTime == b ? "largecircle.fill.circle" : "circle").imageScale(.small)
+                            Text(b.label).font(.caption); Spacer()
                         }
                     }.buttonStyle(.plain)
                 }
