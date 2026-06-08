@@ -158,6 +158,12 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 
     /// 关闭 QV 窗。统一 close path：window.close() → windowWillClose 完成 focus 归还 + onDismiss。
     func close(reason: QVDismissalReason) {
+        // 全屏进/出过渡期忽略 close：在 toggleFullScreen 动画中途 window.close() 会让 AppKit
+        // 全屏状态卡死/未定义。过渡由 QV delegate windowDidEnter/ExitFullScreen 清回
+        // qvNativeFullScreen/windowedCover，之后 close 正常。过渡 <1s，用户体感是过渡期按 ESC 被吞一次。
+        // TODO: [2026-06-08] Slice3: 过渡失败（AppKit 未发 did*）时 transitioning 不自清会导致 close
+        // 永久被吞，需超时兜底；toggleFullScreen 基本可靠故暂不实现，真机遇到再加。
+        guard presentation != .transitioning else { return }
         guard !isClosing else { return }
         isClosing = true
         pendingDismissReason = reason
