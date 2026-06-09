@@ -45,8 +45,8 @@
 > 全屏输入经 controller 路由 + 4 态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning）+ fullScreenAuxiliary 继承主窗全屏（commit `5d47b3c`~`48acfc5`）。全屏跨 Space 是重灾区，Mac mini 验不了，以下必须真机验过才进 Slice 3。
 
 - [ ] (2026-06-08 / Slice2) **windowedCover F 进全屏**：非全屏下双击进 QV → 按 F → QV 进原生全屏纯净；再按 F / ESC → 退回同框 windowedCover
-- [ ] (2026-06-08 / Slice2 / 最高不确定度) **inheritedMainFullScreen（fullScreenAuxiliary）**：先让主窗全屏（grid 模式按 F）→ 双击进 QV → **QV 应显示在主窗同一全屏 Space 上层、盖满、纯净**（不新建黑屏 Space、不把你踢出主窗 Space）
-- [ ] (2026-06-08 / Slice2) **inheritedMain 首 ESC 退全屏 / 次 ESC 关**：主窗全屏下进 QV → 第一下 ESC → 退主窗全屏 + QV 回同框 windowedCover；第二下 ESC → 关 QV
+- [ ] (2026-06-09 / Slice2 / 最高不确定度，`e836f5e` 重做) **inheritedMainFullScreen 满屏覆盖**（首版 fullScreenAuxiliary 仅浮窗不满屏，已改 borderless+screen.frame）：先让主窗全屏（grid 按 F）→ 双击进 QV → **QV borderless 满屏盖满整屏**（无圆角/阴影/边缘漏 grid，纯净，不新建 Space 不踢出主窗 Space）；borderless 满屏下键盘焦点正常（方向键能切图）
+- [ ] (2026-06-09 / Slice2 / ESC 一段，`e836f5e`) **inheritedMain ESC 一段关**：主窗全屏下进 QV 满屏 → **ESC 直接关 QV 回主窗全屏 grid**（主窗保持全屏不退），焦点回到全屏 grid
 - [ ] (2026-06-08 / Slice2 / M-1) **全屏过渡期快速双 ESC/F**：进/退全屏动画期间猛按 ESC/F → 不崩、不卡死态、不反弹（transitioning 保护）
 - [ ] (2026-06-08 / Slice2) **qvNativeFullScreen ESC 两段**：windowedCover 进 QV → F 全屏 → 第一下 ESC 退全屏、第二下 ESC 关 QV
 - [ ] (2026-06-08 / Slice2) **主窗最小化关 QV**：QV 开着时最小化主窗（⌘M）→ QV 自动关（didMiniaturize→close），无 Dock 孤立缩略图
