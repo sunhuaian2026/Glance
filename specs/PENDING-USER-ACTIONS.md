@@ -40,9 +40,9 @@
 - [ ] (2026-06-08 / Slice1) **重开 / 不叠窗（I2）**：关 QV 后重开正常；已开着时再双击不叠第二个窗；快速 show→close→show 焦点不串
 - [ ] (2026-06-08 / Slice1 / M5 待观察) **QV show 可靠抢 key**：双击进 QV 后 QV 窗立即是 key（键盘/方向键直接作用 QV）；若发现 show 后焦点没在 QV，需 port ExternalViewer 的 deferred re-assert
 
-### QV toolbar Slice 2 — 全屏 4 态状态机（2026-06-08 待真机验）
+### QV toolbar Slice 2 — 全屏状态机（候选2，2026-06-09 inheritedMain 真机验过）
 
-> 全屏输入经 controller 路由 + 4 态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning）+ fullScreenAuxiliary 继承主窗全屏（commit `5d47b3c`~`48acfc5`）。全屏跨 Space 是重灾区，Mac mini 验不了，以下必须真机验过才进 Slice 3。
+> 全屏输入经 controller 路由 + 3 态状态机（windowedCover/qvNativeFullScreen/transitioning）+ enteredFromMainFullScreen flag；inheritedMain 主窗全屏进 QV 走候选2（QV 自己原生全屏新 Space，候选1 borderless+fullScreenAuxiliary 满屏覆盖踩 3 坑弃用）（commit `5d47b3c`~`a4520c5`）。全屏跨 Space 重灾区 Mac mini 验不了，以下真机验。
 
 - [ ] (2026-06-08 / Slice2) **windowedCover F 进全屏**：非全屏下双击进 QV → 按 F → QV 进原生全屏纯净；再按 F / ESC → 退回同框 windowedCover
 - [x] (2026-06-09 / Slice2 / `31ff1b1` 候选2) **inheritedMainFullScreen QV 原生全屏新 Space** ✓ 2026-06-09 军哥真机验通过：主窗全屏进 QV → 切新全屏 Space 满屏看图 → ESC 退回主窗全屏 grid（主窗保持全屏）。候选1 borderless 满屏覆盖踩 3 坑弃用（浮窗不满屏/ESC焦点/关闭塌主窗全屏），改候选2 走 documented 全屏生命周期。进/退各一次 Space 切换动画（可接受）。
