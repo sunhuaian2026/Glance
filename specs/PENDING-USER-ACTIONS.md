@@ -47,6 +47,7 @@
 - [ ] (2026-06-08 / Slice2) **windowedCover F 进全屏**：非全屏下双击进 QV → 按 F → QV 进原生全屏纯净；再按 F / ESC → 退回同框 windowedCover
 - [x] (2026-06-09 / Slice2 / `31ff1b1` 候选2) **inheritedMainFullScreen QV 原生全屏新 Space** ✓ 2026-06-09 军哥真机验通过：主窗全屏进 QV → 切新全屏 Space 满屏看图 → ESC 退回主窗全屏 grid（主窗保持全屏）。候选1 borderless 满屏覆盖踩 3 坑弃用（浮窗不满屏/ESC焦点/关闭塌主窗全屏），改候选2 走 documented 全屏生命周期。进/退各一次 Space 切换动画（可接受）。
 - [ ] (2026-06-09 / backlog 小图全屏) **QV 全屏小图放大**：方案已定 = `fitScale` 小图分支(图≤窗口) 从保 1:1 改为 `min(放大到fit×fitPadding, smallImageUpscaleCap)`，新增常量 `DS.Viewer.smallImageUpscaleCap=200%`（中等小图放大铺满、特别小图封顶防过度上采样糊；模糊只由放大倍数定、Retina 屏一致无需分辨率适配，封顶值真机可调）。**⚠️ 实现做过又因 CC 状态退化 `git checkout` 弃了 → 下个会话重做**（改 2 处：DS.Viewer 加常量 + `QuickViewerViewModel.swift:174` fitScale 小图分支）。不阻塞 Slice 2/3。
+  - **⚠️ 待军哥确认的原意出入（2026-06-10）**：军哥原话是「**不要定死 200%**，按原图判断放 200% 会不会糊、糊就用更小比例」+「要不要考虑屏幕分辨率(5k/4k/2k)」。上面方案把"**每张图自适应**"简化成了"**统一固定封顶 200%**"，论据是"糊只由放大倍数定、与原图绝对大小/屏幕分辨率无关"。**这个论据可能对也可能把诉求改没了——重做前先 brainstorming 确认：是"固定 200% 封顶"够用，还是真要"per 图按清晰度自适应"。别照固定值闷头做。**
 - [ ] (2026-06-08 / Slice2 / M-1) **全屏过渡期快速双 ESC/F**：进/退全屏动画期间猛按 ESC/F → 不崩、不卡死态、不反弹（transitioning 保护）
 - [ ] (2026-06-08 / Slice2) **qvNativeFullScreen ESC 两段**：windowedCover 进 QV → F 全屏 → 第一下 ESC 退全屏、第二下 ESC 关 QV
 - [ ] (2026-06-08 / Slice2) **主窗最小化关 QV**：QV 开着时最小化主窗（⌘M）→ QV 自动关（didMiniaturize→close），无 Dock 孤立缩略图
