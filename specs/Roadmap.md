@@ -4,11 +4,13 @@
 
 打造一款 macOS 原生风格、界面精致的本地看图 app（Glance · 一眼）。
 
-**一句话定位**：比 Eagle 更轻、更方便的**纯看图**工具。Eagle 付费 + 重管理（导入锁库 / 标签 / 收藏 / 评分），Glance **免费 + 只看 + 轻快**。差异化 = 「只看，但看得最爽最快」。
+**初心（2026-06-09 军哥澄清，纠正之前"纯看图器"理解偏差）**：图片散在不同盘 / 文件夹，可能有相似 / 重复但用户不知道——Glance 帮你**找出哪些图相似 / 重复 → 清理 → 省硬盘空间**。看图 / 浏览是**辅助手段**（清理前确认删哪张），不是终极目的。
+
+**一句话定位**：比 Eagle 更轻、免费的「**找重复 / 相似图、清理省硬盘空间**」工具。Eagle 付费 + 重管理锁库，Glance 免费 + 不抢库 + 轻。
 
 **核心红线（决定加不加功能，新 session / 迷路时先读这两条）**：
 1. **不抢库**：图永远在用户原文件夹，Glance 只是浏览器；卸载后用户的图 / 文件夹结构 / 组织方式一点不变（对比 Eagle 靠锁库吃留存）。智能文件夹永远是 rule-based 查询结果，绝不存 app 自有的图组织数据（见关键架构决策 V2 D1）。
-2. **克制**：新功能进来前先问「这是帮人**更爽地看**，还是往**管理**滑？」——后者（标签 / 收藏夹 / 评分 / 导入）一律砍。已有的智能文件夹 / 全局搜索 / 类似图查找都是服务「快速找到想看的那张图」，服务"看"本身，没碰重管理——这条线不能破。
+2. **克制 + 回归初心**：新功能进来前先问「这服务『找重复 / 清理省空间』初心，还是又往『看图浏览』堆？」。⚠️ **当前已知偏差**：精力堆在了看图浏览侧（智能文件夹 / 全局搜索 / QuickViewer / 全屏 / QV toolbar），而初心的核心闭环「**主动扫出重复 / 相似 → 一览 → 批量删除省空间**」反而没闭环（**删除功能压根没做**）——见下方待开发 M4 + memory `glance_mission_gap_m4`。注意：类似图查找 / 去重是**初心核心**（不是浏览功能），智能文件夹 / 搜索才是浏览辅助。不抢库红线仍不破（标签 / 收藏夹 / 评分 / 导入一律砍）。
 
 ---
 
@@ -186,6 +188,7 @@
 | ✅ 已完成 `84a1f5b` | OpenWith Slice 2 浏览所在文件夹 | `specs/OpenWith.md` + `specs/OpenWith-plan.md` Task 2.x | — | — | QV「浏览所在文件夹」按钮 + handleBrowseFolder 已 ship。OpenWith 功能（Slice 1 看单图 + Slice 2 浏览文件夹）完整 |
 | ✅ 已完成 `7a32dff` | OpenWith 方向2 Slice1 自建独立看图窗 | `specs/2026-06-03-openwith-lightweight-viewer-{design,plan}.md` | — | — | 外部打开改自建 `ExternalViewerWindowController`（Preview 式独立看图窗，不复用图库主窗）+ `ViewerSession`（scope/terminateOnClose）+ QuickViewerViewModel deinit。Slice1 warm-only（terminateOnClose 恒 false，保留主 Window scene）；三轮 codex review 收敛。真机验过 warm 置顶/显图/focus（含 1×1 fix `a3e4ae0`） |
 | ✅ 已完成 `519bd74`~`58e98fd` | OpenWith 方向2 Slice2 收回 lifecycle | `specs/2026-06-04-openwith-slice2-plan.md` | — | Slice1 | 移除 SwiftUI `Window` scene → `Settings` scene 挂 .commands（菜单栏存活 D-OW13）+ AppDelegate 自建 `MainWindowController` 图库主窗（自任 delegate 取代 WindowAccessor D-OW16）+ cold/warm lifecycle（D-OW14）+ 退出关窗驻留（D-OW15）。删 `ExternalOpenCoordinator.swift` + `WindowAccessor.swift` + ContentView externalOpen 残留 + QV onBrowseFolder + DS.ExternalOpen。**cold 双窗 + warm 关图主窗丢失全解决 + 冷启动看完即走**。两轮 codex plan review（抓 P1 delegate 双持）+ subagent-driven 实施 + 真机门控全过 |
+| 🔜 规划中（**M4 · 初心核心闭环**）| 重复 / 相似图清理省空间 | 待写 design/plan | **高** | M1 去重(DedupPass) + M2 类似(queryTopN) 底层已有 | **回归初心**：底层 SHA256 去重 + Vision 相似已做，但用法被动（Inspector 单张看副本 / QV 选图找类似）+ **无删除功能**（grep 全项目只一个 `trash` icon 常量）。M4 补闭环：(1) **主动扫描总览**「X 组重复 / Y 组相似 · 共 Z GB」(2) **批量删除 / 移废纸篓**（不抢库红线：移废纸篓非直删、可撤销）。看图浏览退辅助。下次走 brainstorming → design → plan。详见 memory `glance_mission_gap_m4` |
 
 ---
 
