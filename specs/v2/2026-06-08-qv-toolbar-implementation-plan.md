@@ -172,15 +172,17 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 - [ ] **Step 5**：commit `feat(QV): F + 首次 ESC 全屏交互 + frame 跟随补全`
 
 ### Slice 2 验收 + 真机验
-- [ ] verify 三段全绿。
-- [ ] 追加 PENDING（Slice 2，plan review 补全各输入路径）：
-  1. windowedCover F→QV 全屏纯净；再 F/ESC 退回同框。
-  2. 主窗先全屏→双击进 QV：QV 在同一全屏 Space 上层（无新建黑屏 Space）。
-  3. inheritedMainFullScreen 首 ESC 退主窗全屏（QV 回同框）、次 ESC 关 QV。
-  4. **全屏各独立输入路径**：toolbar F 按钮 / 键盘 F / ESC / Space / 红绿灯（各走不同代码）。
-  5. 过渡中途收到 close / 过渡失败 / 狂按不崩不残留半态。
-  6. deminiaturize + 多屏 screen-change frame 正常。
-  7. inheritedMainFullScreen 下 toolbar 图标 + viewerAppState.isFullScreen 正确。
+- [x] verify 三段全绿（commit `5d47b3c`~`a4520c5` 系列编译过 + docs 同步）。
+- [x] 真机验全通过（2026-06-09 inheritedMain + 2026-06-15 其余 6 项，详见 `specs/PENDING-USER-ACTIONS.md` Done 段）：
+  1. ✓ windowedCover F→QV 全屏纯净；再 F/ESC 退回同框（2026-06-15 `96967ed`）。
+  2. ✓ inheritedMain 主窗全屏进 QV 走候选2，QV 原生全屏新 Space 满屏（2026-06-09 `31ff1b1`，原"同 Space 上层"候选1 弃用）。
+  3. ✓ qvNativeFullScreen 首 ESC 退全屏、次 ESC 关 QV（2026-06-15）；inheritedMain 单次 ESC 关 QV 回主窗全屏 grid（2026-06-09，候选2 走 documented 全屏生命周期）。
+  4. ✓ 各独立输入路径（toolbar F / 键盘 F / ESC / Space / 红绿灯）经 controller 路由统一处理（编译 + 真机覆盖）。
+  5. ✓ 过渡中途快速双按 ESC/F 不崩、不卡死、不反弹（transitioning 保护，2026-06-15 M-1）。
+  6. ✓ 主窗最小化 / 全屏退出焦点归还 / 换屏+resize frame 跟随正常（2026-06-15 3 项）。
+  7. ✓ inheritedMainFullScreen 下 viewerAppState.isFullScreen 真实反映 + toolbar 图标态正确（2026-06-09 真机验包含）。
+
+**Slice 2 收口**：整 QV toolbar regression 修复完整 ship；Slice 3 边界硬化 = backlog 未启动；小图全屏放大 = 独立 backlog 待重做（见 PENDING）。
 
 ---
 

@@ -26,33 +26,13 @@
 
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
-### QV toolbar Slice 1 — 独立看图窗 windowedCover（✅ 2026-06-08 真机验 9 项全通过）
 
-> 方案2：QV 从 ContentView overlay 迁到 MainQuickViewerWindowController 独立无装饰窗（commit `ebd88bf`~`4cb1323`）。**2026-06-08 军哥真机验 9 项全过**（titlebar 纯净 / 同框跟随 / 方向键 highlight / 焦点归还 I1 / 找类似 P1-A / ⌘F / 状态保留 / 重开不叠窗 I2 / 全屏 ESC P1-2）。整 QV toolbar feature 完成（Slice 2/3 全过）后本节随 feature 移 Done。
+### QV toolbar 小图全屏放大（backlog，与 Slice 1/2 解耦）
 
-- [x] (2026-06-08 / Slice1) **titlebar 纯净（核心目标）**：4 入口（V1 grid 双击 / SmartFolder grid 双击 / preview 双击图 / ephemeral 双击）进 QV → titlebar 完全纯净（无 +/分栏/ⓘ/外观/slider/排序 + 无文件名标题），截图对比外部看图窗
-- [x] (2026-06-08 / Slice1) **QV 同框盖主窗 + 跟随**：QV 窗盖住主窗位置/尺寸；拖动主窗 / resize 主窗 → QV 跟随同框
-- [x] (2026-06-08 / Slice1) **方向键 highlight 跟随**：QV 内方向键切图 → 退出后 grid highlight 跟到当前图
-- [x] (2026-06-08 / Slice1) **退出 focus 归还（重灾区 I1）**：每条关闭路径（ESC / Space / 关闭按钮 / ⌘W / 红绿灯）退出后主窗拿回 key + 键盘焦点（方向键/Space 立即可用），三入口（grid/preview/ephemeral）focusTarget 落点正确
-- [x] (2026-06-08 / Slice1) **QV 内找类似**：→ 关 QV 回 ephemeral grid 结果 + 焦点到结果（autoFocusOnAppear 接管；**重点验「从 ephemeral 内再找类似」边界焦点是否落空**）
-- [x] (2026-06-08 / Slice1) **QV 内 ⌘F**：→ 关 QV + 主窗搜索框真正拿到键盘焦点（能打字，非只见 overlay）
-- [x] (2026-06-08 / Slice1) **状态保留（方案2 核心收益）**：退出 QV 后 grid 缩略图无重载闪 / 滚动位置不变 / sidebar 展开态不变 / NavigationSplitView 列宽不变
-- [x] (2026-06-08 / Slice1) **重开 / 不叠窗（I2）**：关 QV 后重开正常；已开着时再双击不叠第二个窗；快速 show→close→show 焦点不串
-- [x] (2026-06-08 / Slice1 / M5 待观察) **QV show 可靠抢 key**：双击进 QV 后 QV 窗立即是 key（键盘/方向键直接作用 QV）；若发现 show 后焦点没在 QV，需 port ExternalViewer 的 deferred re-assert
+> Slice 1（9 项 2026-06-08 真机验过）+ Slice 2（6 项 2026-06-15 + inheritedMain 1 项 2026-06-09 真机验过）全部搬 Done。本节单独留唯一未做的 backlog 项需重做。Slice 3（边界硬化）未启动。
 
-### QV toolbar Slice 2 — 全屏状态机（候选2，2026-06-09 inheritedMain 真机验过）
-
-> 全屏输入经 controller 路由 + 3 态状态机（windowedCover/qvNativeFullScreen/transitioning）+ enteredFromMainFullScreen flag；inheritedMain 主窗全屏进 QV 走候选2（QV 自己原生全屏新 Space，候选1 borderless+fullScreenAuxiliary 满屏覆盖踩 3 坑弃用）（commit `5d47b3c`~`a4520c5`）。全屏跨 Space 重灾区 Mac mini 验不了，以下真机验。
-
-- [ ] (2026-06-08 / Slice2) **windowedCover F 进全屏**：非全屏下双击进 QV → 按 F → QV 进原生全屏纯净；再按 F / ESC → 退回同框 windowedCover
-- [x] (2026-06-09 / Slice2 / `31ff1b1` 候选2) **inheritedMainFullScreen QV 原生全屏新 Space** ✓ 2026-06-09 军哥真机验通过：主窗全屏进 QV → 切新全屏 Space 满屏看图 → ESC 退回主窗全屏 grid（主窗保持全屏）。候选1 borderless 满屏覆盖踩 3 坑弃用（浮窗不满屏/ESC焦点/关闭塌主窗全屏），改候选2 走 documented 全屏生命周期。进/退各一次 Space 切换动画（可接受）。
-- [ ] (2026-06-09 / backlog 小图全屏) **QV 全屏小图放大**：方案已定 = `fitScale` 小图分支(图≤窗口) 从保 1:1 改为 `min(放大到fit×fitPadding, smallImageUpscaleCap)`，新增常量 `DS.Viewer.smallImageUpscaleCap=200%`（中等小图放大铺满、特别小图封顶防过度上采样糊；模糊只由放大倍数定、Retina 屏一致无需分辨率适配，封顶值真机可调）。**⚠️ 实现做过又因 CC 状态退化 `git checkout` 弃了 → 下个会话重做**（改 2 处：DS.Viewer 加常量 + `QuickViewerViewModel.swift:174` fitScale 小图分支）。不阻塞 Slice 2/3。
-  - **⚠️ 待军哥确认的原意出入（2026-06-10）**：军哥原话是「**不要定死 200%**，按原图判断放 200% 会不会糊、糊就用更小比例」+「要不要考虑屏幕分辨率(5k/4k/2k)」。上面方案把"**每张图自适应**"简化成了"**统一固定封顶 200%**"，论据是"糊只由放大倍数定、与原图绝对大小/屏幕分辨率无关"。**这个论据可能对也可能把诉求改没了——重做前先 brainstorming 确认：是"固定 200% 封顶"够用，还是真要"per 图按清晰度自适应"。别照固定值闷头做。**
-- [ ] (2026-06-08 / Slice2 / M-1) **全屏过渡期快速双 ESC/F**：进/退全屏动画期间猛按 ESC/F → 不崩、不卡死态、不反弹（transitioning 保护）
-- [ ] (2026-06-08 / Slice2) **qvNativeFullScreen ESC 两段**：windowedCover 进 QV → F 全屏 → 第一下 ESC 退全屏、第二下 ESC 关 QV
-- [ ] (2026-06-08 / Slice2) **主窗最小化关 QV**：QV 开着时最小化主窗（⌘M）→ QV 自动关（didMiniaturize→close），无 Dock 孤立缩略图
-- [ ] (2026-06-08 / Slice2) **全屏下退出焦点归还**：全屏看图各路径（F/ESC/关闭按钮）退出后主窗拿回焦点、grid 高亮正确
-- [ ] (2026-06-08 / Slice2) **换屏 / resize**：全屏/同框态下主窗换屏幕、resize → QV frame 跟随正确
+- [ ] (2026-06-09 / backlog 小图全屏) **QV 全屏小图放大**：方案已定 = `fitScale` 小图分支（图≤窗口）从保 1:1 改为 `min(放大到fit×fitPadding, smallImageUpscaleCap)`，新增常量 `DS.Viewer.smallImageUpscaleCap=200%`（中等小图放大铺满、特别小图封顶防过度上采样糊；模糊只由放大倍数定、Retina 屏一致无需分辨率适配，封顶值真机可调）。**⚠️ 实现做过又因 CC 状态退化 `git checkout` 弃了 → 下个会话重做**（改 2 处：DS.Viewer 加常量 + `QuickViewerViewModel.swift:174` fitScale 小图分支）。不阻塞 Slice 2/3。
+  - **⚠️ 待军哥确认的原意出入（2026-06-10）**：军哥原话是「**不要定死 200%**，按原图判断放 200% 会不会糊、糊就用更小比例」+「要不要考虑屏幕分辨率（5k/4k/2k）」。上面方案把"**每张图自适应**"简化成了"**统一固定封顶 200%**"，论据是"糊只由放大倍数定、与原图绝对大小/屏幕分辨率无关"。**这个论据可能对也可能把诉求改没了——重做前先 brainstorming 确认：是"固定 200% 封顶"够用，还是真要"per 图按清晰度自适应"。别照固定值闷头做。**
 
 ### Slice B-α 延后项（polish，不阻塞 ship）
 
@@ -107,6 +87,32 @@
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### QV toolbar Slice 2 — 全屏状态机（2026-06-15 用户验证 6 项全通过 + 2026-06-09 inheritedMain 验过）
+
+> 全屏输入经 controller 路由 + 3 态状态机（windowedCover/qvNativeFullScreen/transitioning）+ enteredFromMainFullScreen flag；inheritedMain 主窗全屏进 QV 走候选2（QV 自己原生全屏新 Space，候选1 borderless+fullScreenAuxiliary 满屏覆盖踩 3 坑弃用）（commit `5d47b3c`~`a4520c5`）。
+
+- [x] (2026-06-15 / Slice2 / `96967ed`) **windowedCover F 进全屏** ✓ 2026-06-15：非全屏下双击进 QV → F → QV 进原生全屏纯净；再 F/ESC → 退回同框 windowedCover
+- [x] (2026-06-09 / Slice2 / `31ff1b1` 候选2) **inheritedMainFullScreen QV 原生全屏新 Space** ✓ 2026-06-09：主窗全屏进 QV → 切新全屏 Space 满屏看图 → ESC 退回主窗全屏 grid（主窗保持全屏）。候选1 borderless 满屏覆盖踩 3 坑弃用（浮窗不满屏/ESC焦点/关闭塌主窗全屏），改候选2 走 documented 全屏生命周期。进/退各一次 Space 切换动画（可接受）。
+- [x] (2026-06-15 / Slice2 / M-1 / `96967ed`) **全屏过渡期快速双 ESC/F** ✓ 2026-06-15：进/退全屏动画期间猛按 ESC/F → 不崩、不卡死态、不反弹（transitioning 保护）
+- [x] (2026-06-15 / Slice2 / `96967ed`) **qvNativeFullScreen ESC 两段** ✓ 2026-06-15：windowedCover 进 QV → F 全屏 → 第一下 ESC 退全屏、第二下 ESC 关 QV
+- [x] (2026-06-15 / Slice2 / `96967ed`) **主窗最小化关 QV** ✓ 2026-06-15：QV 开着时最小化主窗（⌘M）→ QV 自动关（didMiniaturize→close），无 Dock 孤立缩略图
+- [x] (2026-06-15 / Slice2 / `96967ed`) **全屏下退出焦点归还** ✓ 2026-06-15：全屏看图各路径（F/ESC/关闭按钮）退出后主窗拿回焦点、grid 高亮正确
+- [x] (2026-06-15 / Slice2 / `96967ed`) **换屏 / resize** ✓ 2026-06-15：全屏/同框态下主窗换屏幕、resize → QV frame 跟随正确
+
+### QV toolbar Slice 1 — 独立看图窗 windowedCover（2026-06-08 用户验证 9 项全通过）
+
+> 方案2：QV 从 ContentView overlay 迁到 MainQuickViewerWindowController 独立无装饰窗（commit `ebd88bf`~`4cb1323`）。9 项真机全过：titlebar 纯净 / 同框跟随 / 方向键 highlight / 焦点归还 I1 / 找类似 P1-A / ⌘F / 状态保留 / 重开不叠窗 I2 / 全屏 ESC P1-2。
+
+- [x] (2026-06-08 / Slice1) **titlebar 纯净（核心目标）** ✓ 2026-06-08：4 入口（V1 grid 双击 / SmartFolder grid 双击 / preview 双击图 / ephemeral 双击）进 QV → titlebar 完全纯净（无 +/分栏/ⓘ/外观/slider/排序 + 无文件名标题）
+- [x] (2026-06-08 / Slice1) **QV 同框盖主窗 + 跟随** ✓ 2026-06-08：QV 窗盖住主窗位置/尺寸；拖动主窗 / resize 主窗 → QV 跟随同框
+- [x] (2026-06-08 / Slice1) **方向键 highlight 跟随** ✓ 2026-06-08：QV 内方向键切图 → 退出后 grid highlight 跟到当前图
+- [x] (2026-06-08 / Slice1) **退出 focus 归还（重灾区 I1）** ✓ 2026-06-08：每条关闭路径（ESC / Space / 关闭按钮 / ⌘W / 红绿灯）退出后主窗拿回 key + 键盘焦点
+- [x] (2026-06-08 / Slice1) **QV 内找类似** ✓ 2026-06-08：→ 关 QV 回 ephemeral grid 结果 + 焦点到结果（autoFocusOnAppear 接管）
+- [x] (2026-06-08 / Slice1) **QV 内 ⌘F** ✓ 2026-06-08：→ 关 QV + 主窗搜索框真正拿到键盘焦点
+- [x] (2026-06-08 / Slice1) **状态保留（方案2 核心收益）** ✓ 2026-06-08：退出 QV 后 grid 缩略图无重载闪 / 滚动位置不变 / sidebar 展开态不变 / NavigationSplitView 列宽不变
+- [x] (2026-06-08 / Slice1) **重开 / 不叠窗（I2）** ✓ 2026-06-08：关 QV 后重开正常；已开着时再双击不叠第二个窗；快速 show→close→show 焦点不串
+- [x] (2026-06-08 / Slice1 / M5 待观察) **QV show 可靠抢 key** ✓ 2026-06-08：双击进 QV 后 QV 窗立即是 key（键盘/方向键直接作用 QV）
 
 ### V2 M3 Slice N — 搜索筛选 chips（2026-06-07 用户验证全部通过）
 
