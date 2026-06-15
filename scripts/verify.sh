@@ -140,90 +140,37 @@ HP=$(git config --get core.hooksPath 2>/dev/null || echo "")
                           || fail ".githooks/pre-push not executable — run: make hooks-install"
 
 # 1d. 术语字典遵守（CONTEXT.md「术语字典表」强制规范）─────────────────
-# 只扫本次 commit 引入的新增行（git diff 的 + 行），不扫历史文档（历史不主动返工）
-# 弃用别名出现 → 报红阻塞；建议改用的词在错误消息里给出
-# BSD ERE 兼容（不依赖 -P / lookbehind）:
-#   - ASCII 简写用 ASCII_BOUNDARY=(^|[^A-Za-z0-9_]) ... ([^A-Za-z0-9_]|$) 模拟 word boundary
-#   - 中文词无 word concept 直接子串匹配
-#   - 排除 +++ 文件头用 ^\+[^+] 而非 lookbehind
-# 走临时文件中转（绕开 bash/zsh 间 printf|grep pipe 编码差异）
-DEPRECATED_TERMS_ASCII=(
-  # 「ASCII 简写|改用建议」
-  'QV|快速看图器（代码符号场景用 QuickViewer*）'
-  'SF|智能文件夹（代码符号场景用 SmartFolder）'
-  'QVT|D-QV（QVT 已并入 D-QV 命名空间）'
-  'I1|codex 实施期 issue（一句话内容）'
-  'I2|codex 实施期 issue（一句话内容）'
-  'M-1|codex major issue（一句话内容）'
-)
-# 含特殊字符的弃用 pattern（直接 ERE，不加 boundary）
-DEPRECATED_TERMS_REGEX=(
-  # 「ERE pattern|改用建议」
-  'P[12]-[0-9A-Z]+|codex P1/P2（一句话内容）'
-  'P[12]#[0-9]+|codex P1/P2（一句话内容）'
-  'I-[0-9]+|codex 实施期 issue（一句话内容）'
-)
-DEPRECATED_TERMS_CN=(
-  # 「中文词|改用建议」
-  '看图器|快速看图器'
-  '看图窗|快速看图器'
-  '看图覆盖层|快速看图器'
-  '内容去重|重复清理（功能）或 去重（动作）'
-  '主窗口|图库主窗'
-  '代表项|保留张'
-  '找类似|找相似图'
-  '类似图|相似图'
-)
-
-# 规则范围：**仅 staged 新增 .md 文件**（--diff-filter=A）。
-# 历史 .md 文件的 incremental 改动豁免（避免行级强约束导致"碰一行就强制清整行"）。
-# 字典核心目标 = 新写的文档不许用弃用词，老文档按字典「历史不主动返工」自然搁置。
-# 豁免 CONTEXT.md（字典本身列弃用词，规则不该误伤自己的来源文档）。
-TERM_TMP=$(mktemp)
-git diff --cached --diff-filter=A --no-color -U0 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
-
-if [ ! -s "$TERM_TMP" ]; then
-  pass "术语字典：no .md changes — skip"
-  rm -f "$TERM_TMP"
+# 规则源：.githooks/_glossary_rules.sh（单一来源，commit-msg hook 共用）
+# 范围：所有 staged .md 改动（含新增/修改/重命名）的 + 行；CONTEXT.md 自身豁免
+# 豁免：fenced code block (``` ... ```) 内容 + inline backtick `...` 内容
+# diff -U999 拿足够大上下文以重建 fenced 边界状态
+GLOSSARY_RULES_FILE=".githooks/_glossary_rules.sh"
+if [ ! -f "$GLOSSARY_RULES_FILE" ]; then
+  fail "术语字典规则文件缺失：$GLOSSARY_RULES_FILE"
 else
-  TERM_VIOLATIONS=0
-  TERM_REPORT=""
+  # shellcheck source=/dev/null
+  . "$GLOSSARY_RULES_FILE"
 
-  check_term() {
-    local PATTERN_REGEX="$1"
-    local SUGGEST="$2"
-    local DISPLAY="$3"
-    local HITS
-    HITS=$(grep -nE "^\+[^+].*${PATTERN_REGEX}" "$TERM_TMP" 2>/dev/null || true)
-    if [ -n "$HITS" ]; then
-      TERM_VIOLATIONS=$((TERM_VIOLATIONS + 1))
-      TERM_REPORT="${TERM_REPORT}\n      ✗ '${DISPLAY}' → 改用 ${SUGGEST}\n$(echo "$HITS" | head -3 | sed 's/^/        /')"
-    fi
-  }
+  TERM_TMP=$(mktemp)
+  git diff --cached --no-color -U999 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
 
-  for RULE in "${DEPRECATED_TERMS_ASCII[@]}"; do
-    WORD="${RULE%%|*}"
-    SUGGEST="${RULE#*|}"
-    check_term "(^|[^A-Za-z0-9_])${WORD}([^A-Za-z0-9_]|\$)" "$SUGGEST" "$WORD"
-  done
-  for RULE in "${DEPRECATED_TERMS_REGEX[@]}"; do
-    PAT="${RULE%%|*}"
-    SUGGEST="${RULE#*|}"
-    check_term "${PAT}" "$SUGGEST" "$PAT"
-  done
-  for RULE in "${DEPRECATED_TERMS_CN[@]}"; do
-    WORD="${RULE%%|*}"
-    SUGGEST="${RULE#*|}"
-    check_term "${WORD}" "$SUGGEST" "$WORD"
-  done
-
-  rm -f "$TERM_TMP"
-
-  if [ "$TERM_VIOLATIONS" -eq 0 ]; then
-    pass "术语字典：本次 .md 改动无弃用词"
+  if [ ! -s "$TERM_TMP" ]; then
+    pass "术语字典：no staged .md changes — skip"
+    rm -f "$TERM_TMP"
   else
-    fail "术语字典：本次 .md 改动 ${TERM_VIOLATIONS} 处违规（见 CONTEXT.md「术语字典表」）"
-    printf '%b\n' "$TERM_REPORT"
+    CLEAN_TMP=$(mktemp)
+    glossary_filter_diff < "$TERM_TMP" > "$CLEAN_TMP"
+    rm -f "$TERM_TMP"
+
+    glossary_check "$CLEAN_TMP"
+    rm -f "$CLEAN_TMP"
+
+    if [ "$GLOSSARY_VIOLATIONS" -eq 0 ]; then
+      pass "术语字典：本次 .md 改动无弃用词"
+    else
+      fail "术语字典：本次 .md 改动 ${GLOSSARY_VIOLATIONS} 处违规（见 CONTEXT.md「术语字典表」）"
+      printf '%b\n' "$GLOSSARY_REPORT"
+    fi
   fi
 fi
 

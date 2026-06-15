@@ -1,0 +1,47 @@
+#!/bin/bash
+# Glossary check on commit message.
+# Reads .githooks/_glossary_rules.sh (single source of truth, shared with verify.sh).
+# Skip rules:
+#   - Merge commits / fixup / squash / revert (auto-generated messages)
+#   - Lines starting with # (Git comments)
+#   - Message containing [skip-glossary] (emergency one-off)
+# Bypass: git commit --no-verify
+
+set -u
+
+MSG_FILE="$1"
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+RULES="${ROOT_DIR}/.githooks/_glossary_rules.sh"
+
+[ ! -f "$RULES" ] && exit 0  # rules missing → don't block
+
+# Skip auto-generated commit types
+FIRST_LINE=$(head -1 "$MSG_FILE")
+case "$FIRST_LINE" in
+  Merge*|"fixup!"*|"squash!"*|"Revert "*) exit 0 ;;
+esac
+
+# Skip if [skip-glossary] in message
+if grep -q '\[skip-glossary\]' "$MSG_FILE"; then exit 0; fi
+
+# shellcheck source=/dev/null
+. "$RULES"
+
+# Strip Git comment lines (lines starting with #), feed to text filter
+CLEAN_TMP=$(mktemp)
+grep -v '^#' "$MSG_FILE" | glossary_filter_text > "$CLEAN_TMP"
+
+glossary_check "$CLEAN_TMP"
+rm -f "$CLEAN_TMP"
+
+if [ "$GLOSSARY_VIOLATIONS" -eq 0 ]; then
+  exit 0
+fi
+
+echo ""
+echo "✗ commit message 含 ${GLOSSARY_VIOLATIONS} 处弃用词（CONTEXT.md「术语字典表」）："
+printf '%b\n' "$GLOSSARY_REPORT"
+echo ""
+echo "  → 改完 commit message 重试，或紧急绕过：git commit --no-verify"
+echo "  → 单次绕过：commit message 含 [skip-glossary]"
+exit 1
