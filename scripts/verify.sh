@@ -139,6 +139,78 @@ HP=$(git config --get core.hooksPath 2>/dev/null || echo "")
 [ -x .githooks/pre-push ] && pass ".githooks/pre-push executable" \
                           || fail ".githooks/pre-push not executable — run: make hooks-install"
 
+# 1d. 术语字典遵守（CONTEXT.md「术语字典表」强制规范）─────────────────
+# 只扫本次 commit 引入的新增行（git diff 的 + 行），不扫历史文档（历史不主动返工）
+# 弃用别名出现 → 报红阻塞；建议改用的词在错误消息里给出
+# BSD ERE 兼容（不依赖 -P / lookbehind）:
+#   - ASCII 简写用 ASCII_BOUNDARY=(^|[^A-Za-z0-9_]) ... ([^A-Za-z0-9_]|$) 模拟 word boundary
+#   - 中文词无 word concept 直接子串匹配
+#   - 排除 +++ 文件头用 ^\+[^+] 而非 lookbehind
+# 走临时文件中转（绕开 bash/zsh 间 printf|grep pipe 编码差异）
+DEPRECATED_TERMS_ASCII=(
+  # 「ASCII 简写|改用建议」
+  'QV|快速看图器（代码符号场景用 QuickViewer*）'
+  'SF|智能文件夹（代码符号场景用 SmartFolder）'
+  'QVT|D-QV（QVT 已并入 D-QV 命名空间）'
+)
+DEPRECATED_TERMS_CN=(
+  # 「中文词|改用建议」
+  '看图器|快速看图器'
+  '看图窗|快速看图器'
+  '看图覆盖层|快速看图器'
+  '内容去重|重复清理（功能）或 去重（动作）'
+  '主窗口|图库主窗'
+  '代表项|保留张'
+  '找类似|找相似图'
+  '类似图|相似图'
+)
+
+# staged 优先；没 staged 看 working-tree 未 stage 改动
+# 豁免 CONTEXT.md（字典本身列弃用词，规则不该误伤自己的来源文档）
+TERM_TMP=$(mktemp)
+git diff --cached --no-color -U0 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
+[ ! -s "$TERM_TMP" ] && git diff --no-color -U0 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
+
+if [ ! -s "$TERM_TMP" ]; then
+  pass "术语字典：no .md changes — skip"
+  rm -f "$TERM_TMP"
+else
+  TERM_VIOLATIONS=0
+  TERM_REPORT=""
+
+  check_term() {
+    local PATTERN_REGEX="$1"
+    local SUGGEST="$2"
+    local DISPLAY="$3"
+    local HITS
+    HITS=$(grep -nE "^\+[^+].*${PATTERN_REGEX}" "$TERM_TMP" 2>/dev/null || true)
+    if [ -n "$HITS" ]; then
+      TERM_VIOLATIONS=$((TERM_VIOLATIONS + 1))
+      TERM_REPORT="${TERM_REPORT}\n      ✗ '${DISPLAY}' → 改用 ${SUGGEST}\n$(echo "$HITS" | head -3 | sed 's/^/        /')"
+    fi
+  }
+
+  for RULE in "${DEPRECATED_TERMS_ASCII[@]}"; do
+    WORD="${RULE%%|*}"
+    SUGGEST="${RULE#*|}"
+    check_term "(^|[^A-Za-z0-9_])${WORD}([^A-Za-z0-9_]|\$)" "$SUGGEST" "$WORD"
+  done
+  for RULE in "${DEPRECATED_TERMS_CN[@]}"; do
+    WORD="${RULE%%|*}"
+    SUGGEST="${RULE#*|}"
+    check_term "${WORD}" "$SUGGEST" "$WORD"
+  done
+
+  rm -f "$TERM_TMP"
+
+  if [ "$TERM_VIOLATIONS" -eq 0 ]; then
+    pass "术语字典：本次 .md 改动无弃用词"
+  else
+    fail "术语字典：本次 .md 改动 ${TERM_VIOLATIONS} 处违规（见 CONTEXT.md「术语字典表」）"
+    printf '%b\n' "$TERM_REPORT"
+  fi
+fi
+
 die_if_red 1
 
 # ═══════════════════════════════════════════════════════════════════

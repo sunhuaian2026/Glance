@@ -60,6 +60,69 @@ macOS 本地看图 app，SwiftUI 实现，沙盒 + Security Scoped Bookmark，�
 
 ---
 
+## 术语字典表（强制规范，2026-06-16 起）
+
+> 规则：能用中文用中文；代码符号（类名/属性/SQL 列名/方法名）保留英文 PascalCase/camelCase 原样；约定俗成的英文术语（macOS 官方文档术语 / 开发方法论术语）保留英文。
+> **强制等级**：新写或修改的 `.md` 文档（CONTEXT.md 自身豁免）若出现「弃用别名」列里的词，`scripts/verify.sh` Stage 1 报红阻塞 commit。
+> **范围**：本字典只管文档（`.md`）+ commit message。`.swift` 代码符号一律保留英文不受约束。
+> **历史文档**：不主动返工，遇到改到时顺手统一。
+> **新术语登记流程**：(1) 来本字典补一行（中文规范 / 英文场景 / 弃用别名）+ 上面「领域术语表」段补一句话定义；(2) 不补字典直接用 → verify.sh 拒收；(3) 命名冲突时本字典为准。
+
+### A. 自造简写（弃用）
+
+| 弃用别名 | 改用 |
+|---|---|
+| `QV` | 「快速看图器」（或代码符号场景下用 `QuickViewer*`） |
+| `SF` | 「智能文件夹」（或代码符号场景下用 `SmartFolder`） |
+| `IS` | `IndexStore`（写代码名全称） |
+| `OW`（裸写） | 「OpenWith」全称；决策 ID 段 `D-OW1..16` 保留 |
+| `QVT` | 已并入 `D-QV`（`D-QVT1..7` → `D-QV1..7`） |
+
+### B. 同义簇规范
+
+| 概念 | 中文规范 | 弃用别名 | 代码符号（保留） |
+|---|---|---|---|
+| 快速看图界面 | **快速看图器** | QV / 看图器 / 看图窗 / Quick Viewer / 看图覆盖层 | `QuickViewerOverlay` / `MainQuickViewerWindowController` |
+| 重复清理功能 | **重复清理** | 内容去重 / Dedup（正文） | `DedupPass` / `dedup_canonical` |
+| 去重动作 | **去重** | content dedup / 重复（单独使用歧义） | — |
+| 沙盒 | **沙盒** | Sandbox / App Sandbox（中文场景） | — |
+| 文件权限书签 | 首次写全 **Security Scoped Bookmark**，后续 **bookmark** | 书签 / Bookmark（句首大写之外） | `BookmarkManager` |
+| 开发切片 | **Slice**（首字母大写统一） | slice / 切片 / 阶段 | — |
+| 临时结果视图 | **临时结果（视图）** | ephemeral / Ephemeral（正文） | `EphemeralResultView` |
+| 全屏 | **全屏** | fullScreen / FullScreen（正文） | `isFullScreen` |
+| 图库主窗 | **图库主窗** | 主窗 / 主窗口 / 图库（单独使用） | `MainWindowController` |
+| 重复组保留张 | **保留张** | canonical / Canonical / 代表项 | `dedup_canonical` |
+| 缩略图 | **缩略图** | thumbnail / Thumbnail（正文） | `ThumbnailCell` |
+| 焦点 | **焦点** | focus / Focus（正文） | `isWindowKey` |
+| 找相似图（动作） | **找相似图** | 找类似 / find similar | — |
+| 相似图（结果集） | **相似图** | 类似图 | — |
+| 图像指纹 | **图像指纹** | feature print（正文） | `FeaturePrint*` / `VNFeaturePrintObservation` |
+
+### C. 中英文边界
+
+| 概念 | 中文规范 | 弃用别名 |
+|---|---|---|
+| 侧边栏 | **侧边栏** | sidebar / Sidebar |
+| 工具栏 | **工具栏** | toolbar / Toolbar |
+| 缩略图网格 | **缩略图网格** | grid / Grid（单独使用） |
+| 内嵌预览 | **内嵌预览** | preview（单独使用避免与 macOS Preview.app 混淆） |
+| toast 提示 | **toast 提示** | UI 模式约定俗成保留 toast |
+| spike | **spike** | 开发方法论术语保留 |
+
+### D. 决策 ID 命名空间
+
+> 决策（D 编号）走 `specs/Roadmap.md`「关键架构决策」段；subsystem 重大变化保留独立命名空间，常规决策并入主 D 序号。
+
+| 命名空间 | 用途 | 现状 | 后续 |
+|---|---|---|---|
+| D1 - D40 | V2 主线决策（含 M1/M2/M3/M4 计划 + QV enhance 计划） | D1-D32 已用，D33-D40 是 QV enhance 计划占位 | 主序号，新决策默认进这里 |
+| `D-OW1..16` | OpenWith 子系统独立命名空间 | 已用 16 个 | **保留**（独立子系统，生命周期跨多 milestone） |
+| `D-QV1..7` | 快速看图器 toolbar 子系统独立命名空间（原 `D-QVT` 改 `D-QV`） | 7 个，旧文档逐步替换 | 子系统决策完结后冻结，不再新增 |
+
+> 别再造新子系统命名空间（除非系统级跨多 milestone）。常规决策一律进主 D 序号。
+
+---
+
 ## 架构总览
 
 ```
@@ -98,3 +161,4 @@ macOS 本地看图 app，SwiftUI 实现，沙盒 + Security Scoped Bookmark，�
 - **模块接口/实现细节** → `specs/<module>.md`
 - **人工测试 backlog** → `specs/PENDING-USER-ACTIONS.md`
 - **UI 规范** → `specs/UI.md`
+
