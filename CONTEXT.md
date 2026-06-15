@@ -77,6 +77,11 @@ macOS 本地看图 app，SwiftUI 实现，沙盒 + Security Scoped Bookmark，�
 | `IS` | `IndexStore`（写代码名全称） |
 | `OW`（裸写） | 「OpenWith」全称；决策 ID 段 `D-OW1..16` 保留 |
 | `QVT` | 已并入 `D-QV`（`D-QVT1..7` → `D-QV1..7`） |
+| `P1-1` / `P1-2` / `P1-A` / `P2-3` / `P2-5` / `P2-7` / `P1#1`~`P1#5` / `P2#4` / `P2#5` 等 | `codex P1（一句话内容）` 或 `codex P2（一句话内容）`——必须带含义,不准裸编号 |
+| `I-1` / `I-2` / `I-3` / `I1` / `I2` | `codex 实施期 issue（一句话内容）` |
+| `M-1` | `codex major issue（一句话内容）`（与 milestone 编号 M1/M2/M3/M4/M5 区分,后者保留） |
+
+> codex review 输出的 issue 编号**含义浮在脑子里没写到 .md 里**,后续无法追溯。一律改写成「`codex P1/P2/实施期/major issue（X）`」形式,X 是 1-2 词描述。允许引用但必须带含义。
 
 ### B. 同义簇规范
 

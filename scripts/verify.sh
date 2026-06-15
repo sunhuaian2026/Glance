@@ -152,6 +152,16 @@ DEPRECATED_TERMS_ASCII=(
   'QV|快速看图器（代码符号场景用 QuickViewer*）'
   'SF|智能文件夹（代码符号场景用 SmartFolder）'
   'QVT|D-QV（QVT 已并入 D-QV 命名空间）'
+  'I1|codex 实施期 issue（一句话内容）'
+  'I2|codex 实施期 issue（一句话内容）'
+  'M-1|codex major issue（一句话内容）'
+)
+# 含特殊字符的弃用 pattern（直接 ERE，不加 boundary）
+DEPRECATED_TERMS_REGEX=(
+  # 「ERE pattern|改用建议」
+  'P[12]-[0-9A-Z]+|codex P1/P2（一句话内容）'
+  'P[12]#[0-9]+|codex P1/P2（一句话内容）'
+  'I-[0-9]+|codex 实施期 issue（一句话内容）'
 )
 DEPRECATED_TERMS_CN=(
   # 「中文词|改用建议」
@@ -165,11 +175,12 @@ DEPRECATED_TERMS_CN=(
   '类似图|相似图'
 )
 
-# staged 优先；没 staged 看 working-tree 未 stage 改动
-# 豁免 CONTEXT.md（字典本身列弃用词，规则不该误伤自己的来源文档）
+# 规则范围：**仅 staged 新增 .md 文件**（--diff-filter=A）。
+# 历史 .md 文件的 incremental 改动豁免（避免行级强约束导致"碰一行就强制清整行"）。
+# 字典核心目标 = 新写的文档不许用弃用词，老文档按字典「历史不主动返工」自然搁置。
+# 豁免 CONTEXT.md（字典本身列弃用词，规则不该误伤自己的来源文档）。
 TERM_TMP=$(mktemp)
-git diff --cached --no-color -U0 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
-[ ! -s "$TERM_TMP" ] && git diff --no-color -U0 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
+git diff --cached --diff-filter=A --no-color -U0 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
 
 if [ ! -s "$TERM_TMP" ]; then
   pass "术语字典：no .md changes — skip"
@@ -194,6 +205,11 @@ else
     WORD="${RULE%%|*}"
     SUGGEST="${RULE#*|}"
     check_term "(^|[^A-Za-z0-9_])${WORD}([^A-Za-z0-9_]|\$)" "$SUGGEST" "$WORD"
+  done
+  for RULE in "${DEPRECATED_TERMS_REGEX[@]}"; do
+    PAT="${RULE%%|*}"
+    SUGGEST="${RULE#*|}"
+    check_term "${PAT}" "$SUGGEST" "$PAT"
   done
   for RULE in "${DEPRECATED_TERMS_CN[@]}"; do
     WORD="${RULE%%|*}"
