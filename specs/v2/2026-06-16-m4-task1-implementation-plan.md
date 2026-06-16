@@ -1399,3 +1399,20 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 **Self-fix 轮次**：1（首次 build error: `DS.Color` no member `green` — enum DS 内嵌套 `enum Color` 截胡 `.green` 解析，加 `SwiftUI.Color` 全限定修复）
 
 **真机验项**：编译通过即代表本步落地；聚合查询正确性在步骤 3/4 UI 跑通后验
+
+### 步骤 3 — DuplicateOverviewModel 状态机 + bridge multicast observer 订阅，commit `<pending>`（2026-06-16）
+
+**改动文件**：`Glance/Dedup/DuplicateOverviewState.swift`（新增）+ `Glance/Dedup/DuplicateOverviewModel.swift`（新增）+ `CLAUDE.md`
+
+**实施摘要**：
+- DuplicateOverviewState enum（idle / loading[staleGroups] / loaded[groups] / error[message]）mirror SmartFolderState
+- DuplicateOverviewModel `@MainActor ObservableObject` 单一 `@Published private(set) var state` + placeholder/attach 装配模式
+- attach(indexStore:bridge:) 注册 bridge.addIndexChangedObserver token + observer closure 走 `Task { @MainActor in scheduleReload() }`（bridge `@MainActor` 已验证，保守 hop 防未来 bridge 去 @MainActor 化）
+- scheduleReload() DispatchWorkItem cancel + 重置实现 trailing debounce 500ms（DS.Dedup.reloadDebounceMillis）→ load()
+- load() loadGeneration counter 自增 → Task.detached fetchGroups → guard generation 一致才回写（两次并发 load 时旧结果丢弃，比 `if case .loading = state` 更精确）
+- fetchGroups / makeMember 显式 `nonisolated static`（@MainActor class 内 static 默认继承隔离会让 detached Task 调失败）
+- computed accessors（groups / isLoading / errorMessage / groupCount / totalReclaimableBytes）给 view 用，view 不直接 pattern match state
+
+**Self-fix 轮次**：1（首次 build error: "main actor-isolated static method 'fetchGroups(store:)' cannot be called from outside of the actor" → 给 fetchGroups + makeMember 加 `nonisolated` 修复）
+
+**真机验项**：本 commit 后 model 完整可调但无 UI 集成 — 编译通过即代表本步落地，model 行为验证延后到步骤 4 UI 集成后 4 路 fire 点（加 root / FSEvents / 删 root / 编辑图）→ debounce 500ms → grid 自动 reload 真机验

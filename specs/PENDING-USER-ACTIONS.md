@@ -27,6 +27,14 @@
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
 
+### V2 M4 任务 1 步骤 3 — DuplicateOverviewModel 状态机 + bridge observer 订阅
+
+> 本步是 model 层准备，无 UI 集成 — 编译通过即代表本步落地。Model 行为验证延后到步骤 4 UI 集成后。
+
+- [ ] (2026-06-16 / `<pending>`) **步骤 3 落地确认**：
+  1. `make build` 0 errors 0 warnings（编译通过 = DuplicateOverviewState / DuplicateOverviewModel 都被自动加入 PBXFileSystemSynchronizedRootGroup 编译目标）
+  2. Model 行为完整真机验在步骤 4 UI 集成后做（4 路 fire 点 → debounce 500ms → 自动 reload）
+
 ### V2 M4 任务 1 步骤 2 — 聚合查询 + DuplicateGroup record + DS.Dedup 常量
 
 > 本步是 DB 层 + 设计常量准备，无 UI 可感知 — 编译通过即代表本步落地。聚合查询正确性在步骤 3 Model 集成 + 步骤 4 UI 跑通后才能验。

@@ -137,7 +137,9 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── SmartFolderState.swift           ← V2 Slice I.3 状态机 enum（.idle / .loading / .loaded / .error）
     │   └── SmartFolderStore.swift           ← @MainActor ObservableObject 单一 @Published state（Slice I.3 重构）+ computed accessors 兼容旧 view 调用（selected/queryResult/isQuerying/lastError）+ stale-write guard 走 state pattern match
     └── Dedup/                       ← V2 M4 重复清理（去重省空间，回归初心闭环）
-        └── DuplicateGroup.swift              ← M4 任务 1 步骤 2：4 个值类型 record — DuplicateGroup（id=sha256 / canonical 保留张 / duplicates 副本数组 / reclaimableBytes 可省空间）+ DuplicateGroupMember（id / urlBookmark / relativePath / fileSize / fullPath / isCanonical — 不含 folderId 任务 2 才扩，codex P2-3 边界）+ DuplicateGroupRow（聚合查询返回行 sha256/memberCount/reclaimableBytes）+ DuplicateGroupMemberRow（成员明细查询返回行 id/dedupCanonical/fileSize/relativePath/urlBookmark/fullPath）
+        ├── DuplicateGroup.swift              ← M4 任务 1 步骤 2：4 个值类型 record — DuplicateGroup（id=sha256 / canonical 保留张 / duplicates 副本数组 / reclaimableBytes 可省空间）+ DuplicateGroupMember（id / urlBookmark / relativePath / fileSize / fullPath / isCanonical — 不含 folderId 任务 2 才扩）+ DuplicateGroupRow（聚合查询返回行 sha256/memberCount/reclaimableBytes）+ DuplicateGroupMemberRow（成员明细查询返回行 id/dedupCanonical/fileSize/relativePath/urlBookmark/fullPath）
+        ├── DuplicateOverviewState.swift      ← M4 任务 1 步骤 3：状态机 enum（idle / loading[staleGroups] / loaded[groups] / error[message]）mirror SmartFolderState
+        └── DuplicateOverviewModel.swift      ← M4 任务 1 步骤 3：@MainActor ObservableObject 单一 @Published state + placeholder()/attach(indexStore:bridge:) 装配 + load() Task.detached fetchGroups + generation counter stale-write guard + scheduleReload() DispatchWorkItem debounce 500ms + bridge.addIndexChangedObserver token（寿命跟 model 一致不持 detach）+ computed accessors（groups/isLoading/errorMessage/groupCount/totalReclaimableBytes）；private nonisolated static fetchGroups/makeMember 让 detached Task 可调（@MainActor class 内 static 默认继承隔离需显式 nonisolated）
 ```
 
 ---
