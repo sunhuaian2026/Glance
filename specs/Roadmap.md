@@ -376,6 +376,14 @@ V2 引入跨文件夹聚合（智能文件夹）+ 找回（搜索 + 类似图）
 - **合并出口**：`SearchService.compile(filterState:keyword:now:)` 单点合并 chip atoms + keyword 解析（全 AND，common filter 单点注入）；「今天」档因 `resolveRelativeTime` 无当日午夜 token，在 `SearchTimeBucket.startToken` 预计算本地午夜 ISO；`runSearch` early-exit 条件改「keyword 空 AND filterState 空」（chip-only 不被挡）。
 - **codex 两轮 review 抓 15 点已折入**：design 7（formatLabel 同源 / 今天预计算 / chip-only early-exit / common filter 单点 / popover ESC 两段 / 状态生命周期 / 「零改」诚实改成 3 处辅助改）+ plan 8（TimeBucket→SearchTimeBucket 避编译冲突 / 两 enum 加 Hashable / searchInput 不 promote @Binding 避 close-loop / 前向引用消除 / canonicalFormatLabels 补 TIFF·BMP / chip-only Enter / popover .onExitCommand / DS.Spacing.xxs→xs）。
 
+### M4 决策（2026-06-16 brainstorming + 四轮 codex review 收敛）
+
+- **D33 撤销 UI 升级 banner overlay**：ContentView 级 banner，跨视图持久（V1 folder / 智能文件夹 / 搜索 / 重复清理总览均可见），快速看图器在场期间不可见但状态保留，QV 关闭后回归。默认不自动消失（30s 或纯手动 dismiss）。未动 D30 决策骨架（无确认框 + 可撤销路径）只升级 UI 形态。
+- **D34 撤销回补 DB 走显式 contract，禁止依赖 FSEvents 时机**：首选 `IndexStore.restoreImageFromSnapshot(_:)` 新 API 同步返回 row id；降级 `FolderStoreIndexBridge.requestRescan(folderId:relativePath:) async throws -> Int64` 新 API 返回时 row 已恢复或明确失败禁 fire-and-forget。snapshot 走 `fetchSnapshotForRestore` 新 query SELECT 全列保真（IndexedImageSnapshot 值类型对齐 images 表 15 个非 PK 列）。
+- **D35 总览不是快照，订阅 bridge 多播 observer fan-out**：bridge 一次性架构升级 `addIndexChangedObserver` / `removeIndexChangedObserver` 替代原单播 `var onIndexChanged`，4 个 fire 点（孤儿清扫 / dedup full pass / dedup group / FSEvents handleEvents）改 `fireIndexChanged()` 调 dict.values 遍历 fan-out。**任务 1 步骤 1 prerequisite**：ContentView.swift L584 smartFolder 唯一既有 caller 同步迁移到 `addIndexChangedObserver`，DuplicateOverviewModel 作为第二 observer 在步骤 3 注册。Why: 单播 var 后注册覆盖前注册必断 V2 smartFolder 流量；`@StateObject` 模型长寿不 deinit 无法用 capture-old-callback 链式调用绕开。debounce 500ms 后 load() 由 DuplicateOverviewModel.scheduleReload 自持。
+- **任务拆分**：任务 1（只读总览，零删除，先建立信任）+ 任务 2（删除闭环，推迟到卷类型验证矩阵跑通后开放）。任务 1 内部 5 步骤实施：步骤 1 bridge 多播升级 / 步骤 2 SQL 聚合查询 + DS 常量 + DuplicateGroup record / 步骤 3 DuplicateOverviewModel 状态机 / 步骤 4 view + 侧边栏入口 + 五态互斥（V1 folder / 智能文件夹 / 临时结果 / 搜索 overlay / 重复清理总览）/ 步骤 5 /go 收尾。
+- **codex 四轮 review 抓 13 点已折入**：第一轮 4 P1 + 4 P2 + 2 P3（D33/D34/D35 新增 + API reality 纠正 + 边界 wording）；第二轮 3 P1 + 6 P2 + 1 P3（API reality mismatch：upsertImage 不存在改 restoreImageFromSnapshot / IndexedImage 字段不全引入 IndexedImageSnapshot / progress 路径不合法改 onIndexChanged hook）；第三轮 2 P1 + 2 P2（ownership 拍板 → bridge multicast 升级 + snapshot 字段补齐到 15 列）；第四轮 3 P2 + 1 P3（design 收敛进 writing-plans）。plan 阶段又 13 点（2 P1 + 5 P2 + 2 P3 + 五态互斥补全 = 4 轮）。
+
 ### OpenWith 方向 2 决策（2026-06-03 brainstorming + 三轮 codex review 收敛）
 
 完整设计见 `specs/2026-06-03-openwith-lightweight-viewer-design.md`（D-OW5~D-OW11 + "为什么没有 SwiftUI 原生捷径"），实施 plan + codex 折入记录见 `specs/2026-06-03-openwith-lightweight-viewer-plan.md`。下面是 Roadmap 级索引。
