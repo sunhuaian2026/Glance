@@ -1400,7 +1400,7 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 
 **真机验项**：编译通过即代表本步落地；聚合查询正确性在步骤 3/4 UI 跑通后验
 
-### 步骤 3 — DuplicateOverviewModel 状态机 + bridge multicast observer 订阅，commit `<pending>`（2026-06-16）
+### 步骤 3 — DuplicateOverviewModel 状态机 + bridge multicast observer 订阅，commit `989d5cb`（2026-06-16）
 
 **改动文件**：`Glance/Dedup/DuplicateOverviewState.swift`（新增）+ `Glance/Dedup/DuplicateOverviewModel.swift`（新增）+ `CLAUDE.md`
 

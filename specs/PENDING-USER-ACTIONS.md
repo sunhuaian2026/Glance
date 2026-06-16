@@ -31,9 +31,10 @@
 
 > 本步是 model 层准备，无 UI 集成 — 编译通过即代表本步落地。Model 行为验证延后到步骤 4 UI 集成后。
 
-- [ ] (2026-06-16 / `<pending>`) **步骤 3 落地确认**：
+- [ ] (2026-06-16 / `989d5cb`) **步骤 3 落地确认**：
   1. `make build` 0 errors 0 warnings（编译通过 = DuplicateOverviewState / DuplicateOverviewModel 都被自动加入 PBXFileSystemSynchronizedRootGroup 编译目标）
   2. Model 行为完整真机验在步骤 4 UI 集成后做（4 路 fire 点 → debounce 500ms → 自动 reload）
+  3. **步骤 4 真机验顺手观察**（codex P2 提示的 N+1 query race）：FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看看有没有"某组短暂显示前一保留张"瞬态错配（500ms debounce 后应自动修正）；若长期错配再考虑改全包大事务
 
 ### V2 M4 任务 1 步骤 2 — 聚合查询 + DuplicateGroup record + DS.Dedup 常量
 
