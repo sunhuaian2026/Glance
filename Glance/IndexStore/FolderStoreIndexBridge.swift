@@ -53,9 +53,11 @@ final class FolderStoreIndexBridge: ObservableObject {
         indexChangedObservers.removeValue(forKey: token)
     }
 
-    /// fire 帮助函数：dict.values 遍历 fan-out 调所有 observer（顺序非确定，observer 间应独立）。
+    /// fire 帮助函数：snapshot 后遍历 fan-out 调所有 observer（顺序非确定，observer 间应独立）。
+    /// snapshot：observer 回调里若调 removeIndexChangedObserver 会边遍历边改集合，先复制 values 防 trap。
     private func fireIndexChanged() {
-        for observer in indexChangedObservers.values {
+        let snapshot = Array(indexChangedObservers.values)
+        for observer in snapshot {
             observer()
         }
     }
