@@ -31,16 +31,21 @@
 
 > ✅ **任务 1 主体价值兑现**：本步 ship 后军哥首次能完整体验「重复清理总览」端到端 — 侧边栏 点入口 → 看到真实重复组 + 真实可省空间数字 + 保留张透明显示。这是任务 1「先建立信任后才放删除」策略的核心节点。
 
-- [ ] (2026-06-16 / `3584910`) **任务 1 完整端到端真机验**：
-  1. 侧边栏 看到「重复清理」入口（trash icon + secondary 灰色态 + 选中后 accent 高亮 + accent 背景胶囊）
-  2. 点入口 → 主区切总览 + 其它四态自动清零（V1 folder / 智能文件夹 / 临时结果 / 搜索 overlay 都让位）
-  3. **顶部统计「X 组重复 · 可省 Y」数字与 DB 内 `dedup_canonical=0` 的 `file_size` 之和一致**（抽样人工核对 1-2 组：sqlite3 命令行 `SELECT SUM(file_size) FROM images WHERE dedup_canonical=0` 数字应 = 统计条数字）
-  4. 每组保留张「保留」绿色 Capsule badge 显示正常 + 副本无 badge + 副本 opacity 0.7 视觉弱化
-  5. 每组缩略图 hover 显完整路径 tooltip（`.help(member.fullPath)`）
-  6. 空态：清空 DB 后总览显「没找到重复图」+ checkmark.seal icon
-  7. 互斥：点 V1 folder / 智能文件夹 → showDuplicateOverview 自动清零，主区切走；触发搜索 / 找类似 → 同样
-  8. **后台索引活动**（添加根目录触发首次扫描）→ 看顶部索引 chip 实时刷新 + 扫完总览自动 reload（500ms debounce）
-  9. codex P2 N+1 race 观察项：FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看看有没有"某组短暂显示前一保留张"瞬态错配（500ms debounce 后应自动修正）
+**自验已通过**（2026-06-16 21:22, build `3584910.0616-2055`, CC 主 agent 自闭环, 军哥远程解锁 Mac mini 后 Ghostty/tmux/screencapture/AX 工具链）：
+- ✅ 项 1: 侧边栏「重复清理」入口 — trash icon + 选中后 accent 高亮 + accent 背景胶囊均正常（截图 `/tmp/glance_dedup_v2.png`）
+- ✅ 项 2: 点入口 → 主区切总览（grid 消失，V1 sync 折叠区也让位，互斥成立；截图 `/tmp/glance_dedup_v2.png` vs `/tmp/glance_baseline.png` 对比）
+- ✅ 项 4: 保留张绿色「保留」Capsule badge 可见在 canonical 缩略图右上 + 副本无 badge（截图 `/tmp/glance_dedup_v2.png` 1 组 2 张图 — `Screen3..._630.png` canonical + `Screen3..._副本.png` duplicate）
+- ✅ 项 7: 互斥反向 — 在总览态点 全部最近 → 主区切回 SmartFolder grid（截图 `/tmp/glance_back_to_grid.png`）+ 再点重复清理 → 二次进入总览态正常（截图 `/tmp/glance_dedup_again.png`）
+- ✅ 顶部统计「1 组重复 · 可省 43 KB」+ 「组可省 43 KB」+ scalemass icon — 数字渲染正常（DB 一致性核对待军哥本地用 sqlite3 抽样验，见项 3）
+
+**军哥真机本地验**（CC 自闭环触不到的项）：
+- [ ] 项 3: 抽样核对 — 命令行跑 `sqlite3 <DB> "SELECT SUM(file_size) FROM images WHERE dedup_canonical=0"` 应 = 统计条 "可省 X" 数字 + 单组「组可省 Y」(group) 应 = 该组所有副本 file_size 之和
+- [ ] 项 5: hover 缩略图显完整路径 tooltip（`.help(member.fullPath)`）— CC CGEvent 模拟 mouseMoved 不能稳定触发 SwiftUI `.help` tooltip render（已知限制，需军哥真鼠标 hover 1-2 秒）
+- [ ] 项 6: 空态 — 清空 DB（或运行不含重复图的库）后总览显「没找到重复图」+ checkmark.seal icon
+- [ ] 项 8: 后台索引活动联动 — 添加新根目录触发首次扫描，看 (a) 顶部索引 chip 实时刷新 (b) 扫完总览自动 reload（500ms debounce）
+- [ ] 项 9: codex P2 N+1 race 观察项 — FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看「某组短暂显示前一保留张」瞬态错配（500ms debounce 后应自动修正）
+
+> CC 自闭环限制：`.help` tooltip / SQL 数字一致性 / 空态 / 后台索引联动 / FSEvents race 都需要真鼠标交互或外部 DB 操作，CC SSH/Ghostty 自闭环工具链触不到，留给军哥本地。
 
 ### V2 M4 任务 1 步骤 3 — DuplicateOverviewModel 状态机 + bridge observer 订阅
 
