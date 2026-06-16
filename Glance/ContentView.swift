@@ -579,11 +579,18 @@ struct ContentView: View {
         let engine = SmartFolderEngine(store: store)
         smartFolderStore.attach(engine: engine)
         let bridge = FolderStoreIndexBridge(indexStore: store)
-        // Slice G.2 — FSEvents 派发的索引更新（add/remove/modify）触发 grid 重 query
+        // M4 D35 — bridge.onIndexChanged 单播 var 升级为 indexChangedObservers UUID dict
+        // 多播容器（M4 task 1 prerequisite）。smartFolder observer 是历史第一注册者，
+        // M4 任务 1 后将加 DuplicateOverviewModel 作为第二 observer。
+        // token 寿命：当前 wireIfReady 由 didWire 标志保证只 wire 一次，bridge 由
+        // @State indexBridge 持有寿命跟 ContentView 一致，smartFolder observer
+        // 永远在线即合理 → 暂忽略 token。未来若 ContentView 重建场景出现需要 detach，
+        // 再加 token 持久化到 @State 并按 token 调 bridge.removeIndexChangedObserver。
         let storeRef = smartFolderStore  // class 引用 capture 安全
-        bridge.onIndexChanged = {
+        let smartFolderObserverToken = bridge.addIndexChangedObserver {
             Task { await storeRef.refreshSelected() }
         }
+        _ = smartFolderObserverToken
         // Slice I.1 — 扫描进度推到 IndexStoreHolder 让 ContentView overlay 显示
         let holderRef = indexStoreHolder
         bridge.onScanProgress = { progress in

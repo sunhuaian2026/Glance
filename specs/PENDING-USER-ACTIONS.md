@@ -27,6 +27,17 @@
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
 
+### V2 M4 任务 1 步骤 1 — bridge 多播架构升级（智能文件夹自动刷新等价回归验证）
+
+> 本步纯 refactor（D35 prerequisite），不引入新功能也不破坏现有功能。验证 4 路 fire 点等价即可。任务 1 完整闭环（侧边栏入口 + 主区总览 + 真实数据）在步骤 4 完成后才能感知，步骤 1 单独无 UI 改动。
+
+- [ ] (2026-06-16 / `<pending>`) **bridge 多播 — 智能文件夹自动刷新**：
+  1. 添加根目录 → 等首次扫描完 → 智能文件夹「全部最近」grid 自动出现新图（fire 点：dedup full pass 完成）
+  2. 文件夹外部 Finder 新增 / 删除 / 改名图 → 智能文件夹 grid 自动反映（fire 点：FSEvents handleEvents）
+  3. 删根目录 → 智能文件夹 grid 里该根的图被清（fire 点：孤儿清扫）
+  4. 编辑某图（变 file_size 或 sha256）→ 智能文件夹 grid 自动刷新（fire 点：dedup group 重决议）
+  - 若任一路径行为退化（grid 不刷新或残留 stale）→ 回查 `FolderStoreIndexBridge.fireIndexChanged()` 实现 + ContentView `bridge.addIndexChangedObserver` 注册点
+
 ### QV toolbar 小图全屏放大（backlog，与 Slice 1/2 解耦）
 
 > Slice 1（9 项 2026-06-08 真机验过）+ Slice 2（6 项 2026-06-15 + inheritedMain 1 项 2026-06-09 真机验过）全部搬 Done。本节单独留唯一未做的 backlog 项需重做。Slice 3（边界硬化）未启动。

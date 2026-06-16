@@ -115,7 +115,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── FSEvent.swift                    ← V2 Slice G FSEvents 单 event record struct（path + flags + isFile/isCreated/isRemoved/... computed flags）
     │   ├── FSEventsWatcher.swift            ← V2 Slice G FSEvents Swift wrapper（CoreServices FSEventStreamCreate / 每 root 一 stream / file-level events / defaultLatency 1s static let）
     │   ├── IndexStoreHolder.swift           ← 异步 init holder（@Published store + isReady Bool 让 .onChange 可观察）+ Slice I.1/I.2 progress / lastError / cancelCurrentScan 钩子
-    │   └── FolderStoreIndexBridge.swift     ← rootFolders diff → registerRoot/deleteRoot + 启动 FolderScanner + Slice G.2/3 watcher lifecycle + handle Created/Removed/Modified/Renamed events + Slice H dedup hooks + Slice I.1/I.2 progress 回调 / cancel 转发 / error 回调 + scan resume from cursor；sync(with:managedRootPaths:) 移除段 DB+bookmark 权威对账（Guard B：删 DB 里不在 managedRootPaths 的 root，不用异步滞后的 rootFolders 防启动瞬态误删整库）+ 孤儿清扫
+    │   └── FolderStoreIndexBridge.swift     ← rootFolders diff → registerRoot/deleteRoot + 启动 FolderScanner + Slice G.2/3 watcher lifecycle + handle Created/Removed/Modified/Renamed events + Slice H dedup hooks + Slice I.1/I.2 progress 回调 / cancel 转发 / error 回调 + scan resume from cursor；sync(with:managedRootPaths:) 移除段 DB+bookmark 权威对账（Guard B：删 DB 里不在 managedRootPaths 的 root，不用异步滞后的 rootFolders 防启动瞬态误删整库）+ 孤儿清扫。**M4 D35（任务 1 步骤 1）**：`var onIndexChanged: (() -> Void)?` 单播变量升级为 `indexChangedObservers: [UUID: () -> Void]` 多播 dict + `addIndexChangedObserver(_:) -> UUID` / `removeIndexChangedObserver(_:)` API + 私有 `fireIndexChanged()` 帮助函数遍历 dict 调所有 observer；4 个 fire 点（孤儿清扫 / dedup full pass / dedup group / FSEvents handleEvents）统一改 `fireIndexChanged()` 调用。Why: M4 任务 1 加 DuplicateOverviewModel 作为第二 observer，单播 var 后注册覆盖前注册必断 V2 smartFolder 流量
     ├── Similarity/                  ← V2 M2 类似图查找（feature print + Vision）
     │   ├── SimilarityService.swift           ← Vision VNFeaturePrintObservation 包装 + computeDistance batch top-N
     │   ├── FeaturePrintIndexer.swift          ← 后台 fp 索引 pipeline（batch 50 + cancel + enqueueIfNeeded）
@@ -196,6 +196,25 @@ git commit 前的强制 checklist，逐条检查，全部通过才能提交：
 | 架构或交互逻辑变化 | `specs/Roadmap.md` 关键架构决策 |
 
 **判断标准：任何让"下一个 session 读文档会产生误解"的变更，都必须同步更新文档。**
+
+## 实施期沟通节流（plan 已过 codex review + 军哥拍板后）
+
+**默认行为：plan 进实施后小问题不停手，按既定流程开发 / 自测 / review 一路走完，不每步汇报。**
+
+**只有以下三类情况才必须停下来同步军哥**（其它一律继续）：
+
+1. **架构层面冲突** — 撞到 plan / design / CONTEXT.md 决策没覆盖的真实架构分叉（如新发现既有 API 不支持、跨模块 ownership 拍不下、并发模型边界变化），不是局部命名或细节调整
+2. **数据层面风险** — 牵涉 DB schema / 持久化字段 / 用户文件 / bookmark / 沙盒 scope 等不可逆数据变更，或发现 plan SQL / 数据模型与现状不符
+3. **plan 明显违反军哥既定原则** — 撞到 CLAUDE.md 全局 / 项目原则（如改动 scope 蠕变、删数据、改 .env、起常驻进程、push --force、跨术语字典裸用英文）
+
+**继续做不停的小问题示例**：变量命名调整 / 局部 SwiftUI modifier 顺序 / 小幅 layout 像素调 / 注释补充 / 一次性 fix typo / 单 step 内 self-fix 编译错 ≤2 轮 / DS 常量数值微调 / verify.sh 红→修→重跑（5 轮内）/ 一个 cell 的 hover tooltip 文案 / 步骤内的 commit message 措辞 / 文档同步细节。
+
+**既定流程（已落 CLAUDE.md 各段，实施期照走）**：
+- 步骤 N 实施 → 步骤 N self-review → 步骤 N `/go` 五步收尾（verify.sh 三段 + 文档同步 + PENDING + commit + push 触发 codex pre-push hook）→ 进步骤 N+1
+- 每步 commit 后军哥不主动催就继续推下一步，不用每步停下来汇报
+- 步骤全部 commit + push 完毕 → 一段话汇报任务整体情况 + PENDING 真机验项给军哥
+
+Why: 之前每个小问题都停下来问会拖慢实施节奏（plan 已经走过 4 轮 codex review + 军哥拍板，足够细到不需要再二次确认每个细节）；同时三类例外的红线足以兜住"我自作主张闯祸"风险。同型沉淀对应全局「指令解析 scope 永不扩张」+ 「改动 scope 必须锁死」两条 — 那两条管"边界蠕变"，本条管"已授权范围内沟通频率"。
 
 ## 验证与 Review 规范
 

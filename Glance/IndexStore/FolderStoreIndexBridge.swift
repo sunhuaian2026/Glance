@@ -32,9 +32,33 @@ final class FolderStoreIndexBridge: ObservableObject {
         self.featurePrintIndexer = indexer
     }
 
-    /// Slice G.2 — 当 FSEvents 派发的 events 更新了 IndexStore 后调用此 closure，
-    /// 让 caller (ContentView) 触发 smartFolderStore.refreshSelected() 刷 grid。
-    var onIndexChanged: (() -> Void)? = nil
+    /// M4 D35 — index changed 多播 observer 容器（单播 var onIndexChanged 升级为
+    /// UUID dict 多播）。Slice G.2 起 smartFolderStore.refreshSelected() 是唯一 observer；
+    /// M4 任务 1 加 DuplicateOverviewModel 作为第二 observer 跟踪后台索引活动。
+    /// 单播 `var onIndexChanged` 在多 observer 场景下后注册覆盖前注册 → 必须升级多播。
+    /// @StateObject model 长寿不 deinit 无法用 capture-old-callback 链式调用绕开。
+    private var indexChangedObservers: [UUID: () -> Void] = [:]
+
+    /// 注册 index changed observer。返回 token，调用方持有（model 寿命 = app 寿命场景下
+    /// 可 `_ = token` 忽略，未来 ContentView 重建场景需 detach 时按 token 调 remove）。
+    @discardableResult
+    func addIndexChangedObserver(_ observer: @escaping () -> Void) -> UUID {
+        let token = UUID()
+        indexChangedObservers[token] = observer
+        return token
+    }
+
+    /// 按 token 移除 observer（M4 task 1 范围内未调用；预留供未来 ContentView 重建 detach 用）。
+    func removeIndexChangedObserver(_ token: UUID) {
+        indexChangedObservers.removeValue(forKey: token)
+    }
+
+    /// fire 帮助函数：dict.values 遍历 fan-out 调所有 observer（顺序非确定，observer 间应独立）。
+    private func fireIndexChanged() {
+        for observer in indexChangedObservers.values {
+            observer()
+        }
+    }
 
     /// Slice I.1 — 当首次扫描进度更新时调用，让 caller 把进度推到 UI（IndexStoreHolder
     /// .progress）。nil = 扫描结束或未开始 → 隐藏 progress chip。
@@ -84,7 +108,7 @@ final class FolderStoreIndexBridge: ObservableObject {
         // 现行 FK ON 正常不产生孤儿；deleteRoot CASCADE 已清掉刚删 root 的 image，此处只兜历史遗留。
         if let orphans = try? indexStore.deleteOrphanImages(), orphans > 0 {
             print("[IndexStore] swept \(orphans) orphan image(s)")
-            onIndexChanged?()
+            fireIndexChanged()
         }
     }
 
@@ -189,7 +213,7 @@ final class FolderStoreIndexBridge: ObservableObject {
         Task.detached(priority: .utility) { [weak self] in
             DedupPass.runFullPass(store: store)
             await MainActor.run { [weak self] in
-                self?.onIndexChanged?()
+                self?.fireIndexChanged()
             }
         }
     }
@@ -199,7 +223,7 @@ final class FolderStoreIndexBridge: ObservableObject {
         Task.detached(priority: .utility) { [weak self] in
             DedupPass.reEvaluateGroup(store: store, fileSize: fileSize, format: format)
             await MainActor.run { [weak self] in
-                self?.onIndexChanged?()
+                self?.fireIndexChanged()
             }
         }
     }
@@ -217,7 +241,7 @@ final class FolderStoreIndexBridge: ObservableObject {
         watchers[folderId] = watcher
     }
 
-    /// FSEvents callback 主路由（MainActor 上）。每 batch 处理完调一次 onIndexChanged 触发 UI 刷新。
+    /// FSEvents callback 主路由（MainActor 上）。每 batch 处理完调一次 fireIndexChanged 触发 UI 刷新。
     /// Slice G.2 处理 Created；G.3 加 Removed + Modified + Renamed。
     /// Renamed 拆解为 delete old + insert new（按文件 exists 与否区分），实现"决策 4：rename
     /// = 不追踪 inode"。InodeMetaMod（permissions / chown 等无内容变化）跳过。
@@ -242,7 +266,7 @@ final class FolderStoreIndexBridge: ObservableObject {
             }
             // isInodeMetaMod 不影响图像内容 / dimensions，跳过
         }
-        if changed { onIndexChanged?() }
+        if changed { fireIndexChanged() }
     }
 
     /// FSEvents 派发的 Created event 通常在文件落盘瞬间触发；小概率元数据未稳定 → 此时
