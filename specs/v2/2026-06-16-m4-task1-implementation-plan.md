@@ -1365,3 +1365,37 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 按军哥规则：**plan 定稿后先过 codex review，再交军哥拍板**。本 plan 暂不执行实施，下一步走 codex:rescue 独立 review 找架构 / 步骤拆分 / API reality 盲点（吸取前 3 轮 design review reality miss 教训）。
 
 军哥拍板后再选执行路径（superpowers:subagent-driven-development 推荐 / superpowers:executing-plans）。
+
+---
+
+## 实施记录（commit 落地后追加，mirror Slice J 完成详细 pattern）
+
+### 步骤 1 — bridge 多播架构升级（D35 prerequisite），commit `5b77249`（2026-06-16）
+
+**改动文件**：`Glance/IndexStore/FolderStoreIndexBridge.swift` + `Glance/ContentView.swift` + `CLAUDE.md` + `specs/Roadmap.md` + `specs/PENDING-USER-ACTIONS.md`
+
+**实施摘要**：
+- bridge `var onIndexChanged: (() -> Void)?` 单播变量删除 → `indexChangedObservers: [UUID: () -> Void]` 多播 dict + `addIndexChangedObserver(_:) -> UUID` / `removeIndexChangedObserver(_:)` / 私有 `fireIndexChanged()`（snapshot before fan-out 防御）三 API
+- 4 个 fire 点（孤儿清扫 :87 → :111 / dedup full pass :192 → :216 / dedup group :202 → :226 / FSEvents handleEvents :245 → :269）统一改 `fireIndexChanged()`
+- ContentView.swift L584 唯一 caller 迁移到 `addIndexChangedObserver`，token 寿命依赖说明落注释
+
+**Self-fix 轮次**：0（首次 build 即 SUCCEEDED）
+
+**codex pre-push 折入**：第一轮 P1 (Roadmap 未同步) → 补 M4 决策段 D33/D34/D35（commit `0c8f561`）；第二轮 P2 (fan-out snapshot) → 顺手折入（commit `5b77249`）；第三轮 docs-only skip
+
+**真机验项**（PENDING 已加）：4 路 fire 点等价回归（加 root / FSEvents 增删改 / 删 root / 编辑图 → 智能文件夹 grid 自动刷新）
+
+### 步骤 2 — fetchDuplicateGroups 聚合查询 + DuplicateGroup record + DS.Dedup 常量，commit `<pending>`（2026-06-16）
+
+**改动文件**：`Glance/Dedup/DuplicateGroup.swift`（新增）+ `Glance/IndexStore/IndexedImage.swift` + `Glance/DesignSystem.swift` + `CLAUDE.md` + `specs/PENDING-USER-ACTIONS.md`
+
+**实施摘要**：
+- 新建 `Glance/Dedup/` 目录 + `DuplicateGroup.swift`：4 个值类型 record（DuplicateGroup / DuplicateGroupMember / DuplicateGroupRow / DuplicateGroupMemberRow），任务 1 边界严格遵守不含 `folderId`
+- IndexedImage.swift extension 加 2 个查询方法（mirror `fetchCandidateGroups:310` + `fetchImagesInGroup:327` 裸 sqlite3 C API + `try sync { db in ... }` + `try checkBind` 模式）：
+  - `fetchDuplicateGroups()`: HAVING SUM(dedup_canonical=0)>0 + ORDER BY reclaimable_bytes DESC
+  - `fetchDuplicateGroupMembers(sha256:)`: dedup_canonical DESC 保留张排第一 + JOIN folders 拼 full_path
+- DesignSystem.swift 加 `enum Dedup`：8 个常量（reloadDebounceMillis=500 / groupRowSpacing=DS.Spacing.lg / groupCellThumbnailSize=96 / groupCellThumbnailMaxPixel: Int = 192 对齐 loadThumbnail / canonicalBadgeColor: SwiftUI.Color = .green / statsBarFont / emptyStateFont / duplicateThumbnailOpacity=0.7）
+
+**Self-fix 轮次**：1（首次 build error: `DS.Color` no member `green` — enum DS 内嵌套 `enum Color` 截胡 `.green` 解析，加 `SwiftUI.Color` 全限定修复）
+
+**真机验项**：编译通过即代表本步落地；聚合查询正确性在步骤 3/4 UI 跑通后验
