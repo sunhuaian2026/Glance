@@ -12,6 +12,11 @@ import SwiftUI
 struct SmartFolderListView: View {
 
     @EnvironmentObject var smartFolderStore: SmartFolderStore
+    /// M4 任务 1 — 重复清理入口选中态(ContentView 持 showDuplicateOverview 是唯一权威，
+    /// 选中态不放 model 避免状态漂移)。
+    let isDuplicateOverviewSelected: Bool
+    /// M4 任务 1 — 入口点击 callback。ContentView 持 showDuplicateOverview 控制实际切换。
+    let onSelectDuplicates: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -25,7 +30,33 @@ struct SmartFolderListView: View {
                     Task { await smartFolderStore.select(folder) }
                 }
             }
+            DuplicateCleanupRow(
+                isSelected: isDuplicateOverviewSelected
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onSelectDuplicates()
+            }
         }
+    }
+}
+
+private struct DuplicateCleanupRow: View {
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            Image(systemName: DS.Icon.trash)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            Text("重复清理")
+                .font(.body)
+                .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.85))
+            Spacer()
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.xs)
+        .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
     }
 }
 

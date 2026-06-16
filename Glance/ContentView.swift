@@ -111,6 +111,10 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var indexStoreHolder: IndexStoreHolder
     @StateObject private var smartFolderStore = SmartFolderStore.placeholder()
+    /// M4 任务 1 — 重复清理总览 model(mirror smartFolderStore placeholder/attach 模式)
+    @StateObject private var duplicateOverviewModel = DuplicateOverviewModel.placeholder()
+    /// M4 任务 1 — 是否切换到重复清理总览(五态互斥的第五态)
+    @State private var showDuplicateOverview: Bool = false
     @State private var indexBridge: FolderStoreIndexBridge?
     @State private var didWire: Bool = false
     /// V2 mode 下 preview / QuickViewer 的图片源（cell 单击/双击时从 queryResult 重建）。
@@ -152,7 +156,12 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 0) {
-                SmartFolderListView()
+                SmartFolderListView(
+                    isDuplicateOverviewSelected: showDuplicateOverview,
+                    onSelectDuplicates: {
+                        showDuplicateOverview = true
+                    }
+                )
                     .padding(.top, DS.Spacing.sm)
                     .padding(.horizontal, DS.Spacing.xs)
 
@@ -227,6 +236,7 @@ struct ContentView: View {
                 }
             }
             .environmentObject(smartFolderStore)
+            .environmentObject(duplicateOverviewModel)
         }
         // QV 已迁到独立 NSWindow（MainQuickViewerWindowController）。退出路由由 controller
         // 经 onDismiss(reason, entry) 回调到 handleQVDismiss 仲裁，不再走 .overlay + onChange。
@@ -285,16 +295,39 @@ struct ContentView: View {
             Task { await bridge.sync(with: newRoots, managedRootPaths: managed) }
         }
         // V2 selection 互斥：smart folder 选中 → 清 V1；反之亦然
+        // M4 任务 1 — 五态互斥扩展（V1 folder / 智能文件夹 / 临时结果 / 搜索 overlay / 重复清理总览）
         .onChange(of: folderStore.selectedFolder) { _, newFolder in
-            if newFolder != nil && smartFolderStore.selected != nil {
-                Task { await smartFolderStore.select(nil) }
+            if newFolder != nil {
+                if smartFolderStore.selected != nil {
+                    Task { await smartFolderStore.select(nil) }
+                }
+                showDuplicateOverview = false  // M4
             }
         }
         .onChange(of: smartFolderStore.selected) { _, newSF in
-            if newSF != nil && folderStore.selectedFolder != nil {
+            if newSF != nil {
+                if folderStore.selectedFolder != nil {
+                    folderStore.selectedFolder = nil
+                    folderStore.images = []
+                    folderStore.selectedImageIndex = nil
+                }
+                showDuplicateOverview = false  // M4
+            }
+        }
+        .onChange(of: showDuplicateOverview) { _, newValue in
+            if newValue {
+                // M4 任务 1 — 进入总览：清其它四态(V1 folder / 智能文件夹 / 临时结果 / 搜索 overlay)
+                if smartFolderStore.selected != nil {
+                    Task { await smartFolderStore.select(nil) }
+                }
                 folderStore.selectedFolder = nil
                 folderStore.images = []
                 folderStore.selectedImageIndex = nil
+                currentEphemeral = nil
+                showSearchOverlay = false  // M4：搜索 overlay 与总览互斥
+                // 主动 trigger load —— load 唯一 owner(删 DuplicateOverviewView.onAppear 触发,
+                // 避免与 model.scheduleReload 并发 stale-write)
+                Task { await duplicateOverviewModel.load() }
             }
         }
         // D15 终态：删除原 ContentView 兜底 ESC 状态机。子 view 各自持 ESC handler
@@ -312,7 +345,10 @@ struct ContentView: View {
     @ViewBuilder
     private var mainContent: some View {
         ZStack(alignment: .top) {
-            if let req = currentEphemeral {
+            if showDuplicateOverview {
+                // M4 任务 1 — 重复清理总览(五态互斥最优先分支)
+                DuplicateOverviewView()
+            } else if let req = currentEphemeral {
                 EphemeralResultView(
                     title: req.title,
                     urls: req.urls,
@@ -579,9 +615,12 @@ struct ContentView: View {
         let engine = SmartFolderEngine(store: store)
         smartFolderStore.attach(engine: engine)
         let bridge = FolderStoreIndexBridge(indexStore: store)
+        // M4 任务 1 — 把 indexStore + bridge 装配给 dup overview model(mirror smartFolderStore.attach)
+        // 顺序：dup.attach 在 smartFolder observer 注册之前(多播容器无顺序依赖,按 plan 顺序方便阅读)
+        duplicateOverviewModel.attach(indexStore: store, bridge: bridge)
         // M4 D35 — bridge.onIndexChanged 单播 var 升级为 indexChangedObservers UUID dict
         // 多播容器（M4 task 1 prerequisite）。smartFolder observer 是历史第一注册者，
-        // M4 任务 1 后将加 DuplicateOverviewModel 作为第二 observer。
+        // DuplicateOverviewModel 是上方刚注册的第二 observer。
         // token 寿命：当前 wireIfReady 由 didWire 标志保证只 wire 一次，bridge 由
         // @State indexBridge 持有寿命跟 ContentView 一致，smartFolder observer
         // 永远在线即合理 → 暂忽略 token。未来若 ContentView 重建场景出现需要 detach，
@@ -694,6 +733,7 @@ struct ContentView: View {
 
             await MainActor.run {
                 self.currentEphemeral = .similar(sourceUrl: sourceUrl, results: urls, banner: banner)
+                showDuplicateOverview = false  // M4：进入临时结果(找相似)时清重复清理总览态
                 // 修复 2：清 selectedImageIndex 防止 QV 关闭后 previewOverlay 渲染条件成立，
                 // preview 弹回压在 ephemeral 上方（Scenario 1 根因）。
                 // QV 已由 controller close(.findSimilar) 关闭（本函数经 onDismiss 触发），不再自关。
@@ -743,6 +783,7 @@ struct ContentView: View {
         // `currentEphemeral != nil` 条件误切到 stale v2Urls（codex 二审 Q3，必须无条件、不能嵌 if）。
         folderStore.selectedImageIndex = nil
         showSearchOverlay = true
+        showDuplicateOverview = false  // M4：开搜索 overlay 时清重复清理总览态
         // 初始化空 query 的 ephemeral 让 EphemeralResultView 显示 hint 空态文案
         currentEphemeral = .search(query: "", images: [], urls: [])
         searchFilterState = SearchFilterState()   // D27：进入即空白

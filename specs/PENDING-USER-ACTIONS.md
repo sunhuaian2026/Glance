@@ -27,6 +27,21 @@
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
 
+### V2 M4 任务 1 步骤 4 — DuplicateOverviewView + 侧边栏「重复清理」入口 + 五态互斥（任务 1 完整端到端）
+
+> ✅ **任务 1 主体价值兑现**：本步 ship 后军哥首次能完整体验「重复清理总览」端到端 — 侧边栏 点入口 → 看到真实重复组 + 真实可省空间数字 + 保留张透明显示。这是任务 1「先建立信任后才放删除」策略的核心节点。
+
+- [ ] (2026-06-16 / `<pending>`) **任务 1 完整端到端真机验**：
+  1. 侧边栏 看到「重复清理」入口（trash icon + secondary 灰色态 + 选中后 accent 高亮 + accent 背景胶囊）
+  2. 点入口 → 主区切总览 + 其它四态自动清零（V1 folder / 智能文件夹 / 临时结果 / 搜索 overlay 都让位）
+  3. **顶部统计「X 组重复 · 可省 Y」数字与 DB 内 `dedup_canonical=0` 的 `file_size` 之和一致**（抽样人工核对 1-2 组：sqlite3 命令行 `SELECT SUM(file_size) FROM images WHERE dedup_canonical=0` 数字应 = 统计条数字）
+  4. 每组保留张「保留」绿色 Capsule badge 显示正常 + 副本无 badge + 副本 opacity 0.7 视觉弱化
+  5. 每组缩略图 hover 显完整路径 tooltip（`.help(member.fullPath)`）
+  6. 空态：清空 DB 后总览显「没找到重复图」+ checkmark.seal icon
+  7. 互斥：点 V1 folder / 智能文件夹 → showDuplicateOverview 自动清零，主区切走；触发搜索 / 找类似 → 同样
+  8. **后台索引活动**（添加根目录触发首次扫描）→ 看顶部索引 chip 实时刷新 + 扫完总览自动 reload（500ms debounce）
+  9. codex P2 N+1 race 观察项：FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看看有没有"某组短暂显示前一保留张"瞬态错配（500ms debounce 后应自动修正）
+
 ### V2 M4 任务 1 步骤 3 — DuplicateOverviewModel 状态机 + bridge observer 订阅
 
 > 本步是 model 层准备，无 UI 集成 — 编译通过即代表本步落地。Model 行为验证延后到步骤 4 UI 集成后。

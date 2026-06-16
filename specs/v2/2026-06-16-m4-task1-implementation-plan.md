@@ -1416,3 +1416,21 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 **Self-fix 轮次**：1（首次 build error: "main actor-isolated static method 'fetchGroups(store:)' cannot be called from outside of the actor" → 给 fetchGroups + makeMember 加 `nonisolated` 修复）
 
 **真机验项**：本 commit 后 model 完整可调但无 UI 集成 — 编译通过即代表本步落地，model 行为验证延后到步骤 4 UI 集成后 4 路 fire 点（加 root / FSEvents / 删 root / 编辑图）→ debounce 500ms → grid 自动 reload 真机验
+
+### 步骤 4 — DuplicateOverviewView + 侧边栏「重复清理」入口 + ContentView 五态互斥，commit `<pending>`（2026-06-16）
+
+**改动文件**：`Glance/Dedup/DuplicateOverviewView.swift`（新增）+ `Glance/FolderBrowser/SmartFolderListView.swift` + `Glance/ContentView.swift` + `CLAUDE.md` + `specs/Roadmap.md` + `specs/PENDING-USER-ACTIONS.md`
+
+**实施摘要**：
+- DuplicateOverviewView 顶部统计条「X 组重复 · 可省 Y」+ ScrollView+LazyVStack 组列表 + 空态 checkmark.seal + 错态 exclamationmark.triangle + 跟随全局外观（不强制深色）
+- 私有 DuplicateGroupRowView 渲染单组（保留张 + 副本 ForEach + 组可省空间 scalemass icon）；私有 DuplicateMemberCell 渲染单张图（保留张「保留」绿色 Capsule badge + 副本 opacity 0.7 弱化 + relativePath 末尾省略 + hover .help(fullPath) tooltip）
+- DuplicateMemberCell loadThumb mirror DedupPass.computeSha scope 模式（Task.detached + resolve root bookmark + startAccessing + 拼 child URL + loadThumbnail 顶层 nonisolated 函数）
+- SmartFolderListView 加 isDuplicateOverviewSelected: Bool 参数 + onSelectDuplicates callback + 独立私有 DuplicateCleanupRow（不混进 availableSmartFolders ForEach）
+- ContentView @StateObject duplicateOverviewModel.placeholder() + @State showDuplicateOverview + .environmentObject(duplicateOverviewModel) 主区注入（侧边栏不注入）
+- mainContent ZStack showDuplicateOverview 分支 swap DuplicateOverviewView（最优先分支，与临时结果/baseGrid 互斥）
+- 五态互斥 .onChange 扩展：（1）.onChange(of: folderStore.selectedFolder) 设 showDuplicateOverview=false；（2）.onChange(of: smartFolderStore.selected) 同上；（3）新增 .onChange(of: showDuplicateOverview)清其它四态 + 主动 Task { duplicateOverviewModel.load() }（load 唯一 owner）+ showSearchOverlay=false 补全；（4）handleFindSimilar(sourceUrl:) 尾部 + openSearch() 内各加 showDuplicateOverview=false
+- wireIfReady 调 duplicateOverviewModel.attach(indexStore:bridge:) 在 smartFolder observer 注册前（多播容器无顺序依赖，按 plan 顺序方便阅读）
+
+**Self-fix 轮次**：1（首次 build 失败 — DuplicateGroupRow 命名撞车（步骤 2 已定义为 SQL 返回行 record），改 view 内私有 struct 名为 DuplicateGroupRowView）
+
+**真机验项**：✅ **任务 1 完整端到端**首次可感知 — 侧边栏 点入口 → 主区看到真实重复组列表 + 真实可省空间数字 + 保留张透明显示（PENDING 加详细 6 项）
