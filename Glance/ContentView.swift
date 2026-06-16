@@ -653,6 +653,14 @@ struct ContentView: View {
             await smartFolderStore.refreshSelected()
         }
 
+        // M4 任务 1 — wireIfReady race 补偿：用户在 indexStoreHolder ready 前点了「重复清理」入口
+        // → load() 已进 .error("IndexStore 未装配") → 卡到下次 bridge fire 才自愈。
+        // wireIfReady 完成 attach 后若 showDuplicateOverview 已切 true,补一次 load 让 model
+        // 立刻摆脱 error 态(idle 也补,避免用户离开-回来才能看见数据)。
+        if showDuplicateOverview {
+            await duplicateOverviewModel.load()
+        }
+
         // K.1 — Vision revision 迁移：启动期对比已存 fp 的 revision vs 当前 Vision revision，
         // 不一致 row 清回 NULL 让 indexer 自然重抽。macOS 升级触发；通常 0 row 受影响秒级返回。
         let currentRev = SimilarityService.currentRevision

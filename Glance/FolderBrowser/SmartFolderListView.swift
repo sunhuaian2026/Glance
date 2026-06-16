@@ -47,7 +47,7 @@ private struct DuplicateCleanupRow: View {
     var body: some View {
         HStack(spacing: DS.Spacing.sm) {
             Image(systemName: DS.Icon.trash)
-                .font(.system(size: 14, weight: .regular))
+                .font(.system(size: DS.Sidebar.iconSize, weight: .regular))
                 .foregroundStyle(isSelected ? Color.accentColor : .secondary)
             Text("重复清理")
                 .font(.body)

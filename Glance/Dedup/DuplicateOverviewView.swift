@@ -35,7 +35,7 @@ struct DuplicateOverviewView: View {
 
     private var groupsList: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: DS.Dedup.groupRowSpacing) {
+            LazyVStack(alignment: .leading, spacing: DS.Dedup.groupRowSpacing) {
                 statsBar
                 ForEach(model.groups) { group in
                     DuplicateGroupRowView(group: group)
@@ -62,7 +62,7 @@ struct DuplicateOverviewView: View {
     private var emptyState: some View {
         VStack(spacing: DS.Spacing.md) {
             Image(systemName: "checkmark.seal")
-                .font(.system(size: 48))
+                .font(.system(size: DS.Dedup.stateIconSize))
                 .foregroundStyle(.secondary)
             Text("没找到重复图")
                 .font(DS.Dedup.emptyStateFont)
@@ -77,8 +77,8 @@ struct DuplicateOverviewView: View {
     private func errorState(message: String) -> some View {
         VStack(spacing: DS.Spacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
+                .font(.system(size: DS.Dedup.stateIconSize))
+                .foregroundStyle(DS.Dedup.errorIconColor)
             Text("加载失败")
                 .font(DS.Dedup.emptyStateFont)
             Text(message)
@@ -122,8 +122,8 @@ private struct DuplicateGroupRowView: View {
         }
         .padding(.vertical, DS.Spacing.sm)
         .padding(.horizontal, DS.Spacing.md)
-        .background(SwiftUI.Color.secondary.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(SwiftUI.Color.secondary.opacity(DS.Dedup.groupCardBackgroundOpacity))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Dedup.groupCardCornerRadius, style: .continuous))
     }
 
     private var formattedReclaimable: String {
@@ -150,17 +150,17 @@ private struct DuplicateMemberCell: View {
                         width: DS.Dedup.groupCellThumbnailSize,
                         height: DS.Dedup.groupCellThumbnailSize
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Dedup.thumbnailCornerRadius, style: .continuous))
                     .opacity(isCanonical ? 1.0 : DS.Dedup.duplicateThumbnailOpacity)
                 if isCanonical {
                     Text("保留")
                         .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, DS.Dedup.canonicalBadgePaddingH)
+                        .padding(.vertical, DS.Dedup.canonicalBadgePaddingV)
                         .background(DS.Dedup.canonicalBadgeColor)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DS.Dedup.canonicalBadgeForeground)
                         .clipShape(Capsule())
-                        .padding(4)
+                        .padding(DS.Dedup.canonicalBadgeOffset)
                 }
             }
             Text(member.relativePath)
@@ -183,8 +183,8 @@ private struct DuplicateMemberCell: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
         } else {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(SwiftUI.Color.secondary.opacity(0.15))
+            RoundedRectangle(cornerRadius: DS.Dedup.thumbnailCornerRadius)
+                .fill(SwiftUI.Color.secondary.opacity(DS.Dedup.thumbnailPlaceholderOpacity))
         }
     }
 

@@ -265,6 +265,26 @@ enum DS {
         static let emptyStateFont: Font = .body
         /// 副本相对保留张的视觉弱化 opacity
         static let duplicateThumbnailOpacity: Double = 0.7
+        /// 空态 / 错态大 icon 尺寸（checkmark.seal / exclamationmark.triangle）
+        static let stateIconSize: CGFloat = 48
+        /// 错态 icon 颜色（橙色警告色）
+        static let errorIconColor: SwiftUI.Color = .orange
+        /// 保留张「保留」badge 文字色（白色 fg，绿色 bg 反白）
+        static let canonicalBadgeForeground: SwiftUI.Color = .white
+        /// 保留张 badge 内边距 — 水平
+        static let canonicalBadgePaddingH: CGFloat = 6
+        /// 保留张 badge 内边距 — 垂直
+        static let canonicalBadgePaddingV: CGFloat = 2
+        /// 保留张 badge 距 cell 右上角偏移
+        static let canonicalBadgeOffset: CGFloat = 4
+        /// 组卡片背景圆角
+        static let groupCardCornerRadius: CGFloat = 8
+        /// 缩略图圆角
+        static let thumbnailCornerRadius: CGFloat = 6
+        /// 组卡片半透明背景 opacity（secondary 系）
+        static let groupCardBackgroundOpacity: Double = 0.06
+        /// 缩略图占位（无图时）半透明 opacity
+        static let thumbnailPlaceholderOpacity: Double = 0.15
     }
 
     // MARK: - Icons（SF Symbols）
