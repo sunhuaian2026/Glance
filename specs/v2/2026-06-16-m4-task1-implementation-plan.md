@@ -1385,7 +1385,7 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 
 **真机验项**（PENDING 已加）：4 路 fire 点等价回归（加 root / FSEvents 增删改 / 删 root / 编辑图 → 智能文件夹 grid 自动刷新）
 
-### 步骤 2 — fetchDuplicateGroups 聚合查询 + DuplicateGroup record + DS.Dedup 常量，commit `<pending>`（2026-06-16）
+### 步骤 2 — fetchDuplicateGroups 聚合查询 + DuplicateGroup record + DS.Dedup 常量，commit `2abe08d`（2026-06-16）
 
 **改动文件**：`Glance/Dedup/DuplicateGroup.swift`（新增）+ `Glance/IndexStore/IndexedImage.swift` + `Glance/DesignSystem.swift` + `CLAUDE.md` + `specs/PENDING-USER-ACTIONS.md`
 

@@ -31,7 +31,7 @@
 
 > 本步是 DB 层 + 设计常量准备，无 UI 可感知 — 编译通过即代表本步落地。聚合查询正确性在步骤 3 Model 集成 + 步骤 4 UI 跑通后才能验。
 
-- [ ] (2026-06-16 / `<pending>`) **步骤 2 落地确认**：
+- [ ] (2026-06-16 / `2abe08d`) **步骤 2 落地确认**：
   1. `make build` 0 errors 0 warnings（编译通过 = DuplicateGroup.swift / IndexedImage.swift 新查询 / DS.Dedup 常量都被自动加入 PBXFileSystemSynchronizedRootGroup 编译目标）
   2. 步骤 3 / 步骤 4 完成后 在总览 UI 看到「X 组重复 · 可省 Y GB」数字时再回查（可与 DB sqlite3 命令行查 `SELECT COUNT(*) FROM (SELECT 1 FROM images WHERE content_sha256 IS NOT NULL GROUP BY content_sha256 HAVING SUM(CASE WHEN dedup_canonical = 0 THEN 1 ELSE 0 END) > 0)` 数字对齐）
 
