@@ -152,7 +152,8 @@ else
   . "$GLOSSARY_RULES_FILE"
 
   TERM_TMP=$(mktemp)
-  git diff --cached --no-color -U999 -- '*.md' ':(exclude)CONTEXT.md' > "$TERM_TMP" 2>/dev/null
+  # 豁免:CONTEXT.md（字典本身）+ AGENTS.md（会话历史日志）+ CLAUDE.md（术语规则元文档,自身要列禁用词）
+  git diff --cached --no-color -U999 -- '*.md' ':(exclude)CONTEXT.md' ':(exclude)AGENTS.md' ':(exclude)CLAUDE.md' > "$TERM_TMP" 2>/dev/null
 
   if [ ! -s "$TERM_TMP" ]; then
     pass "术语字典：no staged .md changes — skip"

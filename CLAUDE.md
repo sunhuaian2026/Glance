@@ -244,6 +244,29 @@ git commit 前的强制 checklist，逐条检查，全部通过才能提交：
 - **grill-with-docs / improve-codebase-architecture 等 skill 默认写 `docs/adr/`，本项目不建该目录**：ADR 等价物落在 `specs/Roadmap.md`「关键架构决策」段（单文件好扫好搜，避免决策碎片）；`CONTEXT.md` 仅放领域术语 + 架构总览，**不放决策**。skill 触发时按此目标写，CLAUDE.md 优先级高于 skill 默认行为，无需每次手动提醒。
 - **新术语必须先登记 `CONTEXT.md` 术语表，再用于代码 / specs / commit message**：避免同一概念在不同模块用不同名字漂移。命名冲突时以 `CONTEXT.md` 为准。
 
+## 术语用法（强制，2026-06-16 起）
+
+写新 spec / plan / design / PR 描述 / commit message 时:
+
+- ✅ **必须用三层方法论命名**: **阶段 → 里程碑 → 任务**(查 `CONTEXT.md`「术语字典表」D 段)
+  - 阶段 = V1 / V2 / V3 项目大版本
+  - 里程碑 = V2 M1 / M2 / M3 / M4 等(M = milestone 国际通用缩写)
+  - 任务 = M 内细分独立交付单元(原 Slice A-N / Slice 1-3 改任务 A-N / 任务 1-3)
+- ❌ **禁用旧名**: Slice / slice / vertical slice / VS / 切片 / 片
+- ✅ **独立子系统**(快速看图器 toolbar 修复 / OpenWith 子系统 / 快速看图器看图增强) 不塞 M 序号,各自顶层命名,内部按"任务"拆
+- ❌ **禁用自造简写**: QV / SF / IS / OW(裸写) / QVT — 查 `CONTEXT.md` A 段
+- ❌ **禁用裸 codex 编号**: P1-1 / P1-2 / I-1 / M-1 等必须带含义("codex P1(delegate 双持地雷)")
+- ✅ 通用同义词统一中文规范(快速看图器 / 重复清理 / 保留张 / 找相似图 / 图像指纹 / 缩略图 / 侧边栏 / 工具栏 等)
+
+**调用 superpowers skill 时**:
+- 调用 `brainstorming` / `writing-plans` 前在 prompt 里**显式提醒**: "用 CONTEXT.md 术语字典命名,禁用 Slice/VS/切片/QV/SF 等弃用别名"
+- skill 产出后 `./scripts/verify.sh` 检查是否含禁用词(verify Stage 1d 自动跑),报红就修
+- 不照办的产出**不许直接 commit**(commit-msg hook 也会拦)
+
+**老 plan / 老 spec / 历史 commit** 保留旧名(只读,不批量改 — 改了破坏 git blame + commit 引用关系)。看老文档时心里查 `CONTEXT.md` E 段「旧名 → 新名映射对照表」翻译。
+
+**豁免**: `CONTEXT.md`(字典自身)+ `AGENTS.md`(superpowers 会话历史日志)+ fenced code block (```` ``` ````) 内 + inline backtick `` `...` `` 内。
+
 ---
 
 ## 事件档案（incidents 索引）

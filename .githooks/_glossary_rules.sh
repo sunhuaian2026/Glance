@@ -20,6 +20,9 @@ GLOSSARY_ASCII=(
   'I1|codex 实施期 issue（一句话内容）'
   'I2|codex 实施期 issue（一句话内容）'
   'M-1|codex major issue（一句话内容）'
+  # ── 三层方法论：Slice 单词大小写禁用 ────
+  'Slice|任务（V2 M1 任务 A / M2 任务 J 等）'
+  'slice|任务（V2 M1 任务 A / M2 任务 J 等）'
   # ── B 同义簇（英文场景，代码符号请在 backtick 内）────
   'Sandbox|沙盒（首字母大写仅在 macOS 文档原文场景保留）'
   'Bookmark|首次写全 Security Scoped Bookmark 后续 bookmark（句首大写之外）'
@@ -38,10 +41,14 @@ GLOSSARY_REGEX=(
   'P[12]-[0-9A-Z]+|codex P1/P2（一句话内容）'
   'P[12]#[0-9]+|codex P1/P2（一句话内容）'
   'I-[0-9]+|codex 实施期 issue（一句话内容）'
+  # ── 三层方法论：Slice 系列禁用,改"任务" ─
+  '[Vv]ertical [Ss]lice|任务'
+  '\bVS[0-9]|任务（如 VS1 → 任务 1）'
 )
 GLOSSARY_CN=(
   # ── B 同义簇（中文）─────────────────────
-  '看图器|快速看图器'
+  # 注：「看图器」用 (^|[^速])看图器 避免「快速看图器」子串误匹配
+  '(^|[^速])看图器|快速看图器'
   '看图窗|快速看图器'
   '看图覆盖层|快速看图器'
   '内容去重|重复清理（功能）或 去重（动作）'
@@ -50,7 +57,9 @@ GLOSSARY_CN=(
   '找类似|找相似图'
   '类似图|相似图'
   '书签|首次写全 Security Scoped Bookmark 后续 bookmark'
-  '切片|Slice（开发场景统一保留英文首字母大写）'
+  # ── 三层方法论（中文 Slice 别名）────────
+  '切片|任务（V2 M1 任务 A / M2 任务 J 等）'
+  # 注：单字「片」误伤太广（图片/片段/动作片），不机械拦截，靠人工 review
   # ── C 中英文边界（小写英文）──────────────
   'sidebar|侧边栏'
   'toolbar|工具栏'

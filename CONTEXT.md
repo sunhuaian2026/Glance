@@ -92,7 +92,7 @@ macOS 本地看图 app，SwiftUI 实现，沙盒 + Security Scoped Bookmark，�
 | 去重动作 | **去重** | content dedup / 重复（单独使用歧义） | — |
 | 沙盒 | **沙盒** | Sandbox / App Sandbox（中文场景） | — |
 | 文件权限书签 | 首次写全 **Security Scoped Bookmark**，后续 **bookmark** | 书签 / Bookmark（句首大写之外） | `BookmarkManager` |
-| 开发切片 | **Slice**（首字母大写统一） | slice / 切片 / 阶段 | — |
+| 阶段内里程碑内最小独立交付单元 | **任务** | Slice / slice / 切片 / 片 / VS / vertical slice | — |
 | 临时结果视图 | **临时结果（视图）** | ephemeral / Ephemeral（正文） | `EphemeralResultView` |
 | 全屏 | **全屏** | fullScreen / FullScreen（正文） | `isFullScreen` |
 | 图库主窗 | **图库主窗** | 主窗 / 主窗口 / 图库（单独使用） | `MainWindowController` |
@@ -114,17 +114,77 @@ macOS 本地看图 app，SwiftUI 实现，沙盒 + Security Scoped Bookmark，�
 | toast 提示 | **toast 提示** | UI 模式约定俗成保留 toast |
 | spike | **spike** | 开发方法论术语保留 |
 
-### D. 决策 ID 命名空间
+### D. 三层规划方法论「阶段 → 里程碑 → 任务」
 
-> 决策（D 编号）走 `specs/Roadmap.md`「关键架构决策」段；subsystem 重大变化保留独立命名空间，常规决策并入主 D 序号。
+> 顶层规划单位**阶段**(版本号性质) → 内含**里程碑**(独立交付,M 编号) → 内含**任务**(更细分独立交付,字母/数字编号)。
+> 实施时的批次/commit 节奏**不算层级**,直接说"分 N 批 ship"。
+>
+> **强制约束**(写新文档 / 新 plan / 新 spec / 新 design / PR 描述 / commit message 时):
+> - ✅ **必须用新名**:阶段 / 里程碑 / 任务
+> - ❌ **禁用旧名**:Slice / slice / vertical slice / VS / 片 / 切片 / 阶段拆分
+> - 老 plan / 老 spec / commit 历史保留旧名(历史只读,不批量改 — 改了破坏 git blame + commit 引用关系)
+
+#### D.1 阶段定位（项目版本号）
+
+| 代号 | 阶段定位 | 状态 |
+|---|---|---|
+| **V1** | 单文件夹看图阶段(V1 sidebar 树形浏览 + 缩略图 grid + 快速看图器 + 双击预览 + 排序/筛选/快捷键) | ✅ 已 ship（v1.0.0 release `2026-05-08`）|
+| **V2** | 跨文件夹聚合阶段(IndexStore + 智能文件夹 + 相似图查找 + 全局搜索 + 重复清理) | 🔄 进行中(M1-M4 + 独立子系统) |
+| **V3** | 待规划 | — |
+
+> 阶段层用代号 V1/V2 即可,**首次出现时一句话定位**即可(本表已登记)。
+
+#### D.2 V2 里程碑（M 编号 = milestone 简写,国际通用）
+
+| 编号 | 里程碑名 | 状态 |
+|---|---|---|
+| **M1** | V2 第 1 里程碑 · 跨文件夹索引基础(IndexStore + SQLite + FSEvents + DedupPass) | ✅ |
+| **M2** | V2 第 2 里程碑 · 相似图查找(VNFeaturePrintObservation + EphemeralResultView) | ✅ |
+| **M3** | V2 第 3 里程碑 · 全局搜索 + 筛选 chips | ✅ |
+| **M4** | V2 第 4 里程碑 · 重复清理(去重省空间闭环) | 🔄 design 中 |
+| **M5+** | 待规划 | — |
+
+> M 是 milestone 国际通用缩写,无歧义保留。**禁用 "milestone X" 中英文混写**,统一 M1/M2/M3/M4 代号。
+
+#### D.3 独立子系统（不属于任何里程碑,生命周期跨多里程碑）
+
+| 子系统名 | 范围 | 状态 |
+|---|---|---|
+| **快速看图器 toolbar 修复** | regression 修复项,跨 V2 M1-M3 期间发现并修复(原 Slice 1/2/3 改任务 1/2/3) | ✅ Slice 1+2 已 ship,任务 3(边界硬化)= backlog |
+| **OpenWith 子系统** | Finder「打开方式」+ Dock 拖放接收图片(独立看图窗,跨 V2 M2-M3)| ✅ 方向 2 Slice 1+2 已 ship(改任务 1/2) |
+| **快速看图器看图增强** | 旋转/翻转/删除/复制/Finder 显示(D33-D40,即将启动 design codex review) | 🔄 design 中 |
+| **小图全屏放大** | backlog 项,fitScale 小图分支放大算法 | ⏸ |
+
+> 独立子系统**不塞 V2 M 序号**,各自顶层命名;内部按"任务 1/2/3"拆。
+
+#### D.4 决策 ID 命名空间
+
+> 决策（D 编号）走 `specs/Roadmap.md`「关键架构决策」段;独立子系统保留独立命名空间,常规决策并入主 D 序号。
 
 | 命名空间 | 用途 | 现状 | 后续 |
 |---|---|---|---|
-| D1 - D40 | V2 主线决策（含 M1/M2/M3/M4 计划 + QV enhance 计划） | D1-D32 已用，D33-D40 是 QV enhance 计划占位 | 主序号，新决策默认进这里 |
-| `D-OW1..16` | OpenWith 子系统独立命名空间 | 已用 16 个 | **保留**（独立子系统，生命周期跨多 milestone） |
+| `D1` - `D40` | V2 主线决策（含 M1/M2/M3/M4 计划 + 快速看图器看图增强计划） | D1-D32 已用，D33-D40 是看图增强计划占位 | 主序号，新决策默认进这里 |
+| `D-OW1..16` | OpenWith 子系统独立命名空间 | 已用 16 个 | **保留**（生命周期跨多 V2 里程碑） |
 | `D-QV1..7` | 快速看图器 toolbar 子系统独立命名空间（原 `D-QVT` 改 `D-QV`） | 7 个，旧文档逐步替换 | 子系统决策完结后冻结，不再新增 |
 
-> 别再造新子系统命名空间（除非系统级跨多 milestone）。常规决策一律进主 D 序号。
+> 别再造新子系统命名空间(除非系统级跨多里程碑)。常规决策一律进主 D 序号。
+
+---
+
+### E. 旧名 → 新名映射对照表
+
+> 看老文档(specs/v2/M1-M3 plan / OpenWith plan / 快速看图器 toolbar plan / Roadmap.md / PENDING)时**心里查表翻译**。老文档**不批量改**(保 git blame 可读)。新文档严格用新名。
+
+| 旧名（老文档常见） | 新名（标准） | 简写 |
+|---|---|---|
+| Slice A / Slice B / ... / Slice I | V2 M1 任务 A / B / ... / I | M1 任务 A |
+| Slice J / Slice K | V2 M2 任务 J / K | M2 任务 J |
+| Slice M / Slice N | V2 M3 任务 M / N | M3 任务 M |
+| QV toolbar Slice 1 / 2 / 3 | 快速看图器 toolbar 修复 任务 1 / 2 / 3 | 快速看图器修复 任务 1 |
+| OpenWith Slice 1 / 2 / 方向 2 Slice 1 / 2 | OpenWith 子系统 任务 1 / 2 | OpenWith 任务 1 |
+| Slice K.4 deferred / Slice B-α polish | V2 M2 任务 K 性能验收(deferred)/ V2 M1 任务 B 子项 α polish | M2 任务 K perf |
+| Vertical slice / VS | 任务 | — |
+| 切片 / 片 | 里程碑(若指阶段内独立交付)/ 任务(若指里程碑内细分) | — |
 
 ---
 
