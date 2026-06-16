@@ -325,6 +325,10 @@ struct ContentView: View {
                 folderStore.selectedImageIndex = nil
                 currentEphemeral = nil
                 showSearchOverlay = false  // M4：搜索 overlay 与总览互斥
+                // M4 codex P1：取消 in-flight searchTask 防其完成后把 currentEphemeral 写回
+                // 强行顶回主区（搜索 keystroke debounce 期间用户切走时的 race）
+                searchTask?.cancel()
+                searchTask = nil
                 // 主动 trigger load —— load 唯一 owner(删 DuplicateOverviewView.onAppear 触发,
                 // 避免与 model.scheduleReload 并发 stale-write)
                 Task { await duplicateOverviewModel.load() }
@@ -740,8 +744,9 @@ struct ContentView: View {
             )
 
             await MainActor.run {
+                // M4 codex P1：查询期间用户已切到重复清理总览，丢弃结果，不强行踢回找相似区
+                guard !showDuplicateOverview else { return }
                 self.currentEphemeral = .similar(sourceUrl: sourceUrl, results: urls, banner: banner)
-                showDuplicateOverview = false  // M4：进入临时结果(找相似)时清重复清理总览态
                 // 修复 2：清 selectedImageIndex 防止 QV 关闭后 previewOverlay 渲染条件成立，
                 // preview 弹回压在 ephemeral 上方（Scenario 1 根因）。
                 // QV 已由 controller close(.findSimilar) 关闭（本函数经 onDismiss 触发），不再自关。
