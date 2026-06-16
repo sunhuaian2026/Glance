@@ -1417,7 +1417,7 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 
 **真机验项**：本 commit 后 model 完整可调但无 UI 集成 — 编译通过即代表本步落地，model 行为验证延后到步骤 4 UI 集成后 4 路 fire 点（加 root / FSEvents / 删 root / 编辑图）→ debounce 500ms → grid 自动 reload 真机验
 
-### 步骤 4 — DuplicateOverviewView + 侧边栏「重复清理」入口 + ContentView 五态互斥，commit `<pending>`（2026-06-16）
+### 步骤 4 — DuplicateOverviewView + 侧边栏「重复清理」入口 + ContentView 五态互斥，commit `9c93c10`~`3584910`（2026-06-16）
 
 **改动文件**：`Glance/Dedup/DuplicateOverviewView.swift`（新增）+ `Glance/FolderBrowser/SmartFolderListView.swift` + `Glance/ContentView.swift` + `CLAUDE.md` + `specs/Roadmap.md` + `specs/PENDING-USER-ACTIONS.md`
 
@@ -1433,4 +1433,12 @@ Plan 已保存到 `specs/v2/2026-06-16-m4-task1-implementation-plan.md`。
 
 **Self-fix 轮次**：1（首次 build 失败 — DuplicateGroupRow 命名撞车（步骤 2 已定义为 SQL 返回行 record），改 view 内私有 struct 名为 DuplicateGroupRowView）
 
-**真机验项**：✅ **任务 1 完整端到端**首次可感知 — 侧边栏 点入口 → 主区看到真实重复组列表 + 真实可省空间数字 + 保留张透明显示（PENDING 加详细 6 项）
+**codex pre-push 修复（`3584910`）**：
+- P1：`Spacer(minLength: 0)` → `DS.Spacing.zero`；硬编码数字（`48` / `.orange` / `.white` / `8` / `6` / `4` / `14`）→ `DS.Dedup.*` 常量（+10 条），`SmartFolderListView` 内 `14` → `DS.Sidebar.iconSize`
+- P2(P1 促进)：`VStack` → `LazyVStack` 防急加载所有缩略图
+- P2(P1 促进)：wireIfReady 内先 select allRecent 再判 showDuplicateOverview → onChange 已清 showDuplicateOverview，race 补偿无效；改为「先判 showDuplicateOverview → 再 select / refreshSelected」互斥分支
+- P1：在 `.onChange(of: showDuplicateOverview)` 进入总览时补 `searchTask?.cancel(); searchTask = nil` 防 in-flight 搜索完成后写 currentEphemeral 踢回
+- P1：`handleFindSimilar` 的 `await MainActor.run` 块首加 `guard !showDuplicateOverview else { return }` 防查询期间用户已切到总览后被强行踢回找相似区
+- P2：`loadThumb()` 起始 `thumbnail = nil` + `await Task.detached` 后 `guard !Task.isCancelled else { return }` 防 member.id 变化时错位显旧图
+
+**真机验项**：✅ **任务 1 完整端到端**首次可感知 — 侧边栏 点入口 → 主区看到真实重复组列表 + 真实可省空间数字 + 保留张透明显示（PENDING 加详细 9 项）
