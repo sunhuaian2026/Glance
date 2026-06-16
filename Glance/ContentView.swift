@@ -651,18 +651,15 @@ struct ContentView: View {
         indexBridge = bridge
         await bridge.sync(with: folderStore.rootFolders, managedRootPaths: folderStore.managedRootPaths)
 
-        if smartFolderStore.selected == nil {
+        // M4 任务 1 — wireIfReady race 补偿：用户在 indexStoreHolder ready 前点了「重复清理」入口。
+        // 必须先判断再决定是否 select allRecent：select() 触发 .onChange(smartFolderStore.selected)
+        // 里的 showDuplicateOverview = false，先 select 再判断的话补偿条件永远为 false。
+        if showDuplicateOverview {
+            await duplicateOverviewModel.load()
+        } else if smartFolderStore.selected == nil {
             await smartFolderStore.select(BuiltInSmartFolders.allRecent)
         } else {
             await smartFolderStore.refreshSelected()
-        }
-
-        // M4 任务 1 — wireIfReady race 补偿：用户在 indexStoreHolder ready 前点了「重复清理」入口
-        // → load() 已进 .error("IndexStore 未装配") → 卡到下次 bridge fire 才自愈。
-        // wireIfReady 完成 attach 后若 showDuplicateOverview 已切 true,补一次 load 让 model
-        // 立刻摆脱 error 态(idle 也补,避免用户离开-回来才能看见数据)。
-        if showDuplicateOverview {
-            await duplicateOverviewModel.load()
         }
 
         // K.1 — Vision revision 迁移：启动期对比已存 fp 的 revision vs 当前 Vision revision，

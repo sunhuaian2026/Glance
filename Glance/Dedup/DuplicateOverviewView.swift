@@ -109,7 +109,7 @@ private struct DuplicateGroupRowView: View {
                 ForEach(group.duplicates) { dup in
                     DuplicateMemberCell(member: dup, isCanonical: false)
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: DS.Spacing.zero)
             }
             HStack(spacing: DS.Spacing.xs) {
                 Image(systemName: "scalemass")
@@ -191,6 +191,7 @@ private struct DuplicateMemberCell: View {
     /// resolve root bookmark + 拼 child URL + loadThumbnail(顶层 nonisolated 函数)。
     /// mirror DedupPass.computeSha 的 scope 模式。
     private func loadThumb() async {
+        thumbnail = nil  // 立即清旧缩略图，防止 member.id 变化时短暂显示错位图
         let urlBookmark = member.urlBookmark
         let relativePath = member.relativePath
         let maxPixel = DS.Dedup.groupCellThumbnailMaxPixel
@@ -206,6 +207,7 @@ private struct DuplicateMemberCell: View {
             let fileURL = rootURL.appendingPathComponent(relativePath)
             return await loadThumbnail(url: fileURL, maxPixelSize: maxPixel)
         }.value
+        guard !Task.isCancelled else { return }
         await MainActor.run {
             self.thumbnail = img
         }
