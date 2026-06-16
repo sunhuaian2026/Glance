@@ -633,6 +633,90 @@ nonisolated extension IndexStore {
         }
     }
 
+    // MARK: - M4 任务 1 — 重复清理总览聚合查询
+
+    /// M4 任务 1 — 总览主查询。
+    /// 列出所有「真有待清理副本」的重复组（HAVING SUM(dedup_canonical=0) > 0 保证：
+    /// 只列含至少一个副本的组，单张组 / 全 NULL 组 / 仅保留张的组都不进总览）。
+    /// content_sha256 IS NOT NULL 自动排除尚未算 SHA256 的图（dedup_canonical 口径一致）。
+    /// 按 reclaimable_bytes DESC 排，可省空间最大的组在最前面。
+    func fetchDuplicateGroups() throws -> [DuplicateGroupRow] {
+        try sync { db in
+            let stmt = try db.prepare("""
+                SELECT content_sha256,
+                       COUNT(*) AS member_count,
+                       SUM(CASE WHEN dedup_canonical = 0 THEN file_size ELSE 0 END) AS reclaimable_bytes
+                FROM images
+                WHERE content_sha256 IS NOT NULL
+                GROUP BY content_sha256
+                HAVING SUM(CASE WHEN dedup_canonical = 0 THEN 1 ELSE 0 END) > 0
+                ORDER BY reclaimable_bytes DESC;
+            """)
+            defer { sqlite3_finalize(stmt) }
+            var rows: [DuplicateGroupRow] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let sha = String(cString: sqlite3_column_text(stmt, 0))
+                let count = sqlite3_column_int64(stmt, 1)
+                let reclaimable = sqlite3_column_int64(stmt, 2)
+                rows.append(DuplicateGroupRow(
+                    contentSha256: sha,
+                    memberCount: count,
+                    reclaimableBytes: reclaimable
+                ))
+            }
+            return rows
+        }
+    }
+
+    /// M4 任务 1 — 成员明细查询（点开组 / 任务 2 删除时用）。
+    /// 按 dedup_canonical DESC 排把保留张排第一（UI 透明显示「保留这张」D28）；
+    /// 同 dedup_canonical 内按 birth_time ASC 排（与 DedupPass.reEvaluateGroup canonical 决议
+    /// earliest birth_time + 最小 id tie-break 一致）。
+    /// JOIN folders 拿 root_path 拼 full_path 给 cell tooltip 用。
+    /// 注：SELECT 不取 i.folder_id（任务 1 只读不需要；任务 2 删除路径再扩 — codex P2-3 修）。
+    /// JOIN ON i.folder_id = f.id 仍保留（拼 full_path 需要）。
+    func fetchDuplicateGroupMembers(sha256: String) throws -> [DuplicateGroupMemberRow] {
+        try sync { db in
+            let stmt = try db.prepare("""
+                SELECT i.id, i.dedup_canonical, i.file_size, i.relative_path,
+                       i.url_bookmark, f.root_path || '/' || i.relative_path AS full_path
+                FROM images i
+                JOIN folders f ON i.folder_id = f.id
+                WHERE i.content_sha256 = ?
+                ORDER BY i.dedup_canonical DESC, i.birth_time ASC, i.id ASC;
+            """)
+            defer { sqlite3_finalize(stmt) }
+            try checkBind(
+                sqlite3_bind_text(
+                    stmt, 1,
+                    (sha256 as NSString).utf8String, -1,
+                    unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                ),
+                index: 1, db: db
+            )
+            var rows: [DuplicateGroupMemberRow] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = sqlite3_column_int64(stmt, 0)
+                let canonical = sqlite3_column_int64(stmt, 1) == 1
+                let fileSize = sqlite3_column_int64(stmt, 2)
+                let relPath = String(cString: sqlite3_column_text(stmt, 3))
+                let blobLen = sqlite3_column_bytes(stmt, 4)
+                let blobPtr = sqlite3_column_blob(stmt, 4)
+                let bookmark = blobPtr.map { Data(bytes: $0, count: Int(blobLen)) } ?? Data()
+                let fullPath = String(cString: sqlite3_column_text(stmt, 5))
+                rows.append(DuplicateGroupMemberRow(
+                    id: id,
+                    dedupCanonical: canonical,
+                    fileSize: fileSize,
+                    relativePath: relPath,
+                    urlBookmark: bookmark,
+                    fullPath: fullPath
+                ))
+            }
+            return rows
+        }
+    }
+
     private func checkBind(_ result: Int32, index: Int, db: IndexDatabase) throws {
         if result != SQLITE_OK {
             throw IndexDatabaseError.bindFailed(index: index, message: "bind result \(result): \(db.lastErrorMessage())")

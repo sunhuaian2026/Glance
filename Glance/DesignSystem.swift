@@ -243,6 +243,30 @@ enum DS {
         static let errorAccent: SwiftUI.Color = .red
     }
 
+    // MARK: - M4 重复清理总览专属常量
+
+    /// M4 — 重复清理总览专属常量（任务 1 只读 UI 用；任务 2 加删除按钮 / 进度配色再补）。
+    enum Dedup {
+        /// model bridge observer debounce — 后台索引活动激增（FSEvents batch / dedup full pass 完成）
+        /// 时频繁 fire，500ms debounce 后 reload 避免抖动；UI 实际感知接近实时。
+        static let reloadDebounceMillis: Int = 500
+        /// 组与组之间的垂直间距（LazyVStack spacing）
+        static let groupRowSpacing: CGFloat = DS.Spacing.lg
+        /// 组内缩略图渲染尺寸（保留张 + 副本展示位）
+        static let groupCellThumbnailSize: CGFloat = 96
+        /// loadThumbnail 请求的最大像素（高 DPI 屏 Retina 缩放）；类型 Int 对齐 loadThumbnail(maxPixelSize: Int) 签名
+        static let groupCellThumbnailMaxPixel: Int = 192
+        /// 保留张 badge 文字 / 边框配色（绿系，accent 提示「这张留下」D28）
+        /// SwiftUI.Color 全限定：enum DS 内嵌套 enum Color 不含 SwiftUI 系统色，必须显式 namespace
+        static let canonicalBadgeColor: SwiftUI.Color = .green
+        /// 顶部统计条字号（mirror IndexingProgressView caption 风格）
+        static let statsBarFont: Font = .body.weight(.semibold)
+        /// 空态字号
+        static let emptyStateFont: Font = .body
+        /// 副本相对保留张的视觉弱化 opacity
+        static let duplicateThumbnailOpacity: Double = 0.7
+    }
+
     // MARK: - Icons（SF Symbols）
 
     enum Icon {

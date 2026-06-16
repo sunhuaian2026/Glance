@@ -27,6 +27,14 @@
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
 
+### V2 M4 任务 1 步骤 2 — 聚合查询 + DuplicateGroup record + DS.Dedup 常量
+
+> 本步是 DB 层 + 设计常量准备，无 UI 可感知 — 编译通过即代表本步落地。聚合查询正确性在步骤 3 Model 集成 + 步骤 4 UI 跑通后才能验。
+
+- [ ] (2026-06-16 / `<pending>`) **步骤 2 落地确认**：
+  1. `make build` 0 errors 0 warnings（编译通过 = DuplicateGroup.swift / IndexedImage.swift 新查询 / DS.Dedup 常量都被自动加入 PBXFileSystemSynchronizedRootGroup 编译目标）
+  2. 步骤 3 / 步骤 4 完成后 在总览 UI 看到「X 组重复 · 可省 Y GB」数字时再回查（可与 DB sqlite3 命令行查 `SELECT COUNT(*) FROM (SELECT 1 FROM images WHERE content_sha256 IS NOT NULL GROUP BY content_sha256 HAVING SUM(CASE WHEN dedup_canonical = 0 THEN 1 ELSE 0 END) > 0)` 数字对齐）
+
 ### V2 M4 任务 1 步骤 1 — bridge 多播架构升级（智能文件夹自动刷新等价回归验证）
 
 > 本步纯 refactor（D35 prerequisite），不引入新功能也不破坏现有功能。验证 4 路 fire 点等价即可。任务 1 完整闭环（侧边栏入口 + 主区总览 + 真实数据）在步骤 4 完成后才能感知，步骤 1 单独无 UI 改动。

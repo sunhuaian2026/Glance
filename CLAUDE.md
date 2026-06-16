@@ -64,7 +64,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     ├── Glance.entitlements          ← sandbox entitlements（当前未被 pbxproj 引用，由 build settings 自动生成）
     ├── Info.plist                   ← 手写 Info.plist（CFBundleDocumentTypes=public.image Viewer / LSHandlerRank=Alternate）让 Glance 进 Finder「打开方式」；GENERATE_INFOPLIST_FILE=YES 合并注入版本/DisplayName/BundleID。pbxproj 用 PBXFileSystemSynchronizedBuildFileExceptionSet 把它从 Copy Bundle Resources 排除（否则与 INFOPLIST_FILE 双引用报 warning）
     ├── ContentView.swift            ← NavigationSplitView (sidebar VStack: SmartFolderListView + V1 FolderSidebarView) + mainContent ZStack(baseGrid + previewOverlay) + QuickViewer（**QV-toolbar Slice1 2026-06-08：从 .overlay 迁到 MainQuickViewerWindowController 独立无装饰窗**，盖主窗修 toolbar regression；ContentView 仅 @ObservedObject 观察 isPresenting 决定 allowsHitTesting/previewOverlay 渲染，进出走 presentQuickViewer/handleQVDismiss，退出按 QVDismissalReason{normal/findSimilar/commandF} 仲裁）；mainContent .allowsHitTesting(QV 不在时) 让底层 grid tooltip tracking 在 QV 期失活。**方向2 Slice2 已删整套 OpenWith externalOpen 残留机器**（externalOpenUrls/handleExternalOpen/scheduleActivation/waitForAppActivation/QuickViewerEntry.externalOpen/onChange(pendingOpen,windowIdentity,isWindowKey)/handleBrowseFolder）——外部打开改走 ExternalViewerWindowController 独立看图窗，ContentView 不再参与；**WindowAccessor 也移除**（图库主窗 NSWindow 挂接改由 MainWindowController 自任 delegate 接管，D-OW16）
-    ├── DesignSystem.swift           ← DS.Spacing / DS.Color / DS.Anim 等所有 UI 常量
+    ├── DesignSystem.swift           ← DS.Spacing / DS.Color / DS.Anim 等所有 UI 常量；**M4 任务 1 步骤 2 加 enum Dedup**（reloadDebounceMillis=500 / groupRowSpacing=DS.Spacing.lg / groupCellThumbnailSize=96 / groupCellThumbnailMaxPixel: Int = 192 / canonicalBadgeColor: SwiftUI.Color = .green / statsBarFont / emptyStateFont / duplicateThumbnailOpacity=0.7）
     ├── BookmarkManager.swift
     ├── en.lproj/InfoPlist.strings   ← 英文 locale 显示名 "Glance"
     ├── zh-Hans.lproj/InfoPlist.strings ← 中文 locale 显示名「一眼」
@@ -103,7 +103,7 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── IndexDatabase.swift              ← sqlite3 C API 包装（open/close/exec/prepare/bind/step）+ PRAGMA foreign_keys=ON / journal_mode=WAL
     │   ├── IndexStoreSchema.swift           ← v1 forward-looking schema（M1+M2+M3 字段）+ migration（PRAGMA user_version）
     │   ├── IndexStore.swift                 ← 高层入口（DispatchQueue 串行）+ auto-migrate；DB 路径走 sandbox container Application Support
-    │   ├── IndexedImage.swift                ← images 表 record struct + 幂等 SELECT-first INSERT + Slice G.3 deleteImage / updateImageMetadata + Slice H SHA256/canonical CRUD（setContentSHA256/setDedupCanonical/resetSHA256AndCanonical/promoteOrphanDuplicates/fetchCandidateGroups/fetchImagesInGroup/fetchDuplicates/fetchDuplicatesByFullPath）
+    │   ├── IndexedImage.swift                ← images 表 record struct + 幂等 SELECT-first INSERT + Slice G.3 deleteImage / updateImageMetadata + Slice H SHA256/canonical CRUD（setContentSHA256/setDedupCanonical/resetSHA256AndCanonical/promoteOrphanDuplicates/fetchCandidateGroups/fetchImagesInGroup/fetchDuplicates/fetchDuplicatesByFullPath）+ **M4 任务 1 步骤 2 加 fetchDuplicateGroups（HAVING SUM(dedup_canonical=0)>0 只列真有副本组 + reclaimable_bytes DESC）+ fetchDuplicateGroupMembers(sha256:)（dedup_canonical DESC 保留张排第一，JOIN folders 拼 full_path）**
     │   ├── ContentHasher.swift              ← V2 Slice H 文件 SHA256 hex 计算（CryptoKit + Data .mappedIfSafe mmap）
     │   ├── DedupPass.swift                  ← V2 Slice H cheap-first dedup 算法（runFullPass + reEvaluateGroup + orphan cleanup）；canonical = earliest birth_time + 最小 id tie-breaker
     │   ├── ManagedFolder.swift              ← folders 表 record struct + registerRoot 幂等 + Slice D hide CRUD（setRootHidden/upsertSubfolderHide/effectiveHidden）+ Slice G.1 deleteRoot（FK CASCADE）+ Slice I.2 last_processed_path CRUD（resume from cursor）+ fetchRootPaths（对账）/ deleteOrphanImages（NOT EXISTS 防御性孤儿清扫）
@@ -128,14 +128,16 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── SearchFilterState.swift          ← V2 Slice N chip 选中态值类型（D22 独立筛选态）+ SearchSizeBucket/SearchTimeBucket enum + toAtoms（类型 inSet / 大小 > / 时间 between；各档自然边界预计算 ISO：今天午夜/本周起始日/本月1号/今年1.1，device local）+ _debugSelfCheck
     │   ├── SearchChipBar.swift              ← V2 Slice N chip 行 UI（三组 chip + 原生 .popover；类型 checkbox 多选 / 大小·时间单选 + .onExitCommand ESC 两段）；透传 @FocusState.Binding，popover dismiss 时 returnFocusToSearch 弹焦点回搜索框（根因修复：关 popover 后能继续打字/回车提交，绕过 @FocusState 值不变不重聚焦）
     │   └── SearchOverlayView.swift          ← 顶部 Spotlight 式 overlay + ⌘F 入口 + ESC dismiss；Slice N 在 inputRow/hintRow 间插 SearchChipBar（searchInput 保持 local @State 避 closeSearch close-loop）
-    └── SmartFolder/                 ← V2 智能文件夹规则与查询
-        ├── SmartFolder.swift                ← struct（id/displayName/predicate/sortBy/builtIn）
-        ├── SmartFolderRule.swift            ← Predicate enum (AND/OR/ATOM) + Atom struct + Op + Value（D6 Spotlight-like 平铺）
-        ├── SmartFolderQueryBuilder.swift    ← Predicate → SQL WHERE + parameters（snake_case 列名对齐 DB schema）
-        ├── SmartFolderEngine.swift          ← 编译 SmartFolder 成 CompiledSmartFolderQuery 后调 IndexStore.fetch
-        ├── BuiltInSmartFolders.swift        ← M1 内置 allRecent + thisWeekAdded（Slice B-β）
-        ├── SmartFolderState.swift           ← V2 Slice I.3 状态机 enum（.idle / .loading / .loaded / .error）
-        └── SmartFolderStore.swift           ← @MainActor ObservableObject 单一 @Published state（Slice I.3 重构）+ computed accessors 兼容旧 view 调用（selected/queryResult/isQuerying/lastError）+ stale-write guard 走 state pattern match
+    ├── SmartFolder/                 ← V2 智能文件夹规则与查询
+    │   ├── SmartFolder.swift                ← struct（id/displayName/predicate/sortBy/builtIn）
+    │   ├── SmartFolderRule.swift            ← Predicate enum (AND/OR/ATOM) + Atom struct + Op + Value（D6 Spotlight-like 平铺）
+    │   ├── SmartFolderQueryBuilder.swift    ← Predicate → SQL WHERE + parameters（snake_case 列名对齐 DB schema）
+    │   ├── SmartFolderEngine.swift          ← 编译 SmartFolder 成 CompiledSmartFolderQuery 后调 IndexStore.fetch
+    │   ├── BuiltInSmartFolders.swift        ← M1 内置 allRecent + thisWeekAdded（Slice B-β）
+    │   ├── SmartFolderState.swift           ← V2 Slice I.3 状态机 enum（.idle / .loading / .loaded / .error）
+    │   └── SmartFolderStore.swift           ← @MainActor ObservableObject 单一 @Published state（Slice I.3 重构）+ computed accessors 兼容旧 view 调用（selected/queryResult/isQuerying/lastError）+ stale-write guard 走 state pattern match
+    └── Dedup/                       ← V2 M4 重复清理（去重省空间，回归初心闭环）
+        └── DuplicateGroup.swift              ← M4 任务 1 步骤 2：4 个值类型 record — DuplicateGroup（id=sha256 / canonical 保留张 / duplicates 副本数组 / reclaimableBytes 可省空间）+ DuplicateGroupMember（id / urlBookmark / relativePath / fileSize / fullPath / isCanonical — 不含 folderId 任务 2 才扩，codex P2-3 边界）+ DuplicateGroupRow（聚合查询返回行 sha256/memberCount/reclaimableBytes）+ DuplicateGroupMemberRow（成员明细查询返回行 id/dedupCanonical/fileSize/relativePath/urlBookmark/fullPath）
 ```
 
 ---
