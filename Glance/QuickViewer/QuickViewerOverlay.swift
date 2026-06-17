@@ -531,6 +531,21 @@ struct QuickViewerOverlay: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([nsImage])
     }
+
+    /// 任务 B.3 — 复制当前图文件 path 到剪贴板（字符串）
+    private func copyCurrentPath() {
+        guard let url = viewModel.images[safe: viewModel.currentIndex] else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.path, forType: .string)
+    }
+
+    /// 任务 B.3 — 在 Finder 中显示当前图（fileExists 预检；R-finder-reveal-not-exist
+    /// 失败暂 noop，任务 C toast ship 后再加显式提示）
+    private func revealInFinder() {
+        guard let url = viewModel.images[safe: viewModel.currentIndex] else { return }
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
 }
 
 // MARK: - Array safe subscript
