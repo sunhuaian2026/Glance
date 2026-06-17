@@ -110,9 +110,12 @@ struct ContentView: View {
     @EnvironmentObject var folderStore: FolderStore
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var indexStoreHolder: IndexStoreHolder
+    @EnvironmentObject var bookmarkManager: BookmarkManager
     @StateObject private var smartFolderStore = SmartFolderStore.placeholder()
     /// M4 任务 1 — 重复清理总览 model(mirror smartFolderStore placeholder/attach 模式)
     @StateObject private var duplicateOverviewModel = DuplicateOverviewModel.placeholder()
+    /// M4 任务 2 收尾 — V1→V2 bookmark 升级引导 Coordinator (步骤 A.5 加).
+    @StateObject private var migrationCoordinator = BookmarkMigrationCoordinator.placeholder()
     /// M4 任务 1 — 是否切换到重复清理总览(五态互斥的第五态)
     @State private var showDuplicateOverview: Bool = false
     @State private var indexBridge: FolderStoreIndexBridge?
@@ -269,6 +272,13 @@ struct ContentView: View {
         }
         // codex P2(深比 BLOB): animation value 用 UUID 不用整 event
         .animation(DS.Anim.normal, value: trashUndoBanner?.id)
+        // M4 任务 2 收尾 — bookmark 升级引导 sheet (步骤 A.5 加).
+        .sheet(isPresented: $migrationCoordinator.isPresenting) {
+            BookmarkMigrationView(
+                onConfirm: { Task { await migrationCoordinator.pickRoots() } },
+                onDismiss: { migrationCoordinator.cancel() }
+            )
+        }
         // QV 已迁到独立 NSWindow（MainQuickViewerWindowController）。退出路由由 controller
         // 经 onDismiss(reason, entry) 回调到 handleQVDismiss 仲裁，不再走 .overlay + onChange。
         // M3 Slice M：body 级 ⌘F → openSearch（QV 不在场景下生效；QV 在时焦点在 QV，
@@ -367,6 +377,15 @@ struct ContentView: View {
         }
         // M4 任务 2 — 撤销 banner 接线 (D33 跨视图持久).
         // codex P2(深比 BLOB): 比 id (UUID) 不比整 outcome; 同 id 不触发动画.
+        // M4 任务 2 收尾 — D5-bm-ui prune selectedSha256s (步骤 A.5).
+        // 重扫完总览 reload 后, 把不在新 groups 里的 sha256 从勾选集合移除.
+        .onChange(of: duplicateOverviewModel.groups) { _, newGroups in
+            let validSha256s = Set(newGroups.map { $0.id })
+            let pruned = duplicateOverviewModel.selectedSha256s.intersection(validSha256s)
+            if pruned.count != duplicateOverviewModel.selectedSha256s.count {
+                duplicateOverviewModel.replaceSelectedSha256s(pruned)
+            }
+        }
         .onChange(of: duplicateOverviewModel.lastTrashOutcome?.id) { _, _ in
             guard let event = duplicateOverviewModel.lastTrashOutcome else { return }
             // 显示条件: trash 阶段成功 ≥1 或 undo 阶段 (无论成败都要 surface)
@@ -670,7 +689,14 @@ struct ContentView: View {
         let bridge = FolderStoreIndexBridge(indexStore: store)
         // M4 任务 1 — 把 indexStore + bridge 装配给 dup overview model(mirror smartFolderStore.attach)
         // 顺序：dup.attach 在 smartFolder observer 注册之前(多播容器无顺序依赖,按 plan 顺序方便阅读)
-        duplicateOverviewModel.attach(indexStore: store, bridge: bridge)
+        // M4 任务 2 收尾 — attach 扩展 3 个新依赖 (步骤 A.5).
+        duplicateOverviewModel.attach(
+            indexStore: store,
+            bridge: bridge,
+            bookmarkManager: bookmarkManager,
+            folderStore: folderStore,
+            migrationCoordinator: migrationCoordinator
+        )
         // M4 D35 — bridge.onIndexChanged 单播 var 升级为 indexChangedObservers UUID dict
         // 多播容器（M4 task 1 prerequisite）。smartFolder observer 是历史第一注册者，
         // DuplicateOverviewModel 是上方刚注册的第二 observer。

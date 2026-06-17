@@ -37,6 +37,10 @@ final class DuplicateOverviewModel: ObservableObject {
 
     private var indexStore: IndexStore?
     private weak var bridge: FolderStoreIndexBridge?
+    // M4 任务 2 收尾 — V1→V2 bookmark 升级引导 UI 依赖 (步骤 A.4 加).
+    private weak var bookmarkManager: BookmarkManager?
+    private weak var folderStore: FolderStore?
+    private weak var migrationCoordinator: BookmarkMigrationCoordinator?
     private var observerToken: UUID?
     private var pendingReload: DispatchWorkItem?
     // stale-write guard：每次 load() 自增，后续 await 回来核对；不一致说明更新的 load 已启动，旧结果丢弃
@@ -59,10 +63,19 @@ final class DuplicateOverviewModel: ObservableObject {
 
     /// ContentView wireIfReady 调，IndexStore ready 后装配 + 注册 bridge observer。
     /// 幂等：重复调忽略（已 attach 过则不重复注册 observer）。
-    func attach(indexStore: IndexStore, bridge: FolderStoreIndexBridge) {
+    func attach(
+        indexStore: IndexStore,
+        bridge: FolderStoreIndexBridge,
+        bookmarkManager: BookmarkManager,
+        folderStore: FolderStore,
+        migrationCoordinator: BookmarkMigrationCoordinator
+    ) {
         guard self.indexStore == nil else { return }
         self.indexStore = indexStore
         self.bridge = bridge
+        self.bookmarkManager = bookmarkManager
+        self.folderStore = folderStore
+        self.migrationCoordinator = migrationCoordinator
         let token = bridge.addIndexChangedObserver { [weak self] in
             // bridge fire 在 MainActor 上（FolderStoreIndexBridge.swift:14 @MainActor 确认）；
             // 这里直接调 scheduleReload 同 actor 不需切线程。
@@ -134,6 +147,12 @@ final class DuplicateOverviewModel: ObservableObject {
         selectedSha256s.removeAll()
     }
 
+    /// M4 任务 2 收尾 — D5-bm-ui prune 用. 一次性替换勾选集合 (避免 toggleSelection N 次调用).
+    /// ContentView .onChange(of: groups) prune 后调.
+    func replaceSelectedSha256s(_ newValue: Set<String>) {
+        selectedSha256s = newValue
+    }
+
     /// view 用 — 已勾选的副本数 (banner / 按钮文案「移入废纸篓 (N 张)」用).
     var selectedDuplicateCount: Int {
         groups.filter { selectedSha256s.contains($0.id) }
@@ -157,6 +176,22 @@ final class DuplicateOverviewModel: ObservableObject {
         guard let store = indexStore else { return }
         guard let bridgeRef = bridge else { return }
         guard !selectedSha256s.isEmpty else { return }
+
+        // M4 任务 2 收尾 — V1→V2 bookmark 升级引导 UI 入口 (步骤 A.4).
+        // schemaVersion < 2 = V1 时代 bookmark, trashItem 必失败 (NSCocoa 513). 触发引导.
+        guard let bookmarkManager else { return }
+        guard let folderStore else { return }
+        guard let migrationCoordinator else { return }
+        guard bookmarkManager.currentSchemaVersion >= 2 else {
+            migrationCoordinator.start(
+                model: self,
+                bookmarkManager: bookmarkManager,
+                folderStore: folderStore,
+                bridge: bridgeRef
+            )
+            return   // V1 路径: 引导触发, trashSelected 本次不执行, 等用户走完引导回来再点按钮
+        }
+        // V2 路径: 既有 trash 主流程不变 (下面代码)
 
         let snapshotGroups = self.groups
         let snapshotSelected = self.selectedSha256s
