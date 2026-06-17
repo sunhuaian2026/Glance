@@ -240,6 +240,81 @@ final class DuplicateOverviewModel: ObservableObject {
         await currentCancellationToken?.cancel()
     }
 
+    // MARK: - M4 任务 2 — 撤销主入口 undo (D34 显式回补 contract)
+
+    /// 用户点 banner [撤销]: D34 显式回补 contract.
+    /// 1. TrashService.restoreItems 把废纸篓 URL move 回原 fullPath
+    /// 2. 对每个 restore 成功 member: restoreImageFromSnapshot 首选 (同步返回 row id) /
+    ///    UNIQUE 冲突或失败 → requestRescan 降级 (async throws 返回时 row 已恢复或明确失败)
+    /// 3. 对每个受影响 groupKey: reEvaluateGroup → bridge.triggerIndexChanged 跨视图广播 →
+    ///    总览刷新 → publish undo 结果到 lastTrashOutcome (codex 第一轮 P1(undo 双失败静默吞掉) 修)
+    func undo(outcome: TrashOutcome) async {
+        guard let store = indexStore else { return }
+        guard let bridgeRef = bridge else { return }
+
+        let token = TrashCancellationToken()  // undo 阶段独立 token (用户不再"取消", 但保持 service 接口一致)
+
+        // 1. restore 文件回原 path
+        var restoreOutcome = await TrashService.restoreItems(outcome.successes, cancellation: token)
+
+        // 2. 对 restore 成功的 member 显式回补 DB row; 双失败累积进 dbFailures
+        var affectedGroups: Set<GroupKey> = []
+        var dbFailures: [RestoreFailure] = []
+        for success in restoreOutcome.successes {
+            do {
+                _ = try store.restoreImageFromSnapshot(success.snapshot)
+                affectedGroups.insert(success.groupKey)
+            } catch {
+                // 首选失败 — UNIQUE 冲突 (FSEvents 抢先 ingest) 或其它 → 降级 requestRescan
+                do {
+                    _ = try await bridgeRef.requestRescan(
+                        folderId: success.snapshot.folderId,
+                        relativePath: success.snapshot.relativePath
+                    )
+                    affectedGroups.insert(success.groupKey)
+                } catch let rescanError {
+                    // 双失败: 文件已 restore 回原 path 但 DB row 没回, 用户必须感知.
+                    // 累积进 dbFailures, banner 副文案展示「N 张 DB 同步失败 — 文件在但索引未恢复」.
+                    NSLog("[M4-T2 undo] DOUBLE FAILURE for %@: snapshot=%@ rescan=%@",
+                          success.originalFullPath,
+                          String(describing: error),
+                          String(describing: rescanError))
+                    dbFailures.append(RestoreFailure(
+                        originalFullPath: success.originalFullPath,
+                        reason: "DB sync failed (file restored but index missing)"
+                    ))
+                }
+            }
+        }
+
+        // 把 dbFailures 合进 restoreOutcome.failures 让 banner 一并展示
+        if !dbFailures.isEmpty {
+            restoreOutcome = RestoreOutcome(
+                successes: restoreOutcome.successes,
+                failures: restoreOutcome.failures + dbFailures,
+                cancelled: restoreOutcome.cancelled
+            )
+        }
+
+        // 3. 受影响组 reEvaluateGroup
+        await Task.detached(priority: .utility) {
+            for key in affectedGroups {
+                DedupPass.reEvaluateGroup(store: store, fileSize: key.fileSize, format: key.format)
+            }
+            try? store.promoteOrphanDuplicates()
+        }.value
+
+        // 4. 跨视图广播 (codex 第一轮 P1(跨视图刷新) 修)
+        bridgeRef.triggerIndexChanged()
+
+        // 5. 总览刷新
+        await load()
+
+        // 6. publish undo 结果给 banner — 不静默 nil, 让 ContentView 渲染撤销确认文案 +
+        //    若有失败 (含双失败 dbFailures) 副文案 surface 让用户感知
+        lastTrashOutcome = TrashOutcomeEvent(id: UUID(), trash: outcome, undoResult: restoreOutcome)
+    }
+
     // MARK: - helpers
 
     /// 取当前 state 的 groups 数组（reload 时作为 stale carry）
