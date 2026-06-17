@@ -28,6 +28,9 @@ struct QuickViewerOverlay: View {
     /// 任务 C.5/C.6 — 单张移废纸篓回调，按 Delete/⌘⌫/右键菜单触发。
     /// nil = 不渲染删除入口（ExternalViewer OpenWith 路径不挂主索引，无删除能力）。
     let onTrash: ((URL) async -> TrashOutcome?)?
+    /// 任务 C.8 — toast「撤销」按钮触发；caller (ContentView) 转给 Coordinator.restore。
+    /// 不在 VM.images 内 reinsert 撤销图，跟 M4 全局 banner 行为对齐（靠 FSEvents/scan 最终一致）。
+    let onUndoTrash: ((TrashOutcome) async -> Void)?
 
     @FocusState private var isFocused: Bool
     @State private var controlsVisible = true
@@ -50,7 +53,8 @@ struct QuickViewerOverlay: View {
         currentSupportsFeaturePrint: Bool = true,
         onCommandF: (() -> Void)? = nil,
         onToggleFullScreen: (() -> Void)? = nil,
-        onTrash: ((URL) async -> TrashOutcome?)? = nil
+        onTrash: ((URL) async -> TrashOutcome?)? = nil,
+        onUndoTrash: ((TrashOutcome) async -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: QuickViewerViewModel(images: images, startIndex: startIndex))
         self.onDismiss = onDismiss
@@ -60,6 +64,7 @@ struct QuickViewerOverlay: View {
         self.onCommandF = onCommandF
         self.onToggleFullScreen = onToggleFullScreen
         self.onTrash = onTrash
+        self.onUndoTrash = onUndoTrash
     }
 
     var body: some View {
@@ -568,10 +573,17 @@ struct QuickViewerOverlay: View {
         }
     }
 
-    /// 任务 C.8 占位 — 撤销 callback 实施在 C.8 步骤补全（onUndoTrash 参数 + 文案切换）。
-    /// C.7 commit 阶段先空实现，让 trashToast.撤销按钮可编译。
+    /// 任务 C.8 — 撤销 callback。await caller 调 Coordinator.restore，回主线程切 toast 文案显
+    /// 「文件恢复, 列表稍后刷新」（不在 VM.images reinsert 撤销图，跟 M4 全局 banner 对齐
+    /// 靠 FSEvents/scan 最终一致；codex P1 修，详 R-undo-restore-fidelity）。
     private func handleUndoTrash() async {
-        // C.8 step 实现：调 onUndoTrash(outcome) + 切 failureMessage 显「文件恢复, 列表稍后刷新」
+        guard let outcome = trashUndoOutcome, let onUndoTrash else { return }
+        await onUndoTrash(outcome)
+        await MainActor.run {
+            trashUndoOutcome = nil
+            trashFailureMessage = "文件恢复, 列表稍后刷新"
+            scheduleTrashDismiss()
+        }
     }
 
     /// 任务 A.7 — 异步读 ImageMetadata（off-main IO + ImageIO 读 dimensions），回主线程赋值
