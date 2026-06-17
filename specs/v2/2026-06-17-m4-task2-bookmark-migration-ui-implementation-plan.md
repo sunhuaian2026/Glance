@@ -640,23 +640,129 @@ EOF
 **Files:**
 - Modify: `Glance/Dedup/DuplicateOverviewView.swift`
 
-D4-bm-ui 拍板: 重扫期间总览 swap 到「重扫中」专用空态，区别于既有「没找到重复图」空态。
+D4-bm-ui 拍板: 重扫期间总览 swap 到「重扫中」专用空态，区别于既有「没找到重复图」空态。**codex review verdict (P1)**: 不能降级成沿用 emptyState — 用户会误读「正在重扫」为「没找到重复图」，是用户可见行为回退。本步骤必做。
 
-- [ ] **Step 1: 加 model 内部「重扫中」标志（如果 model 还没暴露）**
+- [ ] **Step 1: 加 `@EnvironmentObject migrationCoordinator` 到 DuplicateOverviewView**
 
-实际 D4 简化方案: 直接看 `model.groups.isEmpty && model.isLoading` 已经够（既有 isLoading 是 loading state computed）。或者用 model.errorMessage 是否含特殊标记判定。
+定位 `struct DuplicateOverviewView: View { @EnvironmentObject var model: DuplicateOverviewModel` (line 14 附近)，在 model 后加：
 
-最简方案: 沿用既有 mainContent computed 分支 (`errorState` / `emptyState` / `groupsList`)，加新分支 `rescanningState`（条件 = `migrationCoordinator.phase == .rescanning` 通过 environmentObject 注入）。
+```swift
+struct DuplicateOverviewView: View {
+    @EnvironmentObject var model: DuplicateOverviewModel
+    @EnvironmentObject var migrationCoordinator: BookmarkMigrationCoordinator
+```
 
-或者更简: 不区分「重扫中」vs「没找到重复图」（emptyState 既有文案「Glance 会在后台持续监控,发现重复立即显示」已经隐含了「等扫描」语义）。
+- [ ] **Step 2: mainContent 加 rescanning 分支（最优先于 emptyState）**
 
-**决策**: D4-bm-ui 文字虽然说「专用空态」，但实操简化 — emptyState 既有文案够。本步骤**改为 no-op**（不动 DuplicateOverviewView.swift），D4 验收等价 = emptyState + IndexingProgressView chip 联合呈现已足够。
+定位 `private var mainContent: some View` computed（line 25 附近）现状：
 
-- [ ] **Step 2: 标本步骤为已完成（no-op）**
+```swift
+    @ViewBuilder
+    private var mainContent: some View {
+        if let err = model.errorMessage {
+            errorState(message: err)
+        } else if model.groupCount == 0 && !model.isLoading {
+            emptyState
+        } else {
+            groupsList
+        }
+    }
+```
 
-无文件改动，本步骤跳过 commit。
+改成（加 rescanning 分支，最优先级，区分自 emptyState）：
 
-**Note**: 若军哥后续不满意 emptyState 文案，可单独追加「重扫中」分支作为 follow-up（不阻塞任务 A ship）。
+```swift
+    @ViewBuilder
+    private var mainContent: some View {
+        if let err = model.errorMessage {
+            errorState(message: err)
+        } else if case .rescanning = migrationCoordinator.phase {
+            // M4 任务 2 收尾 — D4-bm-ui 重扫中专用空态 (区别于 emptyState)
+            rescanningState
+        } else if model.groupCount == 0 && !model.isLoading {
+            emptyState
+        } else {
+            groupsList
+        }
+    }
+```
+
+- [ ] **Step 3: 加 `rescanningState` computed**
+
+定位 `private var emptyState: some View` 后加新 computed：
+
+```swift
+    /// M4 任务 2 收尾 — D4-bm-ui 重扫中专用空态
+    /// 区别于 emptyState 「没找到重复图」, 这是「等扫描结果」的中间态.
+    private var rescanningState: some View {
+        VStack(spacing: DS.Spacing.md) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.regular)
+            Text("重新扫描中…")
+                .font(DS.BookmarkMigration.rescanEmptyStateFont)
+                .foregroundStyle(.secondary)
+            Text("重选根目录后正在重建图像索引,扫完会自动显示重复组。")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, DS.Spacing.lg)
+    }
+```
+
+- [ ] **Step 4: ContentView 给 DuplicateOverviewView 注入 migrationCoordinator environmentObject**
+
+定位 ContentView mainContent ZStack 里 `if showDuplicateOverview { DuplicateOverviewView() }` 分支（line 359 附近），mirror 既有 `.environmentObject(duplicateOverviewModel)` 模式确认 migrationCoordinator 也在 detail 区注入链里。
+
+实际上 A.5 step 1 加的 `@StateObject migrationCoordinator` 已经在 ContentView scope，需要在 NavigationSplitView detail closure 内 `.environmentObject(migrationCoordinator)` 注入，让 DuplicateOverviewView 能拿到。
+
+定位 detail 块的 `.environmentObject(smartFolderStore)` / `.environmentObject(duplicateOverviewModel)`（既有 line 245-246 附近）后加：
+
+```swift
+            .environmentObject(smartFolderStore)
+            .environmentObject(duplicateOverviewModel)
+            .environmentObject(migrationCoordinator)
+```
+
+- [ ] **Step 5: build 验证**
+
+Run: `make build 2>&1 | tail -8`
+预期: `** BUILD SUCCEEDED **` + 0 warnings.
+
+- [ ] **Step 6: grep 验证**
+
+Run: `grep -n "@EnvironmentObject var migrationCoordinator\|case .rescanning = migrationCoordinator.phase\|private var rescanningState\|重新扫描中" Glance/Dedup/DuplicateOverviewView.swift`
+预期: 4 行命中。
+
+Run: `grep -n ".environmentObject(migrationCoordinator)" Glance/ContentView.swift`
+预期: 1 行命中。
+
+- [ ] **Step 7: commit**
+
+```bash
+git add Glance/Dedup/DuplicateOverviewView.swift Glance/ContentView.swift
+git commit -m "$(cat <<'EOF'
+feat(M4-task2-bm-ui-A.6): DuplicateOverviewView 加重扫中专用空态 (D4-bm-ui)
+
+加 @EnvironmentObject migrationCoordinator + mainContent 加 rescanning 分支
+(case .rescanning = migrationCoordinator.phase) 最优先于 emptyState.
+
+rescanningState computed: ProgressView 圆形 + 「重新扫描中…」 主文案 + 「重选根目录后
+正在重建图像索引,扫完会自动显示重复组。」副文案. 区别于 emptyState 「没找到重复图」
++ checkmark.seal icon — 用户不再误读「重扫中」为「没找到」.
+
+ContentView NavigationSplitView detail 内加 .environmentObject(migrationCoordinator)
+让 DuplicateOverviewView 拿到 Coordinator phase.
+
+codex review verdict P1 修: 不能降级沿用 emptyState (行为回退).
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+EOF
+)"
+```
 
 ---
 
@@ -845,7 +951,7 @@ ls -la ~/sync/glance-bm-ui-*.png 2>&1 | tail -5
 - [ ] (2026-06-17 / `<commit>`) **「以后再说」session 持久**: 点「以后再说」关 sheet → 关 app → 重启 app → 进总览再点「移入废纸篓」→ 应再弹引导
 ```
 
-- [ ] **Step 2: commit + push**
+- [ ] **Step 2: commit + push (两段式, codex P2 修)**
 
 ```bash
 git add specs/PENDING-USER-ACTIONS.md
@@ -864,10 +970,18 @@ CC 主 agent 自闭环 (Mac mini 解锁 + Ghostty/tmux/screencapture/AX):
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 EOF
 )"
-git push --no-verify
+
+# codex review verdict P2 修: 两段式 push, 先正常 push 让 codex pre-push 评审,
+# 命中已知 「异物 reset」 backlog bug 才走 --no-verify 兜底.
+git push
+# 若上一行成功 → push 完成, 跳过下面.
+# 若上一行报 codex 异物 reset 错误 (refs/codex/curated-sync rejected non-fast-forward
+# 之类) → 用 --no-verify 兜底 + 汇报里明示「触发异物 reset, 用 --no-verify 绕过」:
+#
+#   git push --no-verify
 ```
 
-**codex pre-push 预期**: A.1-A.5 这些 commit 含 `.swift` 改动，pre-push hook 会触发 codex review。**经验 backlog**: 本项目 codex pre-push 有「异物 reset」bug（上一 session 已沉淀），所有 push 用 `--no-verify` 兜底。
+**codex pre-push 预期**: A.1-A.5 + A.6 + A.8 这些 commit 含 `.swift` 改动，pre-push hook 会触发 codex review。**两段式 push 决策（codex review verdict P2 修）**: 先正常 `git push` 让 codex 评审，若命中已知「异物 reset」backlog bug（上一 session 沉淀）才走 `--no-verify` 兜底，B.5 汇报里**明示**触发了 fallback。这样既不绕过 codex 评审，又对已知 bug 有兜底路径。
 
 - [ ] **Step 3: 验证 push 成功**
 
@@ -905,7 +1019,7 @@ Run: `./scripts/verify.sh 2>&1 | tail -15`
 定位「**V2 M4 任务 2 状态（2026-06-17）**」长段，**追加**任务 A commit hash + 任务 2 端到端闭环达成态：
 
 ```markdown
-+ 任务 A bookmark 升级引导 UI ship: A.1 DS.BookmarkMigration `<A.1 commit>` + A.2 BookmarkMigrationView `<A.2 commit>` + A.3 BookmarkMigrationCoordinator `<A.3 commit>` + A.5 model+ContentView 接 Coordinator `<A.5 commit>` + A.8 CC 自闭环 + PENDING `<A.8 commit>`. **任务 2 端到端闭环达成 (代码层 + 引导 UI 全 ship)** — V1 用户点「移入废纸篓」→ 引导 sheet → NSOpenPanel 重选 → V2 重扫 → 真删 + 撤销 全流程可走. 剩军哥本机真机补验 3 项 (端到端 trashItem + 跨视图持久 banner + 「以后再说」session 持久) + 卷类型矩阵 PENDING (b)(c)(d).
++ 任务 A bookmark 升级引导 UI ship: A.1 DS.BookmarkMigration `<A.1 commit>` + A.2 BookmarkMigrationView `<A.2 commit>` + A.3 BookmarkMigrationCoordinator `<A.3 commit>` + A.5 model+ContentView 接 Coordinator `<A.5 commit>` + A.6 重扫中专用空态 `<A.6 commit>` + A.8 CC 自闭环 + PENDING `<A.8 commit>`. **任务 2 端到端闭环达成 (代码层 + 引导 UI 全 ship)** — V1 用户点「移入废纸篓」→ 引导 sheet → NSOpenPanel 重选 → V2 重扫 (总览显「重新扫描中…」专用空态) → 真删 + 撤销 全流程可走. 剩军哥本机真机补验 3 项 (端到端 trashItem + 跨视图持久 banner + 「以后再说」session 持久) + 卷类型矩阵 PENDING (b)(c)(d).
 ```
 
 - [ ] **Step 2: 更新 `CLAUDE.md` 文件结构段加 2 新文件 + 1 新目录**
@@ -943,11 +1057,11 @@ Run: `./scripts/verify.sh 2>&1 | tail -15`
 - A.2 BookmarkMigrationView.swift, commit `<pending>` (2026-06-17)
 - A.3 BookmarkMigrationCoordinator.swift, commit `<pending>` (2026-06-17)
 - A.4 + A.5 DuplicateOverviewModel + ContentView 接 Coordinator (合并 commit), commit `<pending>` (2026-06-17)
-- A.6 DuplicateOverviewView 重扫中空态 — no-op 跳过 (emptyState 既有文案足够)
+- A.6 DuplicateOverviewView 重扫中专用空态 (codex review P1 修, 不降级), commit `<pending>` (2026-06-17)
 - A.7 make build + CC 自闭环验 5 项 (无 commit, 验证步骤)
-- A.8 CC 自闭环结果 + PENDING 写入 + push, commit `<pending>` (2026-06-17)
+- A.8 CC 自闭环结果 + PENDING 写入 + 两段式 push, commit `<pending>` (2026-06-17)
 
-self-fix 轮次 `<待填>`. codex pre-push `--no-verify` 兜底.
+self-fix 轮次 `<待填>`. codex pre-push 两段式 push 结果 `<待填>`.
 
 ### 任务 B — /go 收尾
 
@@ -975,7 +1089,7 @@ Run: `grep -n "任务 A 升级 UI 端到端 CC 主 agent 自闭环验\|端到端
 
 ### 步骤 B.4: docs-only commit + push
 
-- [ ] **Step 1: 添加 docs-only 改动**
+- [ ] **Step 1: 添加 docs-only 改动 + 两段式 push (codex P2 修)**
 
 ```bash
 git add specs/Roadmap.md CLAUDE.md specs/v2/2026-06-17-m4-task2-bookmark-migration-ui-implementation-plan.md
@@ -983,11 +1097,12 @@ git commit -m "$(cat <<'EOF'
 docs(M4-task2-bm-ui-B): 收尾 — Roadmap / CLAUDE.md / 本 plan 实施记录
 
 Roadmap M4 任务 2 状态切「端到端闭环达成 (代码层 16 commit + 引导 UI 实施 ship)」
-+ 列任务 A 5 个 commit hash + 剩军哥本机真机补验 3 项 + 卷类型矩阵 PENDING.
++ 列任务 A 6 个 commit hash + 剩军哥本机真机补验 3 项 + 卷类型矩阵 PENDING.
 
 CLAUDE.md 文件结构加 Glance/Migration/ 新子目录 (BookmarkMigrationView +
 BookmarkMigrationCoordinator) + DuplicateOverviewModel.swift 描述加 step A.4
-增量 + ContentView.swift 描述加 step A.5 集成.
+增量 + ContentView.swift 描述加 step A.5 集成 + DuplicateOverviewView 描述加
+step A.6 重扫中专用空态.
 
 本 plan 末尾加实施记录段 (commit hash + self-fix 轮次 + 结果数字回填).
 
@@ -995,7 +1110,9 @@ BookmarkMigrationCoordinator) + DuplicateOverviewModel.swift 描述加 step A.4
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 EOF
 )"
-git push --no-verify
+# 两段式 push: 先正常评审, 命中 backlog bug 才 --no-verify
+git push
+# 若 fail → git push --no-verify (汇报里明示)
 ```
 
 - [ ] **Step 2: 验证 push 成功**
@@ -1026,7 +1143,8 @@ CC 主 agent 自闭环验 5 项: 项 1+2+3 PASS (sheet 渲染 / DisclosureGroup 
 项 4+5 NSOpenPanel modal AX 驱动卡住降级 PENDING.
 
 self-fix 轮次 <N>. commit-msg hook <M> 次拦字典禁用词.
-codex pre-push --no-verify 兜底 (异物 reset bug backlog).
+codex pre-push: <两段式 push 结果 — 「全部正常 push 评审通过」 OR 「触发异物 reset
+backlog bug, X 次用 --no-verify 兜底」>.
 
 军哥本机真机补验 3 项 (PENDING M4 任务 2 段):
 - (a2) 端到端 trashItem + 撤销
@@ -1092,8 +1210,17 @@ codex pre-push --no-verify 兜底 (异物 reset bug backlog).
 
 ### Scope check
 
-- ✅ 任务 A 8 个子步骤（A.1 DS / A.2 view / A.3 coordinator / A.4 model / A.5 ContentView / A.6 no-op / A.7 验证 / A.8 PENDING + push）符合「6 个子步骤起」要求
+- ✅ 任务 A 8 个子步骤（A.1 DS / A.2 view / A.3 coordinator / A.4 model / A.5 ContentView / A.6 重扫中专用空态 / A.7 验证 / A.8 PENDING + push）符合「6 个子步骤起」要求
 - ✅ 任务 B 5 步 /go 收尾（B.1 verify / B.2 文档 / B.3 PENDING / B.4 commit+push / B.5 汇报）符合 `/go` 五步约束
-- ✅ 总 commit 数约 6 个（A.1 / A.2 / A.3 / A.5(含 A.4) / A.8 / B.4），符合 design 8.3 「7-9 commit」预估
+- ✅ 总 commit 数约 7 个（A.1 / A.2 / A.3 / A.5(含 A.4) / A.6 / A.8 / B.4），符合 design 8.3 「7-9 commit」预估
+
+### codex review (plan 第一轮) 折入
+
+codex review 第三轮跑通（plan 阶段第一轮 review）, 无 P0, 1 P1 + 1 P2 全收:
+
+| 级别 | codex 抓的问题 | 折入位置 |
+|---|---|---|
+| P1 | A.6 重扫中空态降级 — 违反 D4-bm-ui 拍板「专用空态」, 是用户可见行为回退 | A.6 改为正经实现: @EnvironmentObject migrationCoordinator + mainContent 加 rescanning 分支 + rescanningState computed (ProgressView + 「重新扫描中…」+ 副文案) |
+| P2 | A.8 `git push --no-verify` 写死 — 绕过正常 pre-push 评审违反「不可逆操作先确认」 | A.8 / B.4 改两段式 push: 先正常 `git push` 让 codex 评审, 命中已知「异物 reset」backlog bug 才 `--no-verify` 兜底; B.5 汇报里明示是否触发 fallback |
 
 Self-review 通过. plan 进 codex review.
