@@ -84,6 +84,33 @@ struct QuickViewerOverlay: View {
                     .overlay {
                         imageLayer
                     }
+                    // 任务 B.5 — 右键菜单（D37 快捷键可发现镜像）；任务 C 会在末尾追加「移到废纸篓」
+                    .contextMenu {
+                        Button { viewModel.rotateLeft() } label: {
+                            Label("旋转左 (L)", systemImage: DS.Icon.rotateLeft)
+                        }
+                        Button { viewModel.rotateRight() } label: {
+                            Label("旋转右 (R)", systemImage: DS.Icon.rotateRight)
+                        }
+                        Divider()
+                        Button { viewModel.toggleFlipH() } label: {
+                            Label("水平翻转", systemImage: DS.Icon.flipHorizontal)
+                        }
+                        Button { viewModel.toggleFlipV() } label: {
+                            Label("垂直翻转", systemImage: DS.Icon.flipVertical)
+                        }
+                        Divider()
+                        Button { copyImageToPasteboard() } label: {
+                            Label("复制图片 (⌘C)", systemImage: DS.Icon.copy)
+                        }
+                        .disabled(viewModel.currentNSImage == nil)
+                        Button { copyCurrentPath() } label: {
+                            Label("复制路径 (⌘⌥C)", systemImage: DS.Icon.copyPath)
+                        }
+                        Button { revealInFinder() } label: {
+                            Label("在 Finder 中显示 (⌘⇧R)", systemImage: DS.Icon.finder)
+                        }
+                    }
 
                 // 顶部状态栏
                 VStack {
