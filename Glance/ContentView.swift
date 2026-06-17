@@ -133,6 +133,13 @@ struct ContentView: View {
     @State private var searchTask: Task<Void, Never>? = nil
     /// M3 chips — chip 选中态（D22 独立筛选状态）。openSearch 重置、closeSearch 清空（D27）。
     @State private var searchFilterState = SearchFilterState()
+    /// M4 任务 2 — 撤销 banner 全局 state (D33 跨视图持久, 不绑 showDuplicateOverview 生命周期).
+    /// duplicateOverviewModel.lastTrashOutcome.id .onChange 触发拷贝 (codex P2(轻量 UUID 比对避深比 BLOB)).
+    /// 用户点 banner [×] 或 [撤销] 完成 → onDismiss 清回 nil.
+    @State private var trashUndoBanner: TrashOutcomeEvent? = nil
+    /// banner 30s auto-dismiss timer (cancellable; 进快速看图器 / 切视图不暂停 — D33 简化:
+    /// banner 状态保留 30s 内有效, 过期视作用户已忽略)
+    @State private var bannerDismissTask: Task<Void, Never>? = nil
     /// D15 终态：父持有的单一 @FocusState，向所有可聚焦子 view（grid / preview / ephemeral）
     /// 通过 FocusState.Binding 下发。替代原 3 个 UUID trigger（gridFocusTrigger /
     /// previewFocusTrigger / ephemeralFocusTrigger）+ 子 view 各自 @FocusState 模式 —
@@ -238,6 +245,30 @@ struct ContentView: View {
             .environmentObject(smartFolderStore)
             .environmentObject(duplicateOverviewModel)
         }
+        // M4 任务 2 — 撤销 banner 全局 overlay (D33 跨视图持久, 不仅 detail pane).
+        // codex P2-04: NavigationSplitView 外层 modifier 链, mirror 任务 1 全局 chip overlay.
+        // 快速看图器是独立 NSWindow（ZStack 外）物理不可见但 trashUndoBanner state 保留, 关 QV 后回归.
+        .overlay(alignment: .top) {
+            if let event = trashUndoBanner {
+                TrashUndoBanner(
+                    event: event,
+                    onUndo: {
+                        bannerDismissTask?.cancel()
+                        // 不立即清 trashUndoBanner — undo 完成后 model.lastTrashOutcome 重 publish
+                        // 触发 .onChange 重赋 event (含 undoResult) 让 banner 切「撤销完成」展示
+                        Task { await duplicateOverviewModel.undo(outcome: event.trash) }
+                    },
+                    onDismiss: {
+                        bannerDismissTask?.cancel()
+                        trashUndoBanner = nil
+                    }
+                )
+                .padding(.top, DS.Dedup.bannerTopPadding)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        // codex P2(深比 BLOB): animation value 用 UUID 不用整 event
+        .animation(DS.Anim.normal, value: trashUndoBanner?.id)
         // QV 已迁到独立 NSWindow（MainQuickViewerWindowController）。退出路由由 controller
         // 经 onDismiss(reason, entry) 回调到 handleQVDismiss 仲裁，不再走 .overlay + onChange。
         // M3 Slice M：body 级 ⌘F → openSearch（QV 不在场景下生效；QV 在时焦点在 QV，
@@ -332,6 +363,24 @@ struct ContentView: View {
                 // 主动 trigger load —— load 唯一 owner(删 DuplicateOverviewView.onAppear 触发,
                 // 避免与 model.scheduleReload 并发 stale-write)
                 Task { await duplicateOverviewModel.load() }
+            }
+        }
+        // M4 任务 2 — 撤销 banner 接线 (D33 跨视图持久).
+        // codex P2(深比 BLOB): 比 id (UUID) 不比整 outcome; 同 id 不触发动画.
+        .onChange(of: duplicateOverviewModel.lastTrashOutcome?.id) { _, _ in
+            guard let event = duplicateOverviewModel.lastTrashOutcome else { return }
+            // 显示条件: trash 阶段成功 ≥1 或 undo 阶段 (无论成败都要 surface)
+            let trashHasContent = event.undoResult == nil && event.trash.successCount > 0
+            let undoHasContent = event.undoResult != nil
+            guard trashHasContent || undoHasContent else { return }
+            trashUndoBanner = event
+            // 取消上一次 timer (若 banner 接连出现)
+            bannerDismissTask?.cancel()
+            bannerDismissTask = Task {
+                try? await Task.sleep(nanoseconds: UInt64(DS.Dedup.bannerAutoDismissSeconds * 1_000_000_000))
+                if !Task.isCancelled {
+                    await MainActor.run { trashUndoBanner = nil }
+                }
             }
         }
         // D15 终态：删除原 ContentView 兜底 ESC 状态机。子 view 各自持 ESC handler
