@@ -212,6 +212,10 @@ struct QuickViewerOverlay: View {
                     width: nsImage.size.width * viewModel.scale,
                     height: nsImage.size.height * viewModel.scale
                 )
+                // 任务 A.5 — 旋转 / 翻转 modifier 顺序：frame → rotationEffect → scaleEffect → offset
+                // 先旋转（绕中心）再镜像，跟用户视觉直觉「转完再翻」一致
+                .rotationEffect(.degrees(Double(viewModel.rotationQuarterTurns) * Double(DS.Viewer.rotationStepDegrees)))
+                .scaleEffect(x: viewModel.flippedH ? -1 : 1, y: viewModel.flippedV ? -1 : 1)
                 .offset(viewModel.offset)
                 .animation(nil, value: viewModel.scale)
                 .animation(nil, value: viewModel.offset)
