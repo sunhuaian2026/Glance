@@ -2542,20 +2542,54 @@ codex pre-push 通过 0 P1 + 3 P2 顺手修在 follow-up commit:
 - P2-2 plan 实施记录段 step 1 + 2.0.5 hash 回填
 - P2-3 Roadmap 状态切「步骤 2.0.5 已 ship, plan 步骤 2.1+ 实施中」
 
-### 步骤 2 — 3 个新 API + IndexedImageSnapshot, commit `<pending>` (2026-06-17)
-...
+### 步骤 2 — 3 个新 API + IndexedImageSnapshot, commits `72f4100` / `6326a6d` / `a5e14e9` / `bf5d2e4` / `4c8a367` (2026-06-17)
 
-### 步骤 3 — TrashService, commit `<pending>` (2026-06-16)
-...
+- 步骤 2.1 IndexedImageSnapshot 15 字段值类型 `72f4100`
+- 步骤 2.0+2.2 folderId carry + IndexStore.fetchSnapshotForRestore `6326a6d` (合并 codex P1+P2 修)
+- 步骤 2.3 IndexStore.restoreImageFromSnapshot INSERT 15 列回补 `a5e14e9`
+- 步骤 2.4 FolderStoreIndexBridge.requestRescan + triggerIndexChanged `bf5d2e4`
+- 步骤 2.5 round-trip swift 脚本验通 (一次性脚本 `_SpikeTask2Step2.swift` 已 git rm) `4c8a367`
 
-### 步骤 4 — DuplicateOverviewModel 增量, commit `<pending>` (2026-06-16)
-...
+self-fix 0 轮. codex pre-push 0 拦截.
 
-### 步骤 5 — DuplicateOverviewView + ContentView banner 全链, commit `<pending>` (2026-06-16)
-...
+### 步骤 3 — TrashService, commits `499066f` / `78b856e` (2026-06-17)
 
-### 步骤 6 — /go 收尾, commit `<pending>` (2026-06-16)
-...
+- 步骤 3.1 TrashOutcome 值类型 + TrashCancellationToken actor `499066f`
+- 步骤 3.2+3.3 TrashService.trashItems + restoreItems 全项目首个碰真实文件 (合并一 commit) `78b856e`
+
+Sendable 标注全过编译期检查 (Swift 6 mode). codex pre-push 0 拦截.
+
+### 步骤 4 — DuplicateOverviewModel 增量, commits `70e04a8` / `9af7a0b` (2026-06-17)
+
+- 步骤 4.1+4.2+4.3 勾选状态 + attach bridge 弱引用 + trashSelected 主入口 (合并一 commit) `70e04a8`
+- 步骤 4.4 undo D34 显式回补 contract — restoreItems → restoreImageFromSnapshot 首选 / requestRescan 降级 `9af7a0b`
+
+self-fix 0 轮. codex pre-push 0 拦截.
+
+### 步骤 5 — DuplicateOverviewView + ContentView banner 全链, commits `95fd579` / `562484a` / `8bbe98b` / `642f0a9` / `8c4b280` (2026-06-17)
+
+- 步骤 5.1 DS.Dedup 加 14 个 banner / button / checkbox 常量 `95fd579`
+- 步骤 5.2 新建 TrashUndoBanner.swift 纯展示 view (73 行) `562484a`
+- 步骤 5.3 DuplicateOverviewView 组级 checkbox + 「移入废纸篓」按钮 + 删除中态 `8bbe98b`
+- 步骤 5.4 ContentView 全局 banner overlay (NavigationSplitView 外层 .overlay) + lastTrashOutcome .onChange + 30s auto-dismiss timer `642f0a9`
+- 步骤 5.5 CC 主 agent 自闭环验 + PENDING (项 1+2 PASS / 项 3+4+5 等引导 UI 后续 task) `8c4b280`
+
+self-fix 0 轮 (每步 build 一次过). commit-msg hook 1 次拦 (`QV` + `P2-04` 弃用词,改「快速看图器」+「codex P2(挂点)」二次 commit 通过).
+
+CC 自闭环 (Mac mini 解锁 + Ghostty/tmux/screencapture/AX 工具链):
+- 项 1 PASS 组级 checkbox 渲染 + 勾选高亮
+- 项 2 PASS 按钮文案 + disabled→enabled 切换
+- 项 3+4+5 等引导 UI 后续 task ship 后跑 (D2 A 拍板暂不实现引导 UI; sync root V1 时代 bookmark + UserDefaults bookmarkSchemaVersion 键不存在 → trashItem 必失败 NSCocoa 513 → banner 设计上沉默 working as intended)
+
+### 步骤 6 — /go 收尾, commit `<pending>` (2026-06-17)
+
+- 6.1 verify.sh 三段 — 13 passed, 0 failed. Stage 2 BUILD SUCCEEDED 0 warnings.
+- 6.2 文档同步 Roadmap (任务 2 状态切「代码层全完, 剩引导 UI 后续 task + 真机 PENDING」+ 16 commit hash 列出) + CLAUDE.md (Dedup 段加 4 个 step 2-5 新文件 + DuplicateOverviewView 段加 step 5.3 增量) + 本 plan 实施记录回填 6 步 commit hash.
+- 6.3 PENDING 在 step 5.5 commit `8c4b280` 写过.
+- 6.4 docs-only commit + push.
+- 6.5 一段话汇报.
+
+任务 2 端到端闭环达成条件: 引导 UI 后续 task ship + 真机 PENDING (a2)/(e)/(f) 跑通 → 才算任务 2 完整 ship.
 
 ---
 
