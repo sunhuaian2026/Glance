@@ -382,6 +382,7 @@ enum DS {
         static let copy            = "doc.on.doc"
         static let copyPath        = "doc.on.doc.fill"
         static let finder          = "magnifyingglass.circle"
+        static let more            = "ellipsis.circle"
     }
 }
 

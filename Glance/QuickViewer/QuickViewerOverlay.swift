@@ -432,6 +432,7 @@ struct QuickViewerOverlay: View {
                 }
                 .opacity(currentSupportsFeaturePrint ? DS.Similarity.buttonEnabledOpacity : DS.Similarity.buttonDisabledOpacity)
             }
+            moreActionsMenu
             toolbarButton(title: "全屏 (F)", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : DS.Icon.fullscreen) {
                 if let onToggleFullScreen { onToggleFullScreen() } else { appState.toggleFullScreen() }
             }
@@ -640,6 +641,54 @@ struct QuickViewerOverlay: View {
         }
         .buttonStyle(.plain)
         .help(title)
+    }
+
+    // MARK: - More Actions Menu
+    // toolbar 内「更多 ⋯」菜单，contextMenu 七项的可发现镜像（D37 决策延伸）：
+    // 右键 contextMenu 留作快捷入口，toolbar Menu 让不知道有右键的用户也能发现核心动作
+    private var moreActionsMenu: some View {
+        Menu {
+            Button { viewModel.rotateLeft() } label: {
+                Label("旋转左 (L)", systemImage: DS.Icon.rotateLeft)
+            }
+            Button { viewModel.rotateRight() } label: {
+                Label("旋转右 (R)", systemImage: DS.Icon.rotateRight)
+            }
+            Divider()
+            Button { viewModel.toggleFlipH() } label: {
+                Label("水平翻转", systemImage: DS.Icon.flipHorizontal)
+            }
+            Button { viewModel.toggleFlipV() } label: {
+                Label("垂直翻转", systemImage: DS.Icon.flipVertical)
+            }
+            Divider()
+            Button { copyImageToPasteboard() } label: {
+                Label("复制图片 (⌘C)", systemImage: DS.Icon.copy)
+            }
+            .disabled(viewModel.currentNSImage == nil)
+            Button { copyCurrentPath() } label: {
+                Label("复制路径 (⌘⌥C)", systemImage: DS.Icon.copyPath)
+            }
+            Button { revealInFinder() } label: {
+                Label("在 Finder 中显示 (⌘⇧R)", systemImage: DS.Icon.finder)
+            }
+            Divider()
+            Button(role: .destructive) {
+                Task { await handleTrashCurrent() }
+            } label: {
+                Label("移到废纸篓 (⌫)", systemImage: DS.Icon.trash)
+            }
+        } label: {
+            Image(systemName: DS.Icon.more)
+                .font(.body)
+                .foregroundColor(.white.opacity(0.85))
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("更多")
     }
 
     // MARK: - Dismiss / Exit Fullscreen

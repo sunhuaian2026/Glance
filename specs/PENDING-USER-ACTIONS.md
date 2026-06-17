@@ -69,6 +69,18 @@
 
 ---
 
+### V2 快速看图器增强 followup — toolbar「更多 ⋯」菜单(2026-06-18 ship 待真机验)
+
+> 任务 A/B/C ship 后军哥反馈: 右键 contextMenu 发现性弱, toolbar 缺对应小图标。走方向 4 — 加 `ellipsis.circle`「更多」Menu 按钮在「找类似」和「全屏」之间, 内容镜像 contextMenu 七项(旋转 L/R + 翻转 H/V + 复制图 + 复制路径 + Finder + 移到废纸篓 destructive)。contextMenu 保留作右键快捷。verify.sh 三段全过(14/14, build 0 error 0 warning)。
+
+军哥本机验项:
+- [ ] (2026-06-18) **toolbar「更多」按钮可见**: 进快速看图器底部工具栏看「找类似」和「全屏」之间多了一个 `…` 图标按钮, 视觉跟其他 toolbar 按钮一致(32×32 + 白色 0.85 opacity), hover tooltip「更多」
+- [ ] (2026-06-18) **下拉菜单内容对齐 contextMenu**: 点「更多」展开菜单, 8 项分 4 组(旋转左 L / 旋转右 R | 水平翻转 / 垂直翻转 | 复制图片 ⌘C / 复制路径 ⌘⌥C / 在 Finder 中显示 ⌘⇧R | 移到废纸篓 ⌫ 红色), 跟右键 contextMenu 完全一致
+- [ ] (2026-06-18) **菜单各项执行正确**: 点「旋转左」图转, 点「复制图片」可粘贴, 点「移到废纸篓」走 trash 流程(同 Delete 键), 行为跟 contextMenu 同项一致
+- [ ] (2026-06-18) **菜单指示器隐藏**: 按钮无下拉箭头小三角(`.menuIndicator(.hidden)`), 视觉跟其他 toolbar 按钮无差异
+
+---
+
 
 （本段 CC 维护，追加新项。测完移到 Done。）
 
