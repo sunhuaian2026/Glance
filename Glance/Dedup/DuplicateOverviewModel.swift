@@ -23,12 +23,27 @@ final class DuplicateOverviewModel: ObservableObject {
 
     @Published private(set) var state: DuplicateOverviewState = .idle
 
+    /// M4 任务 2 — 勾选的重复组 (sha256). 整组勾选 D28: 用户选「这组要清掉副本」,
+    /// 不给单文件 checkbox.
+    @Published private(set) var selectedSha256s: Set<String> = []
+
+    /// M4 任务 2 — 删除中态状态机.
+    @Published private(set) var trashState: TrashOperationState = .idle
+
+    /// M4 任务 2 — 桥给 ContentView 渲染 banner. trashSelected 完成时 set,
+    /// ContentView .onChange(of: model.lastTrashOutcome?.id) 走轻量 UUID 比对
+    /// (codex review P2(大 BLOB Equatable) 修: 不深比含 BLOB 的 payload 避大 Data 比较 + 同 outcome 不触发).
+    @Published private(set) var lastTrashOutcome: TrashOutcomeEvent?
+
     private var indexStore: IndexStore?
     private weak var bridge: FolderStoreIndexBridge?
     private var observerToken: UUID?
     private var pendingReload: DispatchWorkItem?
     // stale-write guard：每次 load() 自增，后续 await 回来核对；不一致说明更新的 load 已启动，旧结果丢弃
     private var loadGeneration: Int = 0
+
+    /// M4 任务 2 — 删除中的取消 token (actor; cancelTrash 调它).
+    private var currentCancellationToken: TrashCancellationToken?
 
     // 注：入口激活态不放 model —— ContentView.@State showDuplicateOverview 是唯一权威，
     // SmartFolderListView 通过 isDuplicateOverviewSelected: Bool 参数接收，不读 model 状态。
@@ -103,6 +118,126 @@ final class DuplicateOverviewModel: ObservableObject {
             deadline: .now() + .milliseconds(DS.Dedup.reloadDebounceMillis),
             execute: work
         )
+    }
+
+    // MARK: - M4 任务 2 — 勾选 / 取消勾选
+
+    func toggleSelection(sha256: String) {
+        if selectedSha256s.contains(sha256) {
+            selectedSha256s.remove(sha256)
+        } else {
+            selectedSha256s.insert(sha256)
+        }
+    }
+
+    func clearSelection() {
+        selectedSha256s.removeAll()
+    }
+
+    /// view 用 — 已勾选的副本数 (banner / 按钮文案「移入废纸篓 (N 张)」用).
+    var selectedDuplicateCount: Int {
+        groups.filter { selectedSha256s.contains($0.id) }
+            .reduce(into: 0) { $0 += $1.duplicates.count }
+    }
+
+    /// view 用 — 已勾选可省空间总和 (按钮副文案 / banner 用).
+    var selectedReclaimableBytes: Int64 {
+        groups.filter { selectedSha256s.contains($0.id) }
+            .reduce(into: Int64(0)) { $0 += $1.reclaimableBytes }
+    }
+
+    // MARK: - M4 任务 2 — 删除主入口 trashSelected
+
+    /// 用户点「移入废纸篓」: 收集所选组的副本 → 预 fetch 每 member snapshot →
+    /// TrashService.trashItems → 删 DB rows → DedupPass.reEvaluateGroup 受影响组 →
+    /// promoteOrphanDuplicates 兜底 → bridge.triggerIndexChanged() 跨视图广播 (codex 第一轮 P1(跨视图刷新)) →
+    /// load() 刷新 → set lastTrashOutcome 触发 banner.
+    /// design 5.2 数据流主路径.
+    func trashSelected() async {
+        guard let store = indexStore else { return }
+        guard let bridgeRef = bridge else { return }
+        guard !selectedSha256s.isEmpty else { return }
+
+        let snapshotGroups = self.groups
+        let snapshotSelected = self.selectedSha256s
+        let inputs = await collectTrashInputs(store: store, groups: snapshotGroups, selectedSha256s: snapshotSelected)
+        guard !inputs.isEmpty else {
+            trashState = .completed
+            return
+        }
+
+        let token = TrashCancellationToken()
+        currentCancellationToken = token
+        trashState = .trashing(done: 0, total: inputs.count)
+
+        let outcome = await TrashService.trashItems(
+            inputs,
+            cancellation: token
+        ) { [weak self] done, total in
+            Task { @MainActor [weak self] in
+                self?.trashState = .trashing(done: done, total: total)
+            }
+        }
+
+        var affectedGroups: Set<GroupKey> = []
+        for success in outcome.successes {
+            do {
+                try store.deleteImage(folderId: success.snapshot.folderId, relativePath: success.snapshot.relativePath)
+                affectedGroups.insert(success.groupKey)
+            } catch {
+                NSLog("[M4-T2] deleteImage failed for id=%lld/%@: %@",
+                      success.snapshot.folderId, success.snapshot.relativePath, String(describing: error))
+            }
+        }
+
+        await Task.detached(priority: .utility) {
+            for key in affectedGroups {
+                DedupPass.reEvaluateGroup(store: store, fileSize: key.fileSize, format: key.format)
+            }
+            try? store.promoteOrphanDuplicates()
+        }.value
+
+        bridgeRef.triggerIndexChanged()
+
+        await load()
+
+        lastTrashOutcome = TrashOutcomeEvent(id: UUID(), trash: outcome, undoResult: nil)
+        trashState = .completed
+        currentCancellationToken = nil
+        selectedSha256s.removeAll()
+    }
+
+    /// 收集 trashSelected 所需的 TrashInput 数组 (整组勾选 → 该组所有副本预 fetch snapshot).
+    /// 步骤 2.0 已把 folderId 加进 DuplicateGroupMember struct, 这里直接用 dup.folderId
+    /// 不反查 (codex 第三轮 P1(checkBind file-scoped 编译失败) + P2(N+1 反查) 合一修).
+    private nonisolated func collectTrashInputs(
+        store: IndexStore,
+        groups: [DuplicateGroup],
+        selectedSha256s: Set<String>
+    ) async -> [TrashService.TrashInput] {
+        let selectedGroups = groups.filter { selectedSha256s.contains($0.id) }
+        var inputs: [TrashService.TrashInput] = []
+        for group in selectedGroups {
+            for dup in group.duplicates {
+                guard let snap = try? store.fetchSnapshotForRestore(
+                    folderId: dup.folderId,
+                    relativePath: dup.relativePath
+                ) else {
+                    continue
+                }
+                inputs.append(TrashService.TrashInput(
+                    snapshot: snap,
+                    groupKey: GroupKey(fileSize: snap.fileSize, format: snap.format)
+                ))
+            }
+        }
+        return inputs
+    }
+
+    /// 用户点删除中态的「取消」按钮 → token.cancel(). TrashService 内部下次 isCancelled
+    /// 返回 true → 中止剩余 member trash, 返回 outcome.cancelled=true.
+    func cancelTrash() async {
+        await currentCancellationToken?.cancel()
     }
 
     // MARK: - helpers
@@ -180,4 +315,27 @@ extension DuplicateOverviewModel {
     var totalReclaimableBytes: Int64 {
         groups.reduce(into: Int64(0)) { $0 += $1.reclaimableBytes }
     }
+}
+
+// MARK: - M4 任务 2 — 删除中状态机 + Banner 事件载体
+
+/// M4 任务 2 — 删除中状态机.
+enum TrashOperationState: Equatable {
+    /// 待操作 (无勾选 / 勾选未触发)
+    case idle
+    /// 删除中: progress = (已处理, 总数); cancellable = true 时取消按钮可点
+    case trashing(done: Int, total: Int)
+    /// 删除已完成 (outcome 已 publish 给 lastTrashOutcome), 待 model 清回 .idle
+    case completed
+}
+
+/// M4 任务 2 — 撤销 banner 事件载体 (codex review P2(大 BLOB Equatable): 轻量 UUID 比对避深比 BLOB payload).
+/// trashSelected 完成 set 一次 (undoResult=nil banner 显「已移 N 张到废纸篓 + [撤销] [×]」),
+/// undo(outcome:) 完成 set 另一次 (undoResult≠nil banner 显「撤销完成 N 张 (+M 失败)」简短确认).
+/// ContentView .onChange(of: model.lastTrashOutcome?.id) 走 id 比对触发动画 + 重置 timer.
+struct TrashOutcomeEvent: Identifiable {
+    let id: UUID
+    let trash: TrashOutcome
+    /// nil = trash 阶段; 非 nil = undo 阶段, 含 restore 结果 (失败累积给 banner 副文案 codex 第一轮 P1(undo 双失败静默吞掉)).
+    let undoResult: RestoreOutcome?
 }

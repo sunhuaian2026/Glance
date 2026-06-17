@@ -14,7 +14,7 @@
 
 import Foundation
 
-struct IndexedImageSnapshot: Equatable {
+struct IndexedImageSnapshot: Equatable, Sendable {
     // MARK: M1 基础 NOT NULL 列 (schema:57-63)
     let urlBookmark: Data           // images.url_bookmark BLOB NOT NULL
     let birthTime: Date             // images.birth_time REAL NOT NULL
