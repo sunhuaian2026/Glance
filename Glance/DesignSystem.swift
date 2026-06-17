@@ -366,6 +366,10 @@ enum DS {
         static let rotateRight     = "rotate.right"
         static let flipHorizontal  = "arrow.left.and.right.righttriangle.left.righttriangle.right"
         static let flipVertical    = "arrow.up.and.down.righttriangle.up.righttriangle.down"
+        // 快速看图器增强 任务 B — 复制 / Finder 显示 系统图标
+        static let copy            = "doc.on.doc"
+        static let copyPath        = "doc.on.doc.fill"
+        static let finder          = "magnifyingglass.circle"
     }
 }
 
