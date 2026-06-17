@@ -201,14 +201,32 @@ struct QuickViewerOverlay: View {
             if let onToggleFullScreen { onToggleFullScreen() } else { appState.toggleFullScreen() }
             return .handled
         }
-        // 任务 A.6 — 裸 L / R 触发 VM 旋转（任务 B.4 会把 R handler 合并为「⌘⇧R Finder + 裸 R 旋转」分支）
+        // 任务 A.6 — 裸 L 触发 VM 旋转
         .onKeyPress(.init("l"), phases: .down) { _ in
             viewModel.rotateLeft()
             return .handled
         }
-        .onKeyPress(.init("r"), phases: .down) { _ in
+        // 任务 B.4 — R 合并：⌘⇧R 在 Finder 中显示 / 裸 R 旋转（同 .onKeyPress("r") 内分支，
+        // SwiftUI 同 key 多 handler 仅挂最后一个会丢前者，必须合并）
+        .onKeyPress(.init("r"), phases: .down) { event in
+            if event.modifiers.contains(.command) && event.modifiers.contains(.shift) {
+                revealInFinder()
+                return .handled
+            }
             viewModel.rotateRight()
             return .handled
+        }
+        // 任务 B.4 — ⌘C 复制图片 / ⌘⌥C 复制路径（先判 ⌘⌥ 组合再判 ⌘，避免 ⌘ 路径吃掉 ⌘⌥）
+        .onKeyPress(.init("c"), phases: .down) { event in
+            if event.modifiers.contains(.command) && event.modifiers.contains(.option) {
+                copyCurrentPath()
+                return .handled
+            }
+            if event.modifiers.contains(.command) {
+                copyImageToPasteboard()
+                return .handled
+            }
+            return .ignored
         }
         // 捏合手势
         .gesture(
