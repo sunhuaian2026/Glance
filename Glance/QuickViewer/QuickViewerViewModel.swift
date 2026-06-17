@@ -26,6 +26,11 @@ class QuickViewerViewModel: ObservableObject {
     @Published var scale: CGFloat = 1.0
     @Published var offset: CGSize = .zero
 
+    // 快速看图器增强 任务 A — 临时旋转 / 翻转状态（关窗丢失 + 切图重置）
+    @Published var rotationQuarterTurns: Int = 0
+    @Published var flippedH: Bool = false
+    @Published var flippedV: Bool = false
+
     // 辅助
     var baseScale: CGFloat = 1.0
     var viewportSize: CGSize = .zero
@@ -159,6 +164,41 @@ class QuickViewerViewModel: ObservableObject {
             baseScale = scale
         }
         offset = .zero
+    }
+
+    // MARK: - Rotation / Flip (快速看图器增强 任务 A)
+
+    /// 旋转 / 翻转后的有效图像尺寸（90/270° 宽高互换；翻转不变尺寸）。
+    /// A.3 之后 fitScale / clampOffset / applyViewportSize / onImageLoaded 全用此口径。
+    func effectiveImageSize(_ image: NSImage) -> CGSize {
+        let normalized = ((rotationQuarterTurns % 4) + 4) % 4
+        if normalized == 1 || normalized == 3 {
+            return CGSize(width: image.size.height, height: image.size.width)
+        }
+        return image.size
+    }
+
+    func rotateLeft() {
+        rotationQuarterTurns -= 1
+    }
+
+    func rotateRight() {
+        rotationQuarterTurns += 1
+    }
+
+    func toggleFlipH() {
+        flippedH.toggle()
+    }
+
+    func toggleFlipV() {
+        flippedV.toggle()
+    }
+
+    /// 切图时复位旋转/翻转（D34 — 每张独立，关窗即丢）。在 fitScale 重算前调用。
+    private func resetRotationAndFlip() {
+        rotationQuarterTurns = 0
+        flippedH = false
+        flippedV = false
     }
 
     // MARK: - Private
