@@ -39,7 +39,10 @@ struct ImagePreviewView: View {
 
     var body: some View {
         ZStack {
-            DS.Color.appBackground.ignoresSafeArea()
+            // 删除 DS.Color.appBackground.ignoresSafeArea(): mirror V1 ImageGridView
+            // 让 NavigationSplitView 默认内容区背景接管, 跟 sidebar vibrancy 自然融合,
+            // 消除标题栏左上角方形(a1.png 预览模式撞到, a2.png V1 grid 无方形对比定位).
+            // 保留下方 RadialGradient 青绿光晕作装饰层.
 
             // 青绿光晕（右下角）
             RadialGradient(

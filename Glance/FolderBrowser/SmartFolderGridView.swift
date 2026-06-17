@@ -104,7 +104,10 @@ struct SmartFolderGridView: View {
                         .padding(DS.Spacing.sm)
                     }
                 }
-                .background(DS.Color.gridBackground)
+                // 删除 .background(DS.Color.gridBackground): mirror V1 ImageGridView
+                // 让 NavigationSplitView 默认内容区背景接管(NSColor.controlBackgroundColor /
+                // windowBackgroundColor), 跟 sidebar vibrancy 自然融合, 消除标题栏左上角方形
+                // (a2.png V1 文件夹无方形 vs a3/a4.png V2 智能文件夹有方形对比定位).
                 .focusable()
                 .focusEffectDisabled()
                 .focused($focusTarget, equals: .grid)

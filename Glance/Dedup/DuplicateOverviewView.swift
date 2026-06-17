@@ -54,7 +54,6 @@ struct DuplicateOverviewView: View {
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.vertical, DS.Spacing.md)
         }
-        .background(DS.Color.gridBackground)
     }
 
     private var statsBar: some View {
@@ -117,7 +116,6 @@ struct DuplicateOverviewView: View {
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DS.Color.gridBackground)
     }
 
     /// M4 任务 2 收尾 — D4-bm-ui 重扫中专用空态
@@ -138,7 +136,6 @@ struct DuplicateOverviewView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, DS.Spacing.lg)
-        .background(DS.Color.gridBackground)
     }
 
     private func errorState(message: String) -> some View {
@@ -155,7 +152,6 @@ struct DuplicateOverviewView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, DS.Spacing.lg)
-        .background(DS.Color.gridBackground)
     }
 
     private var formattedReclaimable: String {
