@@ -15,30 +15,35 @@
 
 **Tech Stack:** SwiftUI(macOS 14+) / AppKit(NSPasteboard/NSWorkspace) / 复用 `ImageMetadataReader`(IndexStore) + `TrashService`(M4) + `MainQuickViewerWindowController`(独立 NSWindow 单例)
 
+**最小真实改动集**(codex P2 收口):
+- 必改 QuickViewer 4 文件: `QuickViewerViewModel.swift` / `QuickViewerOverlay.swift` / `MainQuickViewerWindowController.swift` / 新建 `QuickViewerTrashCoordinator.swift`
+- 必改 `DesignSystem.swift`(常量)
+- 必改 `ContentView.swift`(wire onTrash/onUndoTrash + schema gate 注入 BookmarkManager)
+- 可选 `IndexedImage.swift`(若现 `fetchSnapshotForRestore(folderId:relativePath:)` 不支持按 fullPath, 加新 entry)
+- **注**: `ExternalViewerWindowController.swift:73` 也直接构造 `QuickViewerOverlay`(OpenWith 路径), 任务 C 新参数 `onTrash`/`onUndoTrash` 设默认值 `= nil` → OpenWith 路径继承"不可删除"语义不接 trash 入口(codex P1 收, 详见任务 C.5/C.6/C.9)
+
 ---
 
 ## 任务全表
 
-| 任务 | 一句话 | 文件触及数 | 估时 | 依赖 | vertical slice 兑现 |
+| 任务 | 一句话 | 文件触及数 | 估时 | 依赖 | 用户独立感知 |
 |---|---|---|---|---|---|
 | **任务 A** | 临时旋转 L/R + 翻转 H/V + 信息上屏角落小字 | 4(VM + Overlay + ZoomScrollView 复核 + DS) | 1-2 天 | 无 | 按 L 图转 90° + 角落显「4000×3000 · 2.5MB」 |
-| **任务 B** | 复制图片 + 复制路径 + Finder 显示 + 右键 contextMenu | 3(Overlay + DS + 复制/Finder helper) | 0.5-1 天 | 无(可与 A 并行 ship) | 右键弹菜单 + ⌘C/⌘⌥C/⌘⇧R 真生效 |
-| **任务 C** | Delete/⌘⌫ 移废纸篓 + 单张撤销 toast + working-copy 数组维护 | 5(Coordinator + VM 改 mutable + Overlay + MainQVController + ContentView wire) | 2-3 天 | M4 `TrashService` 已 ship `78b856e` | 按 Delete 图进废纸篓 + 自动下一张 + toast 撤销回原位 |
+| **任务 B** | 复制图片 + 复制路径 + Finder 显示 + 右键 contextMenu | 3(Overlay + DS + 复制/Finder helper) | 0.5-1 天 | A.6 + B.4 合并改 .onKeyPress("r") → A 先 ship | 右键弹菜单 + ⌘C/⌘⌥C/⌘⇧R 真生效 |
+| **任务 C** | Delete/⌘⌫ 移废纸篓 + 单张撤销 toast + working-copy 数组维护 | 5(Coordinator + VM 改 mutable + Overlay + MainQVController + ContentView wire) | 2-3 天 | M4 `TrashService` 已 ship `78b856e` + 任务 A+B | 按 Delete 图进废纸篓 + 自动下一张 + toast「已移废纸篓」(撤销:文件恢复, 列表稍后刷新) |
 
-**总估时**: 4-6 天。任务 A+B 可并行(同一会话 dispatch 两 subagent), 任务 C 等 A+B ship 后单独跑(VM 改动较深)。
+**总估时**: 4-6 天。**实施顺序硬约束(codex P1 改)**: **A → B → C 严格串行**, 不并行。理由: 任务 A 和 B 都改 `QuickViewerOverlay.swift` 且 A.6/B.4 都触 `.onKeyPress("r")`(裸 R 旋转 / ⌘⇧R Finder 显示), 并行 subagent 会 merge 冲突 + 两步改同一行。
 
 ---
 
 ## 总体时序
 
 ```
-任务 A (旋转/翻转 + 信息) ───┐
-                             ├──→ 任务 C (删除闭环, 等 A+B ship)
-任务 B (复制/Finder + 右键) ─┘
+任务 A (旋转/翻转 + 信息) → 任务 B (复制/Finder + 右键) → 任务 C (删除闭环)
 ```
 
-- 任务 A/B 互相不依赖, 改同文件(`QuickViewerOverlay.swift`) 但不同段, 可同 session 串行 commit 或两 subagent 并行(并行需 worktree 隔离)
-- 任务 C 必须等 A+B ship: 右键 contextMenu(B) 要加「移到废纸篓」项; 信息上屏(A) 帮用户决策删不删
+- A 必须先 ship: A.6 加 `.onKeyPress("r")` 裸 R 触发 rotateRight; 任务 B 的 B.4 需要把同一 `.onKeyPress("r")` 改成分支(裸 R 旋转 + ⌘⇧R Finder 显示), 必须在 A 已 ship 的基础上修改
+- 任务 C 必须等 B ship: 右键 contextMenu(B.5)要加「移到废纸篓」项(C.10); 信息上屏(A) 帮用户决策删不删
 - M4 `TrashService` 已 ship(commit `78b856e`), 不阻塞任务 C 启动
 
 ---
@@ -61,17 +66,23 @@
 
 | ID | 风险 | 对策 | 触发任务 |
 |---|---|---|---|
-| **R-trash-adapter** | `TrashService.trashItems([TrashInput])` 不收 URL, 需要 URL→folder_id+relative_path 反查 + `fetchSnapshotForRestore` 拿 IndexedImageSnapshot + 构造 `TrashInput`(带 `GroupKey`)。快速看图器单张场景**无 GroupKey 概念**(GroupKey 是 dedup 组概念) | 任务 C 新建「单张删除适配层」`QuickViewerTrashCoordinator`(URL → reverse lookup IndexStore → 单张 GroupKey 用 sha256 兜底或空 group sentinel); 不接 IndexStore 的 V1 老 bookmark 图不能删(回退到 banner 提示) | C |
-| **R-images-let** | VM `images: [URL]` 是 `let`(QuickViewerViewModel.swift:18), 不可变。`prefetchCache/prefetchTasks/导航 canGoBack/canGoForward` 全部基于固定数组语义 | 任务 C 改 `let images: [URL]` → `private(set) var images: [URL]` + 新增 `removeCurrent()` 方法 + 调整 `currentIndex` + 清该 idx prefetch + 重 `loadCurrentImage` + 更新 progress 字符串。同步审视所有读 `images.count`/`images.indices` 的点(grep 全文件) | C |
+| **R-trash-adapter** | `TrashService.trashItems([TrashInput])` 不收 URL, 需要 URL→folder_id+relative_path 反查 + `fetchSnapshotForRestore` 拿 IndexedImageSnapshot + 构造 `TrashInput`(带 `GroupKey`)。 | 任务 C 新建「单张删除适配层」`QuickViewerTrashCoordinator`(URL → reverse lookup IndexStore → 构造 `GroupKey(fileSize:format:)` 对齐 `TrashOutcome.swift:42` 真实定义, **codex P0 收**); 不接 IndexStore 的 V1 老 bookmark 图不能删(走 schema gate 拦截, 详 C.12) | C |
+| **R-images-let** | VM `images: [URL]` 是 `let`(QuickViewerViewModel.swift:18), 不可变。`prefetchCache/prefetchTasks/导航 canGoBack/canGoForward` 全部基于固定数组语义 | 任务 C 改 `let images: [URL]` → `private(set) var images: [URL]` + 新增 `removeCurrent()` 方法 + 调整 `currentIndex` + **codex P0**: prefetch cache 用 `Int` idx 当 key, 删一张后 `> currentIndex` 的 key 全错位 → 选「全清重建」`clearPrefetchCache()` 而非单 key remove + 重 `loadCurrentImage`; 同步审视所有读 `images.count`/`images.indices` 的点(grep 全文件) | C |
 | **R-onkey-modifier-flags** | 现有 `.onKeyPress` ⌘=/⌘- 检查 `NSEvent.modifierFlags.contains(.command)`(Overlay :162/170/174) 是全局 NSEvent.modifierFlags 而非 event.modifiers; 但 ⌘F 用了 event.modifiers(:180)。新 ⌘C/⌘⌥C/⌘⇧R/⌘⌫ 用哪种? | 任务 B/C 统一用 `event.modifiers`(mirror :180 现代写法), 与 ⌘=/- 不同源(那段是历史遗留待统一, 不在本 plan 范围) | B + C |
 | **R-pasteboard-image-fidelity** | NSPasteboard 复制 NSImage 时各 paste target 行为(Finder paste / Slack paste / Notes paste)对 PNG/JPG/HEIC 不同格式的还原可能不一致 | 任务 B 用 `NSPasteboard.general.writeObjects([nsImage])` 简单路径; 复杂 fidelity 列 backlog | B |
 | **R-finder-reveal-not-exist** | 文件已外部删除时 `NSWorkspace.activateFileViewerSelecting` 会弹 Finder 空窗 | 任务 B 调前 `FileManager.fileExists` 预检, 失败显 toast(用任务 C 的 toast 槽; 若 C 未 ship 则简单 print + helpDialog; 真实顺序 A+B 先 ship 时此场景概率极低可暂忽略) | B |
+| **R-trash-outcome-timing**(codex P0) | 计划原 C.6 先 `removeCurrent()` 再 await `onTrash`, 但 `TrashService.trashItems` 是 best-effort 可能 failure/cancelled, 失败也跳下一张 UX 完全反转 | C.6 改: 先 `await onTrash(url) -> TrashOutcome?` 拿 outcome, 仅 `outcome?.successCount == 1` 才 `removeCurrent()`; 失败保留当前图 + 显失败 toast(toast 槽 C.7 配套) | C |
+| **R-trash-no-reEvaluate**(codex P0) | trash/restore 成功后没触发 `DedupPass.reEvaluateGroup + promoteOrphanDuplicates`, 重复组状态漂移; M4 `DuplicateOverviewModel.swift:257/334` 已有现成模式 | C.2 `QuickViewerTrashCoordinator.trash`/`restore` 成功路径 mirror `DuplicateOverviewModel` 调 `DedupPass.reEvaluateGroup(store:fileSize:format:) + promoteOrphanDuplicates()`, 再 `bridge.triggerIndexChanged()` 让总览刷新 | C |
+| **R-fullpath-prefix-match**(codex P0) | 计划原 C.3 「找出 root 包含此 path 的 folder_id」前缀匹配会把 `/a/b` 和 `/a/b2` 都命中误伤 | C.3 改: 新增 `fetchSnapshotForRestore(byFullPath:)` 用项目已有精确匹配范式 `JOIN folders + f.root_path \|\| '/' \|\| i.relative_path = ?`(mirror `IndexedImage.swift:412/582`), 不做字符串前缀推断 | C |
+| **R-schema-gate-injection**(codex P0) | 计划原 C.12 想在 `QuickViewerOverlay` 查 `bookmarkManager.currentSchemaVersion`, 但 QV 独立窗口只注入 `viewerAppState`(MainQuickViewerWindowController.swift:134), 没有 `BookmarkManager`, 拿不到 | C.12 下沉 schema gate 到 `QuickViewerTrashCoordinator.trash` 入口前(Coordinator 已 attach BookmarkManager); Overlay 仅触发 onTrash callback 不做 schema 判, schema 不通过 Coordinator 返回 `nil + 失败原因 enum`, Overlay 据此显失败 toast | C |
+| **R-external-viewer-callsite**(codex P1) | `QuickViewerOverlay` 有另一个直接构造点在 `ExternalViewerWindowController.swift:73`(OpenWith 路径), C.6/C.8/C.9 加 `onTrash`/`onUndoTrash` 没考虑这里 | C.5/C.6/C.9 新参数设默认值 `= nil`; OpenWith 路径继承"不可删除"语义(看图器单 session 场景不挂主索引, 删除入口不放); plan 头部「最小真实改动集」段已明示 | C |
+| **R-undo-restore-fidelity**(codex P1) | plan 原文「toast 撤销回原位」与 C.8 「不回补 VM.images, 靠 FSEvents 最终一致」矛盾 | 选「文件恢复, 列表稍后刷新」语义(mirror M4 全局 banner): toast 文案改成「已恢复 (列表稍后刷新)」, 不在 QV 内立刻 reinsert; 跟 M4 撤销行为对齐避免两个系统漂移 | C |
 
 ---
 
 ## 任务 A: 旋转/翻转 + 信息上屏
 
-**Vertical slice 兑现**: 用户独立完成后能在快速看图器内按 **L/R** 把图转 90°、按右键菜单选「水平翻转/垂直翻转」摆正; 角落自动显「4000×3000 · 2.5MB」帮判断留大删小; 关窗即还原不写文件。
+**用户独立感知兑现**: 用户独立完成后能在快速看图器内按 **L/R** 把图转 90°、按右键菜单选「水平翻转/垂直翻转」摆正; 角落自动显「4000×3000 · 2.5MB」帮判断留大删小; 关窗即还原不写文件。
 
 ### Files
 - **Modify**: `Glance/QuickViewer/QuickViewerViewModel.swift`(加旋转/翻转状态 + helper + 切图重置)
@@ -116,7 +127,7 @@
 
 ## 任务 B: 复制图片 + 复制路径 + Finder 显示 + 右键 contextMenu
 
-**Vertical slice 兑现**: 用户独立完成后能在快速看图器内**右键弹出 contextMenu**(含旋转/翻转/复制/Finder); ⌘C 复制图片到剪贴板能在 Finder/Notes/Slack 粘贴; ⌘⌥C 复制文件路径; ⌘⇧R 在 Finder 中显示当前图。
+**用户独立感知兑现**: 用户独立完成后能在快速看图器内**右键弹出 contextMenu**(含旋转/翻转/复制/Finder); ⌘C 复制图片到剪贴板能在 Finder/Notes/Slack 粘贴; ⌘⌥C 复制文件路径; ⌘⇧R 在 Finder 中显示当前图。
 
 ### Files
 - **Modify**: `Glance/QuickViewer/QuickViewerOverlay.swift`(加 .onKeyPress ⌘C/⌘⌥C/⌘⇧R + contextMenu)
@@ -137,7 +148,7 @@
 
 - [ ] **B.3 Overlay 加复制路径 + Finder 显示 helper**: 新增 `private func copyCurrentPath()`: `guard let url = viewModel.images[safe: viewModel.currentIndex] else { return }; NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url.path, forType: .string)`; 新增 `private func revealInFinder()`: `guard let url = viewModel.images[safe: viewModel.currentIndex] else { return }; guard FileManager.default.fileExists(atPath: url.path) else { /* 失败暂 noop, R-finder-reveal-not-exist 任务 C toast ship 后再加提示 */ return }; NSWorkspace.shared.activateFileViewerSelecting([url])`; commit `feat(快速看图器增强-B.3): Overlay 加复制路径 + Finder 显示 helper`
 
-- [ ] **B.4 Overlay .onKeyPress 加 ⌘C / ⌘⌥C / ⌘⇧R**: 在现有 .onKeyPress 链末尾加: `.onKeyPress(.init("c"), phases: .down) { event in if event.modifiers.contains(.command) && event.modifiers.contains(.option) { copyCurrentPath(); return .handled }; if event.modifiers.contains(.command) { copyImageToPasteboard(); return .handled }; return .ignored }` + `.onKeyPress(.init("r"), phases: .down) { event in if event.modifiers.contains(.command) && event.modifiers.contains(.shift) { revealInFinder(); return .handled }; viewModel.rotateRight(); return .handled }`(注意 R 已被 A.6 占, 改写成同 keypress 内分支: ⌘⇧R Finder, 裸 R 旋转, 否则两个 .onKeyPress("r") 系统只挂一个); **注意**: A.6 的 `.onKeyPress(.init("r"), phases: .down) { _ in viewModel.rotateRight(); return .handled }` 必须替换成本步的合并版本, 避免冲突; commit `feat(快速看图器增强-B.4): Overlay .onKeyPress ⌘C 复制图 / ⌘⌥C 复制路径 / ⌘⇧R Finder 显示 + 合并裸R+⌘⇧R 单 onKeyPress`
+- [ ] **B.4 Overlay .onKeyPress 加 ⌘C / ⌘⌥C / ⌘⇧R + 替换 A.6 单步 R 为合并版本**: 在现有 .onKeyPress 链末尾加 ⌘C 分支: `.onKeyPress(.init("c"), phases: .down) { event in if event.modifiers.contains(.command) && event.modifiers.contains(.option) { copyCurrentPath(); return .handled }; if event.modifiers.contains(.command) { copyImageToPasteboard(); return .handled }; return .ignored }`; **替换 A.6 的 `.onKeyPress(.init("r"), phases: .down) { _ in viewModel.rotateRight(); return .handled }`** 为合并版本: `.onKeyPress(.init("r"), phases: .down) { event in if event.modifiers.contains(.command) && event.modifiers.contains(.shift) { revealInFinder(); return .handled }; viewModel.rotateRight(); return .handled }`(同 .onKeyPress("r") 内分支: ⌘⇧R Finder, 裸 R 旋转, 否则两个 .onKeyPress("r") 系统只挂一个); **审视**: 必须确保 A.6 的 R handler 被本步**整体替换**, 不留两个 .onKeyPress("r")(SwiftUI 同 key 多 handler 仅挂最后一个会丢前者); commit `feat(快速看图器增强-B.4): Overlay .onKeyPress ⌘C 复制图 / ⌘⌥C 复制路径 / ⌘⇧R Finder + 合并 R 单 onKeyPress 分支`
 
 - [ ] **B.5 Overlay 加 contextMenu**(D37 — 快捷键可发现镜像): 在 ZoomScrollView 那个外层 `.overlay { imageLayer }`(Overlay :82)后或主 ZStack 上挂 `.contextMenu { ... }`; 菜单结构按 design 第 9 节:
    ```
@@ -170,7 +181,7 @@
 
 ## 任务 C: Delete/⌘⌫ 移废纸篓 + 单张撤销 toast
 
-**Vertical slice 兑现**: 用户独立完成后能在快速看图器内按 **Delete 或 ⌘⌫** 真把当前图移系统废纸篓 + 自动跳下一张 + 角落弹「已移废纸篓 [撤销]」toast 几秒消失 + 点撤销文件回原位; 右键 contextMenu 末尾出现红色「移到废纸篓」项。
+**用户独立感知兑现**: 用户独立完成后能在快速看图器内按 **Delete 或 ⌘⌫** 真把当前图移系统废纸篓 + 自动跳下一张 + 角落弹「已移废纸篓 [撤销]」toast 几秒消失 + 点撤销文件恢复(列表稍后刷新, 跟 M4 全局 banner 语义对齐); 右键 contextMenu 末尾出现红色「移到废纸篓」项。失败场景(权限/V1 老 bookmark/卷已弹出)显失败 toast 不跳图。
 
 ### Files
 - **Create**: `Glance/QuickViewer/QuickViewerTrashCoordinator.swift`(单张删除适配层: URL → reverse lookup IndexStore → 构造 TrashInput → 调 TrashService → 处理 TrashOutcome → 调 UI callback)
@@ -190,27 +201,103 @@
 
 - [ ] **C.1 加 DS 常量 + 文档**(`DesignSystem.swift`): 新增 `enum QuickViewerTrash { static let toastAutoDismissSeconds: Double = 5.0; static let toastBackgroundOpacity: Double = 0.45; static let toastCornerRadius: CGFloat = 8 }`; commit `feat(快速看图器增强-C.1): DS.QuickViewerTrash 加 toast 时长 + 配色常量`
 
-- [ ] **C.2 新建 QuickViewerTrashCoordinator**(`QuickViewer/QuickViewerTrashCoordinator.swift`): `@MainActor final class QuickViewerTrashCoordinator: ObservableObject`; 持 `weak var indexStore: IndexStore?` + `weak var bridge: FolderStoreIndexBridge?`; 装配 API `func attach(indexStore: IndexStore, bridge: FolderStoreIndexBridge)`; 主 API: `func trash(url: URL) async -> TrashOutcome?` — (a) 调 `indexStore.fetchSnapshotForRestore(byFullPath:)`(若 IndexStore 无此 API, 看下 step C.3 是否要补 entry)反查 snapshot; (b) snapshot 不存在(V1 老 bookmark 图 / 未入库图) → return nil + log; (c) 构造 `TrashService.TrashInput(snapshot: snapshot, groupKey: GroupKey.singleton(snapshot.contentSHA256 ?? "no-sha-\(snapshot.id)"))` — 注: GroupKey 是 dedup 概念, 单张快速看图器删图无组, 用 sha256 作 group key(若图无 sha256 用 image id 兜底, 保 GroupKey 唯一); (d) `TrashService.trashItems([input], cancellation: TrashCancellationToken(), progress: { _, _ in })`; (e) 成功后 `indexStore.deleteImage(folderId:relativePath:)` + `bridge.triggerIndexChanged()`(让总览/智能文件夹刷新); (f) 返回 outcome; 加对称 `func restore(outcome: TrashOutcome) async -> RestoreOutcome` 调 `TrashService.restoreItems + indexStore.restoreImageFromSnapshot`; commit `feat(快速看图器增强-C.2): 新建 QuickViewerTrashCoordinator 单张删除适配层 (URL → snapshot → TrashInput → TrashOutcome)`
+- [ ] **C.2 新建 QuickViewerTrashCoordinator**(`QuickViewer/QuickViewerTrashCoordinator.swift`): `@MainActor final class QuickViewerTrashCoordinator: ObservableObject`; 持 `weak var indexStore: IndexStore?` + `weak var bridge: FolderStoreIndexBridge?` + `weak var bookmarkManager: BookmarkManager?`(codex P0 schema gate 下沉到 Coordinator 入口); 装配 API `func attach(indexStore: IndexStore, bridge: FolderStoreIndexBridge, bookmarkManager: BookmarkManager)`。
+   **主 API**: `func trash(url: URL) async -> TrashOutcome?` —
+   (a) **schema gate**(codex P0 修): `guard bookmarkManager?.currentSchemaVersion ?? 0 >= 2 else { return nil }` 失败提示由 Overlay toast 处理;
+   (b) 调 `indexStore.fetchSnapshotForRestore(byFullPath: url.path)` 反查 snapshot;
+   (c) snapshot 不存在(未入库图 / V1 老 bookmark) → return nil;
+   (d) **GroupKey 构造**(codex P0 修): `TrashService.TrashInput(snapshot: snapshot, groupKey: GroupKey(fileSize: snapshot.fileSize, format: snapshot.format))` — 对齐 `TrashOutcome.swift:42` 真实定义(GroupKey 是 fileSize+format 两字段值类型, **不是** singleton 工厂);
+   (e) `TrashService.trashItems([input], cancellation: TrashCancellationToken(), progress: { _, _ in })`;
+   (f) 成功 (`outcome.successCount == 1`)后: `indexStore.deleteImage(folderId: snapshot.folderId, relativePath: snapshot.relativePath)` + **`DedupPass.reEvaluateGroup(store: indexStore, fileSize: snapshot.fileSize, format: snapshot.format) + indexStore.promoteOrphanDuplicates()`**(codex P0 修, mirror `DuplicateOverviewModel.swift:257/334`) + `bridge.triggerIndexChanged()`(让总览/智能文件夹刷新);
+   (g) 返回 outcome(给 Overlay 判 success/failure 决定是否 removeCurrent + toast 文案);
+   加对称 `func restore(outcome: TrashOutcome) async -> RestoreOutcome?` 调 `TrashService.restoreItems + indexStore.restoreImageFromSnapshot` + 同样 `DedupPass.reEvaluateGroup + promoteOrphanDuplicates + bridge.triggerIndexChanged`;
+   commit `feat(快速看图器增强-C.2): 新建 QuickViewerTrashCoordinator 单张删除适配层 + schema gate + reEvaluateGroup`
 
-- [ ] **C.3 IndexStore 加 `fetchSnapshotForRestore(byFullPath:)`**(若现有 `fetchSnapshotForRestore` 只支持 `folderId+relativePath`, 加单 URL 友好的 entry 给 QuickViewerTrashCoordinator): grep 验证现有签名 → 若已有按 fullPath 反查的方法直接复用跳过本步; 否则在 `IndexedImage.swift` 新增 `func fetchSnapshotForRestore(byFullPath fullPath: String) throws -> IndexedImageSnapshot?`(先反查 `folders` 表找出 root 中包含此 path 的 folder_id + 算 relative_path, 再调既有 `fetchSnapshotForRestore(folderId:relativePath:)`); commit `feat(快速看图器增强-C.3): IndexStore.fetchSnapshotForRestore(byFullPath:) 单 URL 反查 entry` *(若 C.2 写完发现已有等效 API 则跳本步, plan 标注 "skipped")*
+- [ ] **C.3 IndexStore 加 `fetchSnapshotForRestore(byFullPath:)`**(精确 SQL 匹配, **codex P0 修**避免前缀误伤): grep 验证现有签名 `IndexedImage.swift:735` `fetchSnapshotForRestore(folderId:relativePath:)` → 加新 entry `func fetchSnapshotForRestore(byFullPath fullPath: String) throws -> IndexedImageSnapshot?`; **SQL 用精确匹配范式**(mirror `IndexedImage.swift:412/582` 既有 pattern): `SELECT ... FROM images i JOIN folders f ON i.folder_id = f.id WHERE f.root_path || '/' || i.relative_path = ?`, **不做**字符串前缀推断(`/a/b` 不会误匹 `/a/b2`); 找到 row 后复用既有 `fetchSnapshotForRestore(folderId:relativePath:)` 内部解析 logic 拼 IndexedImageSnapshot; commit `feat(快速看图器增强-C.3): IndexedImage.fetchSnapshotForRestore(byFullPath:) 精确 SQL 反查 entry`
 
-- [ ] **C.4 VM `images` 改 mutable + `removeCurrent()` + D40 导航**(`QuickViewerViewModel.swift`): `let images: [URL]` → `private(set) var images: [URL]`; 新增 `func removeCurrent()`: (a) 校验 `currentIndex` 合法 + `images.count >= 1`; (b) `images.remove(at: currentIndex)`; (c) `prefetchCache.removeValue(forKey: currentIndex)` + `prefetchTasks[currentIndex]?.cancel(); prefetchTasks.removeValue(forKey: currentIndex)`; (d) **D40 导航策略**: 若 `images.isEmpty` → 不调 `loadCurrentImage` + 设 `currentNSImage = nil` + 设标志位 `wasEmptied = true`(让 Overlay 触发 onDismiss); 否则若 `currentIndex >= images.count` → `currentIndex = images.count - 1`; 调 `resetRotationAndFlip() + resetToFit() + loadCurrentImage()` 加载下一张; (e) 注意 `progress`/`canGoBack`/`canGoForward` computed 自动跟; commit `feat(快速看图器增强-C.4): VM images 改 private(set) var + removeCurrent + D40 导航策略`
+- [ ] **C.4 VM `images` 改 mutable + `removeCurrent()` + D40 导航**(`QuickViewerViewModel.swift`): `let images: [URL]` → `private(set) var images: [URL]`; 新增 `func removeCurrent()`:
+   (a) 校验 `currentIndex` 合法 + `images.count >= 1`;
+   (b) `images.remove(at: currentIndex)`;
+   (c) **prefetch cache 全清重建**(codex P0 修, 选「全清」非单 key remove): `clearPrefetchCache()` 把 `prefetchCache` + `prefetchTasks` 整体清掉, **不**做 `removeValue(forKey: currentIndex)`(会让 `> currentIndex` 所有 key 错位); 后续 `loadCurrentImage` 内部会触发 prefetchAdjacent 重建;
+   (d) **D40 导航策略**: 若 `images.isEmpty` → 不调 `loadCurrentImage` + 设 `currentNSImage = nil` + 设标志位 `wasEmptied = true`(让 Overlay 触发 onDismiss); 否则若 `currentIndex >= images.count` → `currentIndex = images.count - 1`; 调 `resetRotationAndFlip() + resetToFit() + loadCurrentImage()` 加载下一张;
+   (e) 注意 `progress`/`canGoBack`/`canGoForward` computed 自动跟;
+   commit `feat(快速看图器增强-C.4): VM images 改 private(set) var + removeCurrent + 全清 prefetch + D40 导航`
 
-- [ ] **C.5 MainQuickViewerWindowController `show()` 加 onTrash callback**(`MainQuickViewerWindowController.swift`): `show()` 签名末加 `onTrash: ((URL) async -> Void)? = nil` 参数; 存到 `private var onTrash: ((URL) async -> Void)?`(类内成员); 透传给 `QuickViewerOverlay(... onTrash: onTrash)`(mirror 5 个既有 onXxx 闭包注入 pattern); commit `feat(快速看图器增强-C.5): MainQuickViewerWindowController.show 加 onTrash callback`
+- [ ] **C.5 MainQuickViewerWindowController `show()` 加 onTrash callback**(`MainQuickViewerWindowController.swift`): `show()` 签名末加 `onTrash: ((URL) async -> TrashOutcome?)? = nil` 参数(**默认值 nil**, codex P1 修兼容 ExternalViewerWindowController.swift:73 OpenWith 路径不传); 存到 `private var onTrash: ((URL) async -> TrashOutcome?)?`(类内成员); 透传给 `QuickViewerOverlay(... onTrash: onTrash)`(mirror 5 个既有 onXxx 闭包注入 pattern); **注**: ExternalViewerWindowController OpenWith 路径不传 → OpenWith 看图器无删除入口(单 session 不挂主索引)语义符合 OpenWith 定位; commit `feat(快速看图器增强-C.5): MainQuickViewerWindowController.show 加 onTrash callback (默认 nil 兼容 OpenWith 路径)`
 
-- [ ] **C.6 Overlay 接 onTrash + Delete/⌘⌫ + toast state**(`QuickViewerOverlay.swift`): (a) `init` 加 `onTrash: ((URL) async -> Void)?` 参数 + 存为 `let`; (b) 新增 `@State private var trashUndoOutcome: TrashOutcome?`(单张版 banner state) + `@State private var trashDismissTask: Task<Void, Never>?`(toast auto-dismiss timer); (c) 新增 `private func handleTrashCurrent()`: `guard let url = viewModel.images[safe: viewModel.currentIndex], let onTrash else { return }; Task { await onTrash(url); /* outcome 由 ContentView 通过新 binding 写回, 见 C.7 */ }; viewModel.removeCurrent(); if viewModel.images.isEmpty { onDismiss() }`; (d) 加 `.onKeyPress(.init(.delete)) { handleTrashCurrent(); return .handled }` + `.onKeyPress(.init("⌫")) { event in if event.modifiers.contains(.command) { handleTrashCurrent(); return .handled }; return .ignored }`(⌘⌫ 用 keyEquivalent backspace + .command modifier; 若 SwiftUI `.onKeyPress(.delete)` 已覆盖 backspace 则纯 Delete 一路即可); commit `feat(快速看图器增强-C.6): Overlay 接 onTrash callback + Delete/⌘⌫ 触发 + handleTrashCurrent helper`
+- [ ] **C.6 Overlay 接 onTrash + Delete/⌘⌫ + toast state**(`QuickViewerOverlay.swift`):
+   (a) `init` 加 `onTrash: ((URL) async -> TrashOutcome?)?` 参数(默认 nil) + 存为 `let`;
+   (b) 新增 `@State private var trashUndoOutcome: TrashOutcome?`(单张版 toast state) + `@State private var trashFailureMessage: String?`(失败 toast state, codex P0 修支持失败显式提示) + `@State private var trashDismissTask: Task<Void, Never>?`(toast auto-dismiss timer);
+   (c) **关键改动**(codex P0 修): `private func handleTrashCurrent() async`(改 async):
+       ```
+       guard let url = viewModel.images[safe: viewModel.currentIndex], let onTrash else { return }
+       let outcome = await onTrash(url)
+       if let outcome, outcome.successCount == 1 {
+           viewModel.removeCurrent()              // ← 仅成功才 removeCurrent
+           trashUndoOutcome = outcome
+           scheduleTrashDismiss()
+           if viewModel.images.isEmpty { onDismiss() }
+       } else if let outcome, outcome.failures.count == 1 {
+           trashFailureMessage = outcome.failures.first?.reason ?? "移废纸篓失败"
+           scheduleTrashDismiss()                  // 失败 toast 也 auto-dismiss
+       } else {
+           trashFailureMessage = "无法删除该图(可能未入库 / V1 老 bookmark / 已升级 V2 才能删)"
+           scheduleTrashDismiss()
+       }
+       ```
+   (d) 加 `.onKeyPress(.init(.delete)) { Task { await handleTrashCurrent() }; return .handled }` + `.onKeyPress(.init("⌫"), phases: .down) { event in if event.modifiers.contains(.command) { Task { await handleTrashCurrent() }; return .handled }; return .ignored }` (**codex P2**: 实施期先用 SwiftUI 文档 + 真机实测确认 `.onKeyPress(.delete)` 是否覆盖 backspace; 若不覆盖则补 `.onKeyPress(.init(.deleteForward))` 兜底; 当前 Glance 项目 grep 既有用法只覆盖 `escape/space/arrows` 等无 delete 对照);
+   commit `feat(快速看图器增强-C.6): Overlay 接 onTrash + Delete/⌘⌫ + handleTrashCurrent 成功才 removeCurrent + 失败 toast`
 
-- [ ] **C.7 Overlay toast view + outcome 回流 binding**(`QuickViewerOverlay.swift`): (a) 决策: `onTrash` callback 返回 outcome OR ContentView 通过新 `onTrashOutcomeChanged: ((TrashOutcome?) -> Void)?` callback 推回 — 选**前者**(返回值简单不需要双向 binding); (b) 改 `onTrash: ((URL) async -> TrashOutcome?)?`(signature 加返回值); handleTrashCurrent 改 `Task { let outcome = await onTrash(url); await MainActor.run { trashUndoOutcome = outcome; scheduleTrashDismiss() } }`; (c) 新增 `private var trashToast: some View` 角落 view(放右上 padding 或 topBar 下方): `if let outcome = trashUndoOutcome { HStack { Text("已移废纸篓 (\(outcome.successCount) 张)"); Button("撤销") { handleUndoTrash() }; Button("×") { trashUndoOutcome = nil; trashDismissTask?.cancel() } }.padding(...).background(Color(white: 0, opacity: DS.QuickViewerTrash.toastBackgroundOpacity), in: RoundedRectangle(cornerRadius: DS.QuickViewerTrash.toastCornerRadius)) }`; (d) `private func scheduleTrashDismiss()` 复刻现有 `scheduleHide` pattern, sleep `DS.QuickViewerTrash.toastAutoDismissSeconds` 后 `trashUndoOutcome = nil`; commit `feat(快速看图器增强-C.7): Overlay toast view + auto-dismiss + outcome 通过 onTrash 返回值回流`
+- [ ] **C.7 Overlay toast view + auto-dismiss**(`QuickViewerOverlay.swift`):
+   (a) **outcome 回流方式**(决策): 走 `onTrash` callback 返回值(`async -> TrashOutcome?`), 不用双向 binding (已在 C.5/C.6 写明);
+   (b) 新增 `private var trashToast: some View` 角落 view(放右上 padding 或 topBar 下方):
+       ```
+       if let outcome = trashUndoOutcome {
+           HStack {
+               Text("已移废纸篓")
+               Button("撤销") { Task { await handleUndoTrash() } }
+               Button("×") { trashUndoOutcome = nil; trashDismissTask?.cancel() }
+           }
+           .padding(...)
+           .background(Color(white: 0, opacity: DS.QuickViewerTrash.toastBackgroundOpacity),
+                       in: RoundedRectangle(cornerRadius: DS.QuickViewerTrash.toastCornerRadius))
+       } else if let msg = trashFailureMessage {
+           HStack {
+               Image(systemName: "exclamationmark.triangle")
+               Text(msg)
+               Button("×") { trashFailureMessage = nil; trashDismissTask?.cancel() }
+           }
+           .padding(...)
+           .background(Color.red.opacity(DS.QuickViewerTrash.toastBackgroundOpacity),
+                       in: RoundedRectangle(cornerRadius: DS.QuickViewerTrash.toastCornerRadius))
+       }
+       ```
+   (c) `private func scheduleTrashDismiss()` 复刻现有 `scheduleHide` pattern, sleep `DS.QuickViewerTrash.toastAutoDismissSeconds` 后 `trashUndoOutcome = nil; trashFailureMessage = nil`;
+   (d) toast 挂在 ZStack 角落(建议右下, 不撞 navButton 也不撞 A.7 信息上屏左下); 跟 `controlsVisible` 是否联动? — **不联动**(撤销/失败 toast 是反馈通知, 不应随鼠标静止隐藏; 跟 M4 全局 banner 行为对齐);
+   commit `feat(快速看图器增强-C.7): Overlay toast view + auto-dismiss + 成功/失败双 toast 渲染`
 
-- [ ] **C.8 Overlay 撤销逻辑接线**(`QuickViewerOverlay.swift`): handleUndoTrash 实现 — 由于撤销需要 Coordinator + 涉及 VM 数据回补, 走 `onUndoTrash: ((TrashOutcome) async -> Void)?` 新 callback 注入(mirror onTrash 注入路径); ContentView 接 callback 调 `quickViewerTrashCoordinator.restore(outcome:)`; 撤销成功后 toast 切「撤销完成」文案再 auto-dismiss(简单做 2 阶段, 不做单独 RestoreOutcome state); **注**: VM 的 `images` 不回补撤销图(快速看图器关后下次开依靠 FSEvents/scan 重建数据, 跟 M4 全局 banner 同 — R-images-mutation 选 (a) 接受短暂不一致); commit `feat(快速看图器增强-C.8): Overlay 撤销路径 — onUndoTrash callback + 2 阶段 toast`
+- [ ] **C.8 Overlay 撤销逻辑接线**(`QuickViewerOverlay.swift`):
+   (a) `init` 加 `onUndoTrash: ((TrashOutcome) async -> Void)?` 参数(默认 nil) + 存为 `let`;
+   (b) `handleUndoTrash() async`: `guard let outcome = trashUndoOutcome, let onUndoTrash else { return }; await onUndoTrash(outcome); await MainActor.run { trashUndoOutcome = nil; trashFailureMessage = "文件恢复, 列表稍后刷新"; scheduleTrashDismiss() }` — **撤销文案**(codex P1 修): 显式说明「文件恢复, 列表稍后刷新」, **不**承诺「回原位立刻可见」(VM `images` 不 reinsert 撤销图, 跟 M4 全局 banner 行为对齐, 靠 FSEvents/scan 最终一致, 详 R-undo-restore-fidelity);
+   (c) ContentView 接 callback 调 `quickViewerTrashCoordinator.restore(outcome:)`(详 C.11);
+   commit `feat(快速看图器增强-C.8): Overlay 撤销路径 — onUndoTrash callback + 文件恢复列表稍后刷新文案`
 
-- [ ] **C.9 MainQuickViewerWindowController 加 onUndoTrash 透传**(`MainQuickViewerWindowController.swift`): `show()` 签名加 `onUndoTrash: ((TrashOutcome) async -> Void)?` 参数 + 存成员 + 透传给 Overlay; commit `feat(快速看图器增强-C.9): MainQuickViewerWindowController.show 加 onUndoTrash 透传`
+- [ ] **C.9 MainQuickViewerWindowController 加 onUndoTrash 透传**(`MainQuickViewerWindowController.swift`): `show()` 签名加 `onUndoTrash: ((TrashOutcome) async -> Void)? = nil` 参数(默认 nil, codex P1 兼容 OpenWith) + 存成员 + 透传给 Overlay; commit `feat(快速看图器增强-C.9): MainQuickViewerWindowController.show 加 onUndoTrash 透传 (默认 nil)`
 
-- [ ] **C.10 Overlay contextMenu 加「移到废纸篓」.destructive 项**(`QuickViewerOverlay.swift`): 在 B.5 加的 contextMenu 末尾追加: `Divider() + Button(role: .destructive) { handleTrashCurrent() } label: { Label("移到废纸篓 (⌫)", systemImage: DS.Icon.trash) }`; commit `feat(快速看图器增强-C.10): contextMenu 末加移到废纸篓 destructive 项`
+- [ ] **C.10 Overlay contextMenu 加「移到废纸篓」.destructive 项**(`QuickViewerOverlay.swift`): 在 B.5 加的 contextMenu 末尾追加: `Divider() + Button(role: .destructive) { Task { await handleTrashCurrent() } } label: { Label("移到废纸篓 (⌫)", systemImage: DS.Icon.trash) }`; commit `feat(快速看图器增强-C.10): contextMenu 末加移到废纸篓 destructive 项`
 
-- [ ] **C.11 ContentView wire onTrash + onUndoTrash + 装配 Coordinator**(`ContentView.swift`): (a) 加 `@StateObject private var quickViewerTrashCoordinator = QuickViewerTrashCoordinator()`; (b) `wireIfReady` 末尾调 `quickViewerTrashCoordinator.attach(indexStore: store, bridge: bridge)`; (c) `qvController.show(...)` callsite 加 `onTrash: { url in await quickViewerTrashCoordinator.trash(url: url) }` + `onUndoTrash: { outcome in _ = await quickViewerTrashCoordinator.restore(outcome: outcome) }`; commit `feat(快速看图器增强-C.11): ContentView 装配 QuickViewerTrashCoordinator + show callsite 接 onTrash/onUndoTrash`
+- [ ] **C.11 ContentView wire onTrash + onUndoTrash + 装配 Coordinator**(`ContentView.swift`):
+   (a) 加 `@StateObject private var quickViewerTrashCoordinator = QuickViewerTrashCoordinator()`;
+   (b) `wireIfReady` 末尾调 `quickViewerTrashCoordinator.attach(indexStore: store, bridge: bridge, bookmarkManager: bookmarkManager)`(三依赖注入, schema gate 在 Coordinator 入口);
+   (c) `qvController.show(...)` callsite 加 `onTrash: { url in await quickViewerTrashCoordinator.trash(url: url) }` + `onUndoTrash: { outcome in _ = await quickViewerTrashCoordinator.restore(outcome: outcome) }`;
+   commit `feat(快速看图器增强-C.11): ContentView 装配 Coordinator + show callsite 接 onTrash/onUndoTrash`
 
-- [ ] **C.12 schema gate**(V1 老 bookmark 防御): 跟 M4 任务 2 步骤 A.5 同模式, `handleTrashCurrent()` 前查 `bookmarkManager.currentSchemaVersion >= 2`; < 2 → toast 提示「需先升级 V2 才能删图」+ 不调 onTrash; 复用 M4 已 ship 的 BookmarkMigrationCoordinator 引导 UI? — 决策: **不复用引导 sheet**(快速看图器是模态全屏看图, 弹引导 sheet UX 突兀); 改用 toast 「重复清理走完升级后再回快速看图器删图」+ 关 toast; commit `feat(快速看图器增强-C.12): 快速看图器删图加 schemaVersion >= 2 gate 防 V1 老 bookmark scope 失败`
+- [ ] **C.12 schema gate 已下沉到 Coordinator 入口**(codex P0 修, 本步骤 nearly no-op):
+   schema gate (`bookmarkManager.currentSchemaVersion >= 2`) 在 C.2 `QuickViewerTrashCoordinator.trash()` 入口已实现, schema < 2 时 Coordinator 直接返回 nil; C.6 `handleTrashCurrent` 拿到 nil → 走「无 outcome 失败」分支显 toast 「无法删除该图(可能未入库 / V1 老 bookmark / 已升级 V2 才能删)」;
+   **不复用** M4 BookmarkMigrationCoordinator 引导 sheet(快速看图器是模态全屏看图, 弹 sheet UX 突兀);
+   **取代** 原 C.12 在 Overlay 内查 schema 的设计(避免给 Overlay 注入 BookmarkManager);
+   本步实际工作 = 写注释 + 文档 PENDING, 无代码改动;
+   commit `docs(快速看图器增强-C.12): schema gate 下沉到 Coordinator 入口实现说明 + 注释 [docs-only]`
 
 - [ ] **C.13 跑 `./scripts/verify.sh` 三段验**: 全过
 
@@ -227,7 +314,7 @@
 
 ## 实施记录回填表
 
-(任务 ship 后回填 commit hash, mirror M4 任务 2 plan 末尾「Slice X 完成详细」表)
+(任务 ship 后回填 commit hash, mirror M4 任务 2 plan 末尾历史「完成详细」表 pattern)
 
 ### 任务 A 完成详细
 | 步骤 | 文件 | commit | 备注 |
@@ -281,9 +368,9 @@
 - [x] **Spec coverage**: design D33-D40 八项决策全部映射到任务 A/B/C 步骤; design 第 12 节 3 任务划分对齐
 - [x] **Placeholder scan**: 无 TBD/TODO/「补错误处理」式占位; 每步含具体 API 签名/文件路径/commit message
 - [x] **Type consistency**: `rotationQuarterTurns: Int` / `flippedH: Bool` / `effectiveImageSize(NSImage) -> CGSize` / `removeCurrent()` / `TrashOutcome` / `TrashInput { snapshot, groupKey }` / `QuickViewerTrashCoordinator.trash(url:) -> TrashOutcome?` 命名各步一致
-- [x] **Vertical slice**: 每任务独立 ship 用户可感知(A=旋转+信息; B=右键+复制+Finder; C=删除闭环); 任务 A/B 独立可用; 任务 C 等 A+B ship 后跟进
-- [x] **Reality check 深到字段级**: 已 Read VM/Overlay/ZoomScrollView/MainQVController/TrashService 6 文件; 发现 `TrashService.trashItems([TrashInput])` 签名不是 design 写的 `[URL]` → 加 QuickViewerTrashCoordinator 适配层; 发现 `images: [URL]` 是 `let` → 任务 C 改 `private(set) var`; 发现 A.6 + B.4 都用 .onKeyPress("r") 需合并; 全部进 plan 风险表 + 步骤
-- [x] **CLAUDE.md 术语字典**: plan 全文用「快速看图器」/「任务 A/B/C」, 禁用 Slice/VS/切片/QV/SF 等; 代码符号(`QuickViewer*`)豁免
+- [x] **任务独立可发版**: 每任务独立 ship 用户可感知(A=旋转+信息; B=右键+复制+Finder; C=删除闭环); 实施期严格串行 A→B→C(codex P1 修, 不并行) — A 改 .onKeyPress("r") 裸 R, B 要替换为合并分支(裸 R + ⌘⇧R)
+- [x] **Reality check 深到字段级**: 已 Read VM/Overlay/ZoomScrollView/MainQVController/TrashService/TrashOutcome 6+ 文件 + codex review 补 grep `IndexedImage.swift:412/582/735` SQL 范式; 发现 (1) `TrashService.trashItems([TrashInput])` 不收 [URL] → 加 QuickViewerTrashCoordinator 适配层; (2) `images: [URL]` 是 `let` → 改 `private(set) var`; (3) A.6 + B.4 同 .onKeyPress("r") 需合并; (4) **codex P0**: GroupKey 真实定义 `(fileSize:format:)` 非 singleton; (5) **codex P0**: prefetch cache 删一张 idx 漂移; (6) **codex P0**: byFullPath 反查需精确 SQL 不能前缀; (7) **codex P0**: trash 成功才 removeCurrent 不能反过来; (8) **codex P0**: schema gate 注入链路缺 → 下沉 Coordinator; (9) **codex P1**: ExternalViewerWindowController.swift:73 callsite 漏算 → 默认值 nil; (10) **codex P1**: 撤销「回原位」承诺 vs 「FSEvents 最终一致」实现矛盾 → 文案降级
+- [x] **CLAUDE.md 术语字典**: plan 散文清「`vertical slice`/`Vertical slice`/`Slice`/`片`」改「任务/独立可发版/任务 X 完成详细」(codex P1 修); 代码符号(`QuickViewerOverlay`/`QuickViewerViewModel` 等英文)豁免; 元描述里禁用词字面用 `` ` `` backtick 包(如 `禁用 \`Slice\` / \`VS\` / \`切片\` 等`)防 grep 误判
 - [x] **测试与验证**: 每任务标 CC 自闭环 + 军哥本机 PENDING 双层验证; verify.sh 三段嵌每任务收尾
 - [x] **回滚方式**: 每任务列 revert 范围 + 部分回滚降级路径
 
@@ -291,10 +378,26 @@
 
 ## Execution Handoff
 
-Plan 已写完(本文件), 接下来:
+Plan 已 codex review 折入(2026-06-17), 接下来:
 
-1. **codex:rescue 做 read-only review**(全局规则: plan 定稿必走 codex review 再交军哥) — 主 agent 接手做, 不在本 plan 范围
-2. review 结论汇报军哥
-3. 军哥拍板「go」后, 走 `superpowers:subagent-driven-development` skill, 任务 A → 任务 B → 任务 C 串行(或 A/B 并行+ C 等), 每任务 dispatch fresh subagent 实施, 主 agent 简短汇报 + 每步 build 绿 + commit 落地
+1. **codex review v1**(已完成): codex:rescue read-only review 抓 **5 P0 + 4 P1 + 2 P2**, 全部已折入 plan(见上方风险表 + 各步骤 「codex P0/P1 修」 标记)
+2. 军哥拍板「go」 — 等待
+3. 走 `superpowers:subagent-driven-development` skill, **A → B → C 严格串行**(codex P1 修, 不并行), 每任务 dispatch fresh subagent 实施, 主 agent 简短汇报 + 每步 build 绿 + commit 落地
 
-(选择题 A 是 subagent-driven, 选 B 是 inline executing-plans, 项目偏好 subagent-driven — 详见 M4 任务 1/2 既有节奏)
+### codex review v1 折入对照表(2026-06-17 单轮)
+
+| codex 级别 | 简称 | 修法落地步骤 |
+|---|---|---|
+| P0 | C.6 删图时序 | C.6 改 handleTrashCurrent 先 await onTrash 拿 outcome, successCount==1 才 removeCurrent; 失败显失败 toast |
+| P0 | GroupKey 定义 + 缺 reEvaluateGroup | C.2 改 `GroupKey(fileSize:format:)` 对齐 TrashOutcome.swift:42 真实定义; trash/restore 后调 DedupPass.reEvaluateGroup + promoteOrphanDuplicates |
+| P0 | prefetch 索引漂移 | C.4 选「全清重建」`clearPrefetchCache()` 代替单 key remove |
+| P0 | byFullPath 前缀误伤 | C.3 改用精确 SQL `f.root_path \|\| '/' \|\| i.relative_path = ?` mirror IndexedImage.swift:412/582 |
+| P0 | schema gate 注入链路 | C.12 下沉到 Coordinator 入口 + ContentView wire 加 BookmarkManager 注入(C.11) |
+| P1 | ExternalViewer callsite | C.5/6/9 新参数全设默认值 nil + plan 头「最小真实改动集」明示 OpenWith 路径无删除入口 |
+| P1 | A/B 不并行 | 任务全表 + 总体时序段明示 A→B→C 严格串行, B.4 改写「替换 A.6 的 .onKeyPress("r")」 |
+| P1 | 撤销文案降级 | C.7/C.8 toast 文案改「文件恢复, 列表稍后刷新」对齐 M4 全局 banner 不承诺 QV 内立刻 reinsert |
+| P1 | 术语清洗 | 全文 grep `vertical slice`/`Vertical slice`/`Slice`/`片` 散文清掉改「任务/独立可发版」; 元描述禁用词字面用 backtick 包 |
+| P2 | Delete 键位双绑 | C.6 加注「实施期真机确认 .onKeyPress(.delete) 是否覆盖 backspace, 不覆盖则补 .deleteForward」 |
+| P2 | 触及文件范围收口 | plan 头部加「最小真实改动集」明示 7 文件 |
+
+**选择题**: subagent-driven 还是 inline? 项目偏好 subagent-driven(详见 M4 任务 1/2 节奏)。
