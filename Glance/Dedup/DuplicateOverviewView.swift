@@ -38,7 +38,11 @@ struct DuplicateOverviewView: View {
             LazyVStack(alignment: .leading, spacing: DS.Dedup.groupRowSpacing) {
                 statsBar
                 ForEach(model.groups) { group in
-                    DuplicateGroupRowView(group: group)
+                    DuplicateGroupRowView(
+                        group: group,
+                        isSelected: model.selectedSha256s.contains(group.id),
+                        onToggleSelection: { model.toggleSelection(sha256: group.id) }
+                    )
                 }
             }
             .padding(.horizontal, DS.Spacing.lg)
@@ -55,8 +59,42 @@ struct DuplicateOverviewView: View {
             Text("可省 \(formattedReclaimable)")
                 .font(DS.Dedup.statsBarFont)
                 .foregroundStyle(SwiftUI.Color.accentColor)
+            Spacer(minLength: DS.Spacing.zero)
+            trashAction
         }
         .padding(.vertical, DS.Spacing.xs)
+    }
+
+    @ViewBuilder
+    private var trashAction: some View {
+        switch model.trashState {
+        case .idle, .completed:
+            Button {
+                Task { await model.trashSelected() }
+            } label: {
+                HStack(spacing: DS.Spacing.xs) {
+                    Image(systemName: DS.Icon.trash)
+                    Text("移入废纸篓 (\(model.selectedDuplicateCount) 张)")
+                }
+                .frame(height: DS.Dedup.trashButtonHeight)
+                .padding(.horizontal, DS.Spacing.md)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(model.selectedSha256s.isEmpty)
+        case .trashing(let done, let total):
+            HStack(spacing: DS.Spacing.sm) {
+                ProgressView(value: Double(done), total: Double(total))
+                    .progressViewStyle(.linear)
+                    .tint(DS.Dedup.progressBarTint)
+                    .frame(width: 120)
+                Text("\(done)/\(total)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Button("取消") { Task { await model.cancelTrash() } }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+        }
     }
 
     private var emptyState: some View {
@@ -98,12 +136,26 @@ struct DuplicateOverviewView: View {
     }
 }
 
-/// 单一组渲染：保留张缩略图（badge「保留」）+ 副本缩略图 + 路径信息 + 组可省空间。
+/// 单一组渲染：组级 checkbox（D28 整组勾选） + 保留张缩略图（badge「保留」）+ 副本缩略图 + 路径信息 + 组可省空间。
 private struct DuplicateGroupRowView: View {
     let group: DuplicateGroup
+    let isSelected: Bool
+    let onToggleSelection: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            // M4 任务 2 — 组级 checkbox（D28 整组勾选，不给单文件 checkbox）
+            Toggle(isOn: Binding(
+                get: { isSelected },
+                set: { _ in onToggleSelection() }
+            )) {
+                Text("选择此组清掉 \(group.duplicates.count) 张副本")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .toggleStyle(.checkbox)
+            .frame(height: DS.Dedup.checkboxRowHeight)
+
             HStack(alignment: .top, spacing: DS.Spacing.md) {
                 DuplicateMemberCell(member: group.canonical, isCanonical: true)
                 ForEach(group.duplicates) { dup in
