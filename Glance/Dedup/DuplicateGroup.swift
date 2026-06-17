@@ -28,6 +28,10 @@ struct DuplicateGroup: Identifiable, Equatable {
 struct DuplicateGroupMember: Identifiable, Equatable {
     /// images.id（Identifiable 满足 UI ForEach 用；任务 1 不通过 id 删 row）
     let id: Int64
+    /// images.folder_id（任务 2 加 — TrashService 走 IndexStore.fetchSnapshotForRestore /
+    /// deleteImage 调用都按 (folderId, relativePath) 复合键, 直接 carry 避 N+1 反查;
+    /// codex review P1-03 + P2-02 合一修, plan 步骤 2.0）
+    let folderId: Int64
     /// images.url_bookmark（root bookmark，UI 渲染缩略图 resolve scope 用）
     let urlBookmark: Data
     /// images.relative_path（cell 显示用 + 缩略图 resolve 拼 child URL 用）
@@ -52,6 +56,8 @@ struct DuplicateGroupRow {
 /// 任务 1 只读必需字段；任务 2 删除路径所需的 folder_id 届时扩展。
 struct DuplicateGroupMemberRow {
     let id: Int64
+    /// images.folder_id（任务 2 加 — SQL 同步 SELECT i.folder_id, model 组 member 时直接 carry）
+    let folderId: Int64
     let dedupCanonical: Bool
     let fileSize: Int64
     let relativePath: String

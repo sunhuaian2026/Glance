@@ -144,6 +144,7 @@ final class DuplicateOverviewModel: ObservableObject {
     private nonisolated static func makeMember(from row: DuplicateGroupMemberRow) -> DuplicateGroupMember {
         DuplicateGroupMember(
             id: row.id,
+            folderId: row.folderId,   // 任务 2 加 — carry 进 member 避 trashSelected N+1 反查
             urlBookmark: row.urlBookmark,
             relativePath: row.relativePath,
             fileSize: row.fileSize,

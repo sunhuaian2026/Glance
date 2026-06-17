@@ -678,7 +678,7 @@ nonisolated extension IndexStore {
     func fetchDuplicateGroupMembers(sha256: String) throws -> [DuplicateGroupMemberRow] {
         try sync { db in
             let stmt = try db.prepare("""
-                SELECT i.id, i.dedup_canonical, i.file_size, i.relative_path,
+                SELECT i.id, i.folder_id, i.dedup_canonical, i.file_size, i.relative_path,
                        i.url_bookmark, f.root_path || '/' || i.relative_path AS full_path
                 FROM images i
                 JOIN folders f ON i.folder_id = f.id
@@ -697,15 +697,17 @@ nonisolated extension IndexStore {
             var rows: [DuplicateGroupMemberRow] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = sqlite3_column_int64(stmt, 0)
-                let canonical = sqlite3_column_int64(stmt, 1) == 1
-                let fileSize = sqlite3_column_int64(stmt, 2)
-                let relPath = String(cString: sqlite3_column_text(stmt, 3))
-                let blobLen = sqlite3_column_bytes(stmt, 4)
-                let blobPtr = sqlite3_column_blob(stmt, 4)
+                let folderId = sqlite3_column_int64(stmt, 1)
+                let canonical = sqlite3_column_int64(stmt, 2) == 1
+                let fileSize = sqlite3_column_int64(stmt, 3)
+                let relPath = String(cString: sqlite3_column_text(stmt, 4))
+                let blobLen = sqlite3_column_bytes(stmt, 5)
+                let blobPtr = sqlite3_column_blob(stmt, 5)
                 let bookmark = blobPtr.map { Data(bytes: $0, count: Int(blobLen)) } ?? Data()
-                let fullPath = String(cString: sqlite3_column_text(stmt, 5))
+                let fullPath = String(cString: sqlite3_column_text(stmt, 6))
                 rows.append(DuplicateGroupMemberRow(
                     id: id,
+                    folderId: folderId,
                     dedupCanonical: canonical,
                     fileSize: fileSize,
                     relativePath: relPath,
@@ -714,6 +716,93 @@ nonisolated extension IndexStore {
                 ))
             }
             return rows
+        }
+    }
+
+    // MARK: - M4 任务 2 — 撤销回补 API
+
+    /// M4 任务 2 — 删前完整 in-memory snapshot (D34 contract 前置).
+    /// TrashService.trashItems 调 FileManager.trashItem **前**对每个 member 调一次,
+    /// SELECT 15 个非 PK 列组装成 IndexedImageSnapshot (撤销时按 (folder_id, relative_path)
+    /// UNIQUE key restoreImageFromSnapshot 重建 row 保 M2/M3 列保真不退化).
+    ///
+    /// 现有 IndexedImage struct (IndexedImage.swift:5-22) 是 SmartFolder 查询投影,
+    /// 缺 dedup_canonical / feature_print 系列 / exif_capture_date 三族列, **不复用**.
+    /// 本 query 独立 SELECT 全列.
+    ///
+    /// 找到 row → 返回 snapshot; 没找到 (DB race) → 返回 nil, 调用方 trashSelected 时
+    /// 跳过该 member.
+    func fetchSnapshotForRestore(folderId: Int64, relativePath: String) throws -> IndexedImageSnapshot? {
+        try sync { db in
+            let stmt = try db.prepare("""
+                SELECT url_bookmark, birth_time, file_size, format, filename,
+                       relative_path, folder_id, dimensions_width, dimensions_height,
+                       content_sha256, dedup_canonical, feature_print, feature_print_revision,
+                       supports_feature_print, exif_capture_date
+                FROM images
+                WHERE folder_id = ? AND relative_path = ?
+                LIMIT 1;
+            """)
+            defer { sqlite3_finalize(stmt) }
+            try checkBind(sqlite3_bind_int64(stmt, 1, folderId), index: 1, db: db)
+            try checkBind(
+                sqlite3_bind_text(
+                    stmt, 2,
+                    (relativePath as NSString).utf8String, -1,
+                    unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                ),
+                index: 2, db: db
+            )
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+
+            // 0: url_bookmark BLOB NOT NULL
+            let bmLen = sqlite3_column_bytes(stmt, 0)
+            let bmPtr = sqlite3_column_blob(stmt, 0)
+            let urlBookmark = bmPtr.map { Data(bytes: $0, count: Int(bmLen)) } ?? Data()
+            // 1: birth_time REAL NOT NULL
+            let birthTime = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1))
+            // 2: file_size INTEGER NOT NULL
+            let fileSize = sqlite3_column_int64(stmt, 2)
+            // 3: format TEXT NOT NULL
+            let format = String(cString: sqlite3_column_text(stmt, 3))
+            // 4: filename TEXT NOT NULL
+            let filename = String(cString: sqlite3_column_text(stmt, 4))
+            // 5: relative_path TEXT NOT NULL
+            let relPath = String(cString: sqlite3_column_text(stmt, 5))
+            // 6: folder_id INTEGER NOT NULL
+            let folderIdCol = sqlite3_column_int64(stmt, 6)
+            // 7: dimensions_width INTEGER nullable
+            let dimW: Int? = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 7))
+            // 8: dimensions_height INTEGER nullable
+            let dimH: Int? = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 8))
+            // 9: content_sha256 TEXT nullable
+            let sha: String? = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : String(cString: sqlite3_column_text(stmt, 9))
+            // 10: dedup_canonical INTEGER nullable (1=true / 0=false / NULL=未决议)
+            let dedup: Bool? = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : sqlite3_column_int64(stmt, 10) == 1
+            // 11: feature_print BLOB nullable
+            let fp: Data?
+            if sqlite3_column_type(stmt, 11) == SQLITE_NULL {
+                fp = nil
+            } else {
+                let fpLen = sqlite3_column_bytes(stmt, 11)
+                let fpPtr = sqlite3_column_blob(stmt, 11)
+                fp = fpPtr.map { Data(bytes: $0, count: Int(fpLen)) } ?? Data()
+            }
+            // 12: feature_print_revision INTEGER nullable
+            let fpRev: Int? = sqlite3_column_type(stmt, 12) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 12))
+            // 13: supports_feature_print INTEGER NOT NULL DEFAULT 1
+            let supportsFp = sqlite3_column_int64(stmt, 13) == 1
+            // 14: exif_capture_date REAL nullable
+            let exif: Date? = sqlite3_column_type(stmt, 14) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 14))
+
+            return IndexedImageSnapshot(
+                urlBookmark: urlBookmark, birthTime: birthTime, fileSize: fileSize,
+                format: format, filename: filename, relativePath: relPath,
+                folderId: folderIdCol, dimensionsWidth: dimW, dimensionsHeight: dimH,
+                contentSha256: sha, dedupCanonical: dedup,
+                featurePrint: fp, featurePrintRevision: fpRev, supportsFeaturePrint: supportsFp,
+                exifCaptureDate: exif
+            )
         }
     }
 
