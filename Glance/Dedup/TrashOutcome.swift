@@ -36,7 +36,10 @@ struct TrashSuccess: Equatable, Sendable {
     let groupKey: GroupKey
 }
 
-struct GroupKey: Equatable, Hashable, Sendable {
+/// nonisolated: 让 Hashable 综合 conformance 跳出项目 default main-actor isolation,
+/// 让 Set<GroupKey> 能在 Task.detached 等 nonisolated context 安全用.
+/// Swift 6 mode 严格化, 不标 nonisolated 会从 warning 升级到 error.
+nonisolated struct GroupKey: Equatable, Hashable, Sendable {
     let fileSize: Int64
     let format: String
 }
