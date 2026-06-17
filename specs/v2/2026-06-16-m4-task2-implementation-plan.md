@@ -2512,10 +2512,37 @@ commit hash 范围 <task2-step1> ~ <task2-step6>. push 通过.
 
 ## 实施记录 (TODO: 实施完成后回填)
 
-### 步骤 1 — 卷类型 spike + 矩阵走查, commit `<pending>` (2026-06-16)
-...
+### 步骤 1 — 卷类型 spike + 矩阵走查 + bookmark scope 根因定位 + D-M4-1 折入, commit `c496df3` (2026-06-17)
 
-### 步骤 2 — 3 个新 API + IndexedImageSnapshot, commit `<pending>` (2026-06-16)
+**spike 三轮跑** (`Glance/_SpikeTask2CrossRoot.swift` 跑完已 git rm):
+- 第 1 轮 (06:11 entitlement read-only): trashItem 跨 root 失败 NSCocoaErrorDomain code=513
+- 第 2 轮 (06:31 entitlement read-write): trashItem 仍失败 同 code=513 → 排除 entitlement 单点不够
+- 第 3 轮 (06:35 跳 quarantine + 加 NSWorkspace.recycle 对比): 双 API 都失败 → 根因不在 quarantine, 不在 API 选择, 而在 BookmarkManager 创建 bookmark 时用了 `.securityScopeAllowOnlyReadAccess` flag (V1 看图器历史选择)
+
+**codex review 第五轮** 评估 A/A2/B 三方向 → 推荐 A (清旧 + schemaVersion 哨兵 + M4 删除入口首次触发清重选, A1.5 变体). 抓出额外硬伤: pbxproj vs Glance.entitlements 两份事实漂移 (pbxproj 已 readwrite 但 entitlements 文件 stale read-only) — 同步修.
+
+**docs-only 折入**: design 4.5.4 BookmarkManager V1 → V2 升级段 (4 子节) + 8.2 最小解锁 (e) + 风险 2 实证段 + plan 步骤 1.6 + 2.0.5 占位 + Roadmap D-M4-1 + PENDING 任务 2 矩阵 6 项. entitlement 两源同步 (Glance.entitlements + pbxproj 都 read-write).
+
+self-fix: 步骤 1.1.b read-only 重定向到 file 抓 NSLog 输出 (Console syslog redact `<private>` 不可读) 用 `binary > /tmp/spike-t2.log 2>&1 &` 直接捕获 stderr.
+
+### 步骤 2.0.5 — BookmarkManager V2 升级 (saveBookmark 去 read-only flag + schemaVersion + clearAllForMigration + FolderStore.reloadFromDefaults), commit `78295c0` (2026-06-17)
+
+design 4.5.4 落地 3 个 API + FolderStore 配套:
+- `BookmarkManager.saveBookmark` options `[.withSecurityScope]` (去 `.securityScopeAllowOnlyReadAccess`)
+- `BookmarkManager.currentSchemaVersion` / `markSchemaV2` (schemaVersionKey 哨兵 0/2)
+- `BookmarkManager.clearAllForMigration` (一次性清 UserDefaults + reset 哨兵)
+- `FolderStore.reloadFromDefaults` (同步内存状态重置: rootFolders/selectedFolder/images)
+
+V1 既有 bookmark 仍可继续看图 (read scope 兼容). 升级触发 UX 在步骤 4-5 实施.
+
+PENDING (a) 拆 (a1)/(a2): (a1) 步骤 2.0.5 ship 完 V1 看图无碍轻验 + (a2) 步骤 5 ship 完端到端 trashItem + 撤销.
+
+codex pre-push 通过 0 P1 + 3 P2 顺手修在 follow-up commit:
+- P2-1 reloadFromDefaults 加 `currentFolderWatcher.stop()` + scanImages 末尾 race guard `selectedFolder == url`
+- P2-2 plan 实施记录段 step 1 + 2.0.5 hash 回填
+- P2-3 Roadmap 状态切「步骤 2.0.5 已 ship, plan 步骤 2.1+ 实施中」
+
+### 步骤 2 — 3 个新 API + IndexedImageSnapshot, commit `<pending>` (2026-06-17)
 ...
 
 ### 步骤 3 — TrashService, commit `<pending>` (2026-06-16)

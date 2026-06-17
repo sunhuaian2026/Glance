@@ -130,13 +130,20 @@ class FolderStore: ObservableObject {
     /// 与 loadSavedFolders 区别: 主动清空 rootFolders + selectedFolder + images,
     /// 不调 restoreBookmarks (因为 clearAllForMigration 已清空持久化, 重新选才会有 root).
     /// 调用方: DuplicateOverviewModel.trashSelected 入口 (M4 删除入口首次, design 4.5.4.4).
+    ///
+    /// **同步停 currentFolderWatcher** (codex P2 修): reset 后旧 root FSEvents 不再派发避免回写;
+    /// 已在跑的 scanImages Task 是 fire-and-forget, 回写前 scanImages 末尾 guard
+    /// `selectedFolder == url` 兜底防覆盖.
     @MainActor
     func reloadFromDefaults() {
+        currentFolderWatcher?.stop()
+        currentFolderWatcher = nil
         rootFolders.removeAll()
         selectedFolder = nil
         images.removeAll()
         selectedImageIndex = nil
         imageCountByFolder.removeAll()
+        isLoadingImages = false
     }
 
     func addFolder() {
@@ -312,6 +319,14 @@ class FolderStore: ObservableObject {
             return contents.filter { ext.contains($0.pathExtension.lowercased()) }
         }.value
         let sorted = await sortImages(scanned)
+        // 旧 scan guard (codex P2 修, design 4.5.4.4 迁移流): 回写前确认 selectedFolder
+        // 仍是发起扫描的 url. reloadFromDefaults 把 selectedFolder 清空后,
+        // 已在跑的旧 scanImages 完成不会回写覆盖刚清的 images 数组.
+        //
+        // 关键: guard return 时**不动** isLoadingImages — 它属于当前活跃的 scanImages
+        // (selectFolder 后新启的) 管, 否则旧 scan 完成把新 scan 设的 isLoadingImages=true
+        // 擦掉, 新 scan 的 loading 指示器丢失 (codex pre-push P2 抓).
+        guard selectedFolder == url else { return }
         images = sorted
         imageCountByFolder[url] = sorted.count
         isLoadingImages = false

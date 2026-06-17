@@ -31,7 +31,7 @@
 - **V1 v1.0**：已公开发布（GitHub Release + DMG + 仓库 public，2026-05-08 commit `0c9f699`）
 - 工程化基建：`/go` 五步 / `verify.sh` 三段 oracle / `build/Glance.app` 自动 sync `~/sync/` / pre-push codex hook / build 版本号注入 + BuildInfo sidecar
 - 下一步主线：V2 M3 Slice M（⌘F 搜索 → V2.2 GA）
-- **V2 M4 任务 2 状态（2026-06-17）**：步骤 1 spike 三轮跑通,根因定位 V1 bookmark read-only scope（spike `Glance/_SpikeTask2CrossRoot.swift` 已 `git rm` 弃）。codex review 第五轮拍 A 方向（清旧 + schemaVersion 哨兵 + M4 删除入口首次触发清重选）已折入 design 4.5.4 + 8.2 (e) 解锁条件 + 风险 2 段实证 + plan 步骤 1.6 + 2.0.5；entitlement read-write 已同步 pbxproj + Glance.entitlements（codex 抓的两份事实漂移已修）。**任务 2 状态切「卷类型矩阵 + bookmark 迁移 design 已收敛, 待 plan 实施步骤 2.0.5 + 步骤 3-5 触发流 + 真机本地跑剩余卷类型 (b)(c)(d)」**。
+- **V2 M4 任务 2 状态（2026-06-17）**：步骤 1 spike 三轮跑通,根因定位 V1 bookmark read-only scope（spike `Glance/_SpikeTask2CrossRoot.swift` 已 `git rm` 弃）。codex review 第五轮拍 A 方向（清旧 + schemaVersion 哨兵 + M4 删除入口首次触发清重选）已折入 design 4.5.4 + 8.2 (e) 解锁条件 + 风险 2 段实证 + plan 步骤 1.6 + 2.0.5；entitlement read-write 已同步 pbxproj + Glance.entitlements（codex 抓的两份事实漂移已修）。**步骤 1 docs ship `c496df3`** + **步骤 2.0.5 BookmarkManager V2 升级 ship `78295c0`** (saveBookmark 去 read-only flag + schemaVersion 哨兵 + clearAllForMigration + FolderStore.reloadFromDefaults; V1 既有 bookmark 仍可看图无碍, 升级触发 UX 在步骤 4-5 实施). **任务 2 状态切「步骤 2.0.5 已 ship, plan 步骤 2.1+ 实施中 + 真机本地跑剩余卷类型 (b)(c)(d)」**。
 
 ---
 
