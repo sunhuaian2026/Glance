@@ -34,6 +34,12 @@ struct QuickViewerOverlay: View {
     @State private var hideTask: Task<Void, Never>?
     /// 任务 A.7 — 当前图 metadata（分辨率 · 大小），跟随 currentIndex 异步加载；nil = 未加载完 / 失败 → 气泡不渲染
     @State private var currentMetadata: ImageMetadata?
+    /// 任务 C.6 — 单张删除成功 toast state（含 outcome 用于撤销）
+    @State private var trashUndoOutcome: TrashOutcome?
+    /// 任务 C.6 — 单张删除失败 toast state（codex P0 修支持失败显式提示）
+    @State private var trashFailureMessage: String?
+    /// 任务 C.6 — toast auto-dismiss timer
+    @State private var trashDismissTask: Task<Void, Never>?
 
     init(
         images: [URL],
@@ -259,6 +265,17 @@ struct QuickViewerOverlay: View {
                 return .handled
             }
             return .ignored
+        }
+        // 任务 C.6 — Delete（backspace） / ⌘⌫ 触发移废纸篓。.delete 是 Apple 键盘上 backspace
+        // 的 KeyEquivalent；.deleteForward 是 fn+delete（兜底覆盖）。⌘⌫ 由同一 handler 接走
+        //（SwiftUI .onKeyPress 不区分裸 / ⌘ 修饰，统一进 handler）。
+        .onKeyPress(.delete, phases: .down) { _ in
+            Task { await handleTrashCurrent() }
+            return .handled
+        }
+        .onKeyPress(.deleteForward, phases: .down) { _ in
+            Task { await handleTrashCurrent() }
+            return .handled
         }
         // 捏合手势
         .gesture(
@@ -569,6 +586,45 @@ struct QuickViewerOverlay: View {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 withAnimation(DS.Anim.normal) { controlsVisible = false }
+            }
+        }
+    }
+
+    // MARK: - 任务 C — 单张删除
+
+    /// 任务 C.6 — Delete/⌘⌫/右键废纸篓统一入口。先 await onTrash 拿 outcome，仅成功才
+    /// removeCurrent + 显成功 toast；失败 / nil outcome 显失败 toast 不动 VM。删完最后一张
+    /// 自动 onDismiss（D40）。
+    private func handleTrashCurrent() async {
+        guard let url = viewModel.images[safe: viewModel.currentIndex], let onTrash else { return }
+        let outcome = await onTrash(url)
+        if let outcome, outcome.successCount == 1 {
+            viewModel.removeCurrent()
+            trashUndoOutcome = outcome
+            trashFailureMessage = nil
+            scheduleTrashDismiss()
+            if viewModel.images.isEmpty { onDismiss() }
+        } else if let outcome, outcome.failures.count == 1 {
+            trashFailureMessage = outcome.failures.first?.reason ?? "移废纸篓失败"
+            trashUndoOutcome = nil
+            scheduleTrashDismiss()
+        } else {
+            // 无 outcome = Coordinator schema gate 拦截 / IndexStore 反查 nil / 未入库图
+            trashFailureMessage = "无法删除该图(可能未入库 / V1 老 bookmark / 已升级 V2 才能删)"
+            trashUndoOutcome = nil
+            scheduleTrashDismiss()
+        }
+    }
+
+    /// 任务 C.6 — 复刻 scheduleHide pattern，sleep 后清两个 toast state。
+    private func scheduleTrashDismiss() {
+        trashDismissTask?.cancel()
+        trashDismissTask = Task {
+            try? await Task.sleep(for: .seconds(DS.QuickViewerTrash.toastAutoDismissSeconds))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                trashUndoOutcome = nil
+                trashFailureMessage = nil
             }
         }
     }
