@@ -732,6 +732,39 @@ nonisolated extension IndexStore {
     ///
     /// 找到 row → 返回 snapshot; 没找到 (DB race) → 返回 nil, 调用方 trashSelected 时
     /// 跳过该 member.
+    ///
+    /// M4 任务 C — 快速看图器单张删除适配层 (QuickViewerTrashCoordinator) 入口反查:
+    /// 仅持 image absolute fullPath, 没 folderId/relativePath. 走 JOIN folders SQL 反查
+    /// (folder_id, relative_path) 再 delegate 到下面的 (folderId:relativePath:) 主路径.
+    /// SQL 用既有精确范式 `f.root_path || '/' || i.relative_path = ?`
+    /// (mirror :412/:582 既有 fetchDuplicatesByFullPath / fetchFeaturePrintByFullPath),
+    /// **不做前缀匹配** 避免 `/a/b` 误匹 `/a/b2`.
+    /// 失败 (路径未索引 / DB race) → 返 nil, 调用方跳过.
+    func fetchSnapshotForRestore(byFullPath fullPath: String) throws -> IndexedImageSnapshot? {
+        let keys: (folderId: Int64, relativePath: String)? = try sync { db in
+            let stmt = try db.prepare("""
+                SELECT i.folder_id, i.relative_path FROM images i
+                JOIN folders f ON i.folder_id = f.id
+                WHERE f.root_path || '/' || i.relative_path = ? LIMIT 1;
+            """)
+            defer { sqlite3_finalize(stmt) }
+            try checkBind(
+                sqlite3_bind_text(
+                    stmt, 1,
+                    (fullPath as NSString).utf8String, -1,
+                    unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                ),
+                index: 1, db: db
+            )
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            let folderId = sqlite3_column_int64(stmt, 0)
+            let relPath = String(cString: sqlite3_column_text(stmt, 1))
+            return (folderId, relPath)
+        }
+        guard let keys else { return nil }
+        return try fetchSnapshotForRestore(folderId: keys.folderId, relativePath: keys.relativePath)
+    }
+
     func fetchSnapshotForRestore(folderId: Int64, relativePath: String) throws -> IndexedImageSnapshot? {
         try sync { db in
             let stmt = try db.prepare("""
