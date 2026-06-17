@@ -15,10 +15,16 @@ struct DuplicateOverviewView: View {
     @EnvironmentObject var migrationCoordinator: BookmarkMigrationCoordinator
 
     var body: some View {
-        mainContent
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(NSColor.windowBackgroundColor))
-            .navigationTitle("重复清理")
+        // ZStack + background 独立层 ignoresSafeArea: 让 detail 区背景延伸到
+        // toolbar 之下融合窗口 titlebar 圆角(消除"重复清理"标题左上角方形).
+        // 颜色换 DS.Color.gridBackground 跟 SmartFolderGridView 统一项目风格.
+        ZStack {
+            DS.Color.gridBackground
+                .ignoresSafeArea()
+            mainContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .navigationTitle("重复清理")
     }
     // 注：本 view 不持 .onAppear 触发 load —— load 单一 owner = ContentView
     // .onChange(of: showDuplicateOverview)（双触发会让先返回的旧结果反向覆盖后返回的新结果，

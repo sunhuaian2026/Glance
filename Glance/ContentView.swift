@@ -248,31 +248,32 @@ struct ContentView: View {
             .environmentObject(smartFolderStore)
             .environmentObject(duplicateOverviewModel)
             .environmentObject(migrationCoordinator)
-        }
-        // M4 任务 2 — 撤销 banner 全局 overlay (D33 跨视图持久, 不仅 detail pane).
-        // codex P2-04: NavigationSplitView 外层 modifier 链, mirror 任务 1 全局 chip overlay.
-        // 快速看图器是独立 NSWindow（ZStack 外）物理不可见但 trashUndoBanner state 保留, 关 QV 后回归.
-        .overlay(alignment: .top) {
-            if let event = trashUndoBanner {
-                TrashUndoBanner(
-                    event: event,
-                    onUndo: {
-                        bannerDismissTask?.cancel()
-                        // 不立即清 trashUndoBanner — undo 完成后 model.lastTrashOutcome 重 publish
-                        // 触发 .onChange 重赋 event (含 undoResult) 让 banner 切「撤销完成」展示
-                        Task { await duplicateOverviewModel.undo(outcome: event.trash) }
-                    },
-                    onDismiss: {
-                        bannerDismissTask?.cancel()
-                        trashUndoBanner = nil
-                    }
-                )
-                .padding(.top, DS.Dedup.bannerTopPadding)
-                .transition(.move(edge: .top).combined(with: .opacity))
+            // M4 任务 2 — 撤销 banner overlay (D33 跨视图持久, 五态 detail 内全在).
+            // 挂在 detail closure 内 HStack 上, 让 banner 在 detail 区横向居中而非
+            // 整 NavigationSplitView 横向居中(避开侧栏宽度让 banner 视觉偏左).
+            // 快速看图器是独立 NSWindow 物理不可见但 trashUndoBanner state 保留, 关 QV 后回归.
+            .overlay(alignment: .top) {
+                if let event = trashUndoBanner {
+                    TrashUndoBanner(
+                        event: event,
+                        onUndo: {
+                            bannerDismissTask?.cancel()
+                            // 不立即清 trashUndoBanner — undo 完成后 model.lastTrashOutcome 重 publish
+                            // 触发 .onChange 重赋 event (含 undoResult) 让 banner 切「撤销完成」展示
+                            Task { await duplicateOverviewModel.undo(outcome: event.trash) }
+                        },
+                        onDismiss: {
+                            bannerDismissTask?.cancel()
+                            trashUndoBanner = nil
+                        }
+                    )
+                    .padding(.top, DS.Dedup.bannerTopPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
+            // codex P2(深比 BLOB): animation value 用 UUID 不用整 event
+            .animation(DS.Anim.normal, value: trashUndoBanner?.id)
         }
-        // codex P2(深比 BLOB): animation value 用 UUID 不用整 event
-        .animation(DS.Anim.normal, value: trashUndoBanner?.id)
         // M4 任务 2 收尾 — bookmark 升级引导 sheet (步骤 A.5 加).
         .sheet(isPresented: $migrationCoordinator.isPresenting) {
             BookmarkMigrationView(
