@@ -68,6 +68,12 @@ enum DS {
         static let fitPadding: CGFloat = 0.9
         // 鼠标移动 / 切图后工具栏自动隐藏延迟（秒）。对齐 macOS Quick Look ~4s 节奏
         static let controlsAutoHideSeconds: Double = 4.0
+        // 快速看图器增强 任务 A — 临时旋转单步角度（90°，逆/顺时针各转 1/4 圈）
+        static let rotationStepDegrees: Int = 90
+        // 角落信息气泡（分辨率 · 大小）背景透明度，mirror topBar 气泡 0.35
+        static let infoBadgeOpacity: Double = 0.35
+        // 角落信息气泡圆角，复用 toolbar cornerRadius 视觉同源
+        static let infoBadgeCornerRadius: CGFloat = DS.Toolbar.cornerRadius
     }
 
     // MARK: - About
@@ -355,6 +361,11 @@ enum DS {
         static let info       = "info.circle"
         static let infoFilled = "info.circle.fill"
         static let close      = "xmark"
+        // 快速看图器增强 任务 A — 旋转 / 翻转 系统图标
+        static let rotateLeft      = "rotate.left"
+        static let rotateRight     = "rotate.right"
+        static let flipHorizontal  = "arrow.left.and.right.righttriangle.left.righttriangle.right"
+        static let flipVertical    = "arrow.up.and.down.righttriangle.up.righttriangle.down"
     }
 }
 
