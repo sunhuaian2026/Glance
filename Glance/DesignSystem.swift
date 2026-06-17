@@ -346,6 +346,18 @@ enum DS {
         static let rescanEmptyStateFont: Font = .body
     }
 
+    // MARK: - 快速看图器增强 任务 C — 删除 toast 常量
+
+    /// 快速看图器单张删除 toast (移入废纸篓后的非阻断提示) 配色 / 时长.
+    enum QuickViewerTrash {
+        /// toast 自动消失时长 (秒)
+        static let toastAutoDismissSeconds: Double = 5.0
+        /// toast 半透明背景 opacity (深色 overlay 上加深底)
+        static let toastBackgroundOpacity: Double = 0.45
+        /// toast 圆角
+        static let toastCornerRadius: CGFloat = 8
+    }
+
     // MARK: - Icons（SF Symbols）
 
     enum Icon {
