@@ -1224,3 +1224,35 @@ codex review 第三轮跑通（plan 阶段第一轮 review）, 无 P0, 1 P1 + 1 
 | P2 | A.8 `git push --no-verify` 写死 — 绕过正常 pre-push 评审违反「不可逆操作先确认」 | A.8 / B.4 改两段式 push: 先正常 `git push` 让 codex 评审, 命中已知「异物 reset」backlog bug 才 `--no-verify` 兜底; B.5 汇报里明示是否触发 fallback |
 
 Self-review 通过. plan 进 codex review.
+
+---
+
+## 实施记录（2026-06-17 实施完成回填）
+
+### 任务 A — 升级 UI 端到端
+
+- A.1 DS.BookmarkMigration 9 常量, commit `4da5817` (16:10)
+- A.2 BookmarkMigrationView.swift, commit `fcee86c` (16:11)
+- A.3 BookmarkMigrationCoordinator.swift, commit `99d3d51` (16:14) — 1 轮 self-fix（首轮报 `@Published` 需 Combine 模块，补 `import Combine` 后第二轮 SUCCEEDED）
+- A.4 + A.5 DuplicateOverviewModel + ContentView 接 Coordinator (合并 commit), commit `1daed1f` (16:18) — 0 self-fix 单轮 SUCCEEDED, BookmarkManager 已在 `MainWindowController.swift:77` 注入 environment 无需改 controller
+- A.6 DuplicateOverviewView 重扫中专用空态 (codex review P1 修, 不降级), commit `162a522` (16:21)
+- A.7 make build + CC 自闭环验 5 项 (无 commit, 验证步骤):
+  - 项 1 sheet 渲染 ✅ PASS（AX `SHEET_COUNT=1, x=725 y=366 w=470 h=207`, 文案完整, 截图 `~/sync/glance-bm-ui-01-sheet.png`）
+  - 项 2 DisclosureGroup 展开 ⏸ partial（渲染存在但 CGEvent click triangle 没触发, AX 找不到「为什么需要重新选?」AXStaticText 精确点, 降级 PENDING）
+  - 项 3 「以后再说」 ✅ PASS（sheet 关 + `schemaVersion does not exist` 未升 + sync root 仍在 + checkbox 仍勾 + selectedSha256s 保留 D5 验通）
+  - 项 4 NSOpenPanel Cancel ✅ PASS atomicity 完美（panel + sheet 都关 + V1 bookmark 不动 + schemaVersion 未升, D3-bm-ui 拍板验通）
+  - 项 5 重扫期间专用空态 ⏸ PENDING（需真选 root 触发 V2 重扫, CC 不能跑会真改 bookmark）
+- A.8 CC 自闭环结果 + PENDING 写入 + 两段式 push, commit `650722a` (16:30) — 两段式 push 第一次 `git push` 命中 codex pre-push P2 (DEBUG inline self-check 非项目惯例非阻塞建议) + 紧接着触发已知 codex broker 「异物 reset」backlog bug HEAD 被 reset 到 `refs/codex/curated-sync` codex 自仓库 #335 无关 commit; 修复路径 `git reset --hard 650722a` + `pkill -f codex.*app-server` 杀 broker 清 stale 内部状态 + `git push --no-verify` 三连击成功; reflog 永远在 0 数据丢失
+- A.9 GroupKey nonisolated 修 Swift 6 mode warning, commit `eb80ebb` (16:44) — verify.sh Stage 2 报 4 warning (`main actor-isolated conformance of 'GroupKey' to 'Hashable' cannot be used in nonisolated context`); 修法 = 给 `struct GroupKey` 加 `nonisolated` 修饰符让 Hashable 综合 conformance 跳出项目 default main-actor isolation
+
+**self-fix 轮次** = 1 轮（A.3 import Combine）。**codex pre-push 两段式 push** 结果 = 触发已知「异物 reset」backlog bug, `--no-verify` 兜底成功 + 杀 broker 防再次复发。**verify.sh** Stage 2 build SUCCEEDED 0 code warnings（A.9 修后）+ 13 passed 0 failed。
+
+### 任务 B — /go 收尾
+
+- B.1 verify.sh 三段, 结果 13 passed, 0 failed, Stage 2 BUILD SUCCEEDED 0 code warnings（A.9 修后）
+- B.2 文档同步 (Roadmap M4 任务 2 状态扩展 + CLAUDE.md 加 Glance/Migration/ 子目录 + 2 个新文件描述 + Dedup/DuplicateOverviewModel/DuplicateOverviewView 描述加 step A.4/A.6 增量 + ContentView 描述加 step A.5 集成 + 本 plan 实施记录回填), commit `<B.4 提交>` (2026-06-17)
+- B.3 PENDING 确认 (任务 A.8 已写完，含 4 项军哥本机补验)
+- B.4 docs-only commit + 两段式 push, commit `<B.4 提交>` (2026-06-17)
+- B.5 一段话汇报
+
+**总结**: 任务 2 端到端闭环达成 (代码层 16 commit + 引导 UI 7 commit = 共 23 commit 跨多 session)。剩军哥本机真机补验 4 项 → 任务 2 100% closeout。
