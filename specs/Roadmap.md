@@ -31,6 +31,7 @@
 - **V1 v1.0**：已公开发布（GitHub Release + DMG + 仓库 public，2026-05-08 commit `0c9f699`）
 - 工程化基建：`/go` 五步 / `verify.sh` 三段 oracle / `build/Glance.app` 自动 sync `~/sync/` / pre-push codex hook / build 版本号注入 + BuildInfo sidecar
 - 下一步主线：V2 M3 Slice M（⌘F 搜索 → V2.2 GA）
+- **V2 M4 任务 2 状态（2026-06-17）**：步骤 1 spike 三轮跑通,根因定位 V1 bookmark read-only scope（spike `Glance/_SpikeTask2CrossRoot.swift` 已 `git rm` 弃）。codex review 第五轮拍 A 方向（清旧 + schemaVersion 哨兵 + M4 删除入口首次触发清重选）已折入 design 4.5.4 + 8.2 (e) 解锁条件 + 风险 2 段实证 + plan 步骤 1.6 + 2.0.5；entitlement read-write 已同步 pbxproj + Glance.entitlements（codex 抓的两份事实漂移已修）。**任务 2 状态切「卷类型矩阵 + bookmark 迁移 design 已收敛, 待 plan 实施步骤 2.0.5 + 步骤 3-5 触发流 + 真机本地跑剩余卷类型 (b)(c)(d)」**。
 
 ---
 
@@ -384,6 +385,7 @@ V2 引入跨文件夹聚合（智能文件夹）+ 找回（搜索 + 类似图）
 - **D35 总览不是快照，订阅 bridge 多播 observer fan-out**：bridge 一次性架构升级 `addIndexChangedObserver` / `removeIndexChangedObserver` 替代原单播 `var onIndexChanged`，4 个 fire 点（孤儿清扫 / dedup full pass / dedup group / FSEvents handleEvents）改 `fireIndexChanged()` 调 dict.values 遍历 fan-out。**任务 1 步骤 1 prerequisite**：ContentView.swift L584 smartFolder 唯一既有 caller 同步迁移到 `addIndexChangedObserver`，DuplicateOverviewModel 作为第二 observer 在步骤 3 注册。Why: 单播 var 后注册覆盖前注册必断 V2 smartFolder 流量；`@StateObject` 模型长寿不 deinit 无法用 capture-old-callback 链式调用绕开。debounce 500ms 后 load() 由 DuplicateOverviewModel.scheduleReload 自持。
 - **任务拆分**：任务 1（只读总览，零删除，先建立信任）+ 任务 2（删除闭环，推迟到卷类型验证矩阵跑通后开放）。任务 1 内部 5 步骤实施：步骤 1 bridge 多播升级 / 步骤 2 SQL 聚合查询 + DS 常量 + DuplicateGroup record / 步骤 3 DuplicateOverviewModel 状态机 / 步骤 4 view + 侧边栏入口 + 五态互斥（V1 folder / 智能文件夹 / 临时结果 / 搜索 overlay / 重复清理总览）/ 步骤 5 /go 收尾。
 - **codex 四轮 review 抓 13 点已折入**：第一轮 4 P1 + 4 P2 + 2 P3（D33/D34/D35 新增 + API reality 纠正 + 边界 wording）；第二轮 3 P1 + 6 P2 + 1 P3（API reality mismatch：upsertImage 不存在改 restoreImageFromSnapshot / IndexedImage 字段不全引入 IndexedImageSnapshot / progress 路径不合法改 onIndexChanged hook）；第三轮 2 P1 + 2 P2（ownership 拍板 → bridge multicast 升级 + snapshot 字段补齐到 15 列）；第四轮 3 P2 + 1 P3（design 收敛进 writing-plans）。plan 阶段又 13 点（2 P1 + 5 P2 + 2 P3 + 五态互斥补全 = 4 轮）。
+- **D-M4-1 V1 read-only bookmark → V2 read-write 迁移走 A 方向（2026-06-17 codex review 第五轮 推荐）**：M4 任务 2 步骤 1 spike 跑跨 root sandbox trashItem 三轮失败 NSCocoaErrorDomain code=513。根因 V1 `BookmarkManager.saveBookmark` 用了 `.securityScopeAllowOnlyReadAccess` flag，bookmark 数据本身就是 read-only scope，即使 entitlement 切到 read-write、resolve 出来的 scope 仍只能读（Apple NSURL.h 实证）。codex 评估 A/A2/B 三方向后推荐 A：**改 saveBookmark 去 `.securityScopeAllowOnlyReadAccess` flag + UserDefaults `bookmarkSchemaVersion = 2` int key 哨兵 + M4 删除入口首次触发清旧 bookmark（A1.5 变体, 不在 app 首启全清）+ UI 引导重选所有根目录**。A2 不可行（无公开 API 检测 bookmark 是否 read-only）。B 双 bookmark slot 破坏 D30「一键」UX 弃。同步修「pbxproj vs Glance.entitlements 两份事实漂移」硬伤（codex 抓的）— entitlements 文件也切 read-write 跟 pbxproj 同源。**风险无延迟雷**（codex review 第五轮 Q7 实证）：旧 V1 bookmark 不会"几天后自动失效"，永远不会自动升级，必须重建。详见 `specs/v2/2026-06-10-m4-design.md` 4.5.4 段 + `specs/v2/2026-06-16-m4-task2-implementation-plan.md` 步骤 1.6 + 2.0.5。
 
 ### OpenWith 方向 2 决策（2026-06-03 brainstorming + 三轮 codex review 收敛）
 

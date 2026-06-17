@@ -27,6 +27,50 @@
 **仅保留 deferred 项**——明确推后不测的 perf 验收 + 设计 polish。其他历史 pending 项 2026-05-22 用户确认"全部测过了"后批量补录到 Done 段。
 
 
+### V2 M4 任务 2 — 卷类型矩阵 + bookmark 迁移验证 (前置门控, design 8.2 最小解锁条件)
+
+> **解锁条件** (design 8.2 codex review 第二轮 + 第五轮): (a) 内置 APFS 必过 + (b) 外置 USB/Thunderbolt 必过 + (c) iCloud Drive 行为明确 + (d) ≥1 类失败路径 fallback 验通 + **(e) V1 read-only bookmark 迁移路径已定 (D-M4-1 走 A: clearAllForMigration + schemaVersion 哨兵 + M4 删除入口首次引导重选)**。**全过才解锁本 plan 步骤 3+ 实施**。任一失败 → 反推 design 修订。
+
+- [ ] (2026-06-17 / `<pending>`) **(a) 内置 APFS 跨 root** — CC 自闭环跨 root spike 已**根因定位**: V1 bookmark 用 `.securityScopeAllowOnlyReadAccess` flag, 沙盒拒 trashItem 报 NSCocoaErrorDomain code=513。走 D-M4-1 A 方向后:
+  1. 步骤 2.0.5 实施完, 启 app, V1 既有 bookmark 仍可看图无碍
+  2. 进 「重复清理」总览, 勾组, 点 「移入废纸篓」
+  3. 弹引导面板 「V2 升级首次清理需要重新选择根目录…」+ 「重新选择根目录 →」按钮
+  4. 点重选, NSOpenPanel 弹出, 选 1 个 root (家目录, 如 ~/Documents/screenshots)
+  5. 重选后 schemaVersion 切 2, 总览重新索引扫描 + 重新 load
+  6. 再次勾组 + 点 「移入废纸篓」, 这次 trashItem 成功 (无 code=513)
+  7. ~/.Trash/ 里看到刚删的图, 系统废纸篓正常显示
+  8. banner 显示 「已移 N 张, 撤销」, 点撤销 → 图回原路径 + 总览组 reEvaluate
+- [ ] (2026-06-17 / `<pending>`) **(b) 外置 USB / Thunderbolt** — 移动盘下加 root 后真机跑 (Mac mini 接 USB 盘)
+  1. 卷上 `/Volumes/<name>/.Trashes/<uid>/` 出现刚删的图
+  2. restore 成功
+  3. 弹出卷 → 重新插回 → 再 restore 是否仍能成功 (or 报 file not found)
+- [ ] (2026-06-17 / `<pending>`) **(c) iCloud Drive 行为明确** — 必须二选一不允许"可能成功可能失败"模糊态
+  1. 已下载的图 (绿色对勾) trashItem 行为
+  2. 云占位 (未下载) 的图 trashItem 行为 (报错 / 隐式下载后成功)
+  3. 选 plan B fallback: 报错则 banner 副文案显示「iCloud 未下载文件无法清理」
+- [ ] (2026-06-17 / `<pending>`) **(d) ≥1 类失败路径 fallback** — 任选一类
+  - [ ] 只读卷: dmg mount 后 trashItem 抛 `NSFileWriteVolumeReadOnlyError` → member 级失败累积, 其余 member 仍 trash 成功
+  - [ ] 卷弹出: 中途弹出 USB → 剩余 member 抛 `NSFileReadNoSuchFileError` → 不中断
+  - [ ] 磁盘满: 人为构造接近满的卷 → `NSFileWriteOutOfSpaceError` 抛 → banner 单独提示「磁盘已满」
+- [ ] (2026-06-17 / `<pending>`) **(e) bookmark 迁移引导 UI 真机走一遍**
+  1. 启用 V1 build (read-only bookmark), 加 ≥1 root
+  2. 升级 V2 build (步骤 2.0.5 + 后续步骤实施完)
+  3. 验启动后既有 root 仍可看图 (read scope 兼容)
+  4. 验进总览 → 点 「移入废纸篓」 → 弹引导面板 (含 「为什么需要重新选?」 解释)
+  5. 验 「取消」 按钮关弹窗, trashSelected 不执行, 用户不被强制升级
+  6. 验 「重新选择根目录 →」 NSOpenPanel 弹, 用户重选 1 个 root 后 markSchemaV2 + 总览扫描 + 重新 load 行为对
+  7. 验下次再点 「移入废纸篓」 不再弹引导 (schemaVersion == 2 短路)
+- [ ] (2026-06-17 / `<pending>`) **(f) 重选 root 后 trashItem 跑通端到端** — 验 read-write bookmark 真的有写权限
+  1. (e) 重选完, 进总览, 勾组 + 「移入废纸篓」
+  2. trashItem 成功 0 个 NSCocoaErrorDomain code=513
+  3. 文件真进 ~/.Trash, banner 显示 「已移 N 张」
+  4. restore 后 DB row 重建, 总览组 reEvaluate 后副本数对
+
+**全过 → 报告 CC, 进步骤 3 后续 trashSelected + TrashService 实施; 任一失败 → 报告 CC, plan 暂停回 design 修订。**
+
+---
+
+
 ### V2 M4 任务 1 步骤 4 — DuplicateOverviewView + 侧边栏「重复清理」入口 + 五态互斥（任务 1 完整端到端）
 
 > ✅ **任务 1 主体价值兑现**：本步 ship 后军哥首次能完整体验「重复清理总览」端到端 — 侧边栏 点入口 → 看到真实重复组 + 真实可省空间数字 + 保留张透明显示。这是任务 1「先建立信任后才放删除」策略的核心节点。
