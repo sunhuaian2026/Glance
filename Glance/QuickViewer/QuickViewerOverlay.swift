@@ -126,6 +126,13 @@ struct QuickViewerOverlay: View {
                         Button { revealInFinder() } label: {
                             Label("在 Finder 中显示 (⌘⇧R)", systemImage: DS.Icon.finder)
                         }
+                        // 任务 C.10 — 移到废纸篓 .destructive 项（D37 快捷键可发现镜像）
+                        Divider()
+                        Button(role: .destructive) {
+                            Task { await handleTrashCurrent() }
+                        } label: {
+                            Label("移到废纸篓 (⌫)", systemImage: DS.Icon.trash)
+                        }
                     }
 
                 // 顶部状态栏
