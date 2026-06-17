@@ -41,13 +41,13 @@
 
 ✅ **项 4 PASS — atomicity 验证完美** NSOpenPanel Cancel — 再次点「移入废纸篓」→ sheet 重弹 → click「重新选择根目录 →」x=1102 y=537 → NSOpenPanel 出 (`WIN: 打开, WIN: 全部最近`) → 截图 `~/sync/glance-bm-ui-04-nsopenpanel.png` → Esc 取消 → panel + sheet 都关 + `schemaVersion does not exist` (**D3-bm-ui atomicity: 取消零数据丢失 V1 bookmark 不动**)
 
-⏸ **项 5 PENDING** 重扫期间 chip + 总览「重新扫描中…」专用空态 — 需真选 root 触发 V2 重扫才能验, 不能在 CC 自闭环跑 (会真改用户 bookmark schema); 留军哥本机补验
+✅ **项 5 PASS** (2026-06-17 军哥本机真机验) 重扫期间 chip + 总览「重新扫描中…」专用空态
 
-**军哥本机补验 3 项** (PENDING M4 任务 2 (a2) + (e) + (f)):
-- [ ] (2026-06-17 / `162a522`) **端到端 trashItem + 撤销**: 真机点引导 sheet「重新选择根目录 →」→ NSOpenPanel 选 sync root → schemaVersion 切 2 → 总览先显「重新扫描中…」空态 → 重扫完总览自动 reload + selectedSha256s prune 后仍勾 → 用户点按钮真 trash → ~/.Trash 看到副本 → DB row 没了 → banner「已移 N 张 [撤销] [×]」出 → 点撤销 → 文件回原位
-- [ ] (2026-06-17 / `162a522`) **跨视图持久 banner** (D33): 触发 banner 后切 V1 folder / 智能文件夹 / 搜索 → banner 一直可见可点
-- [ ] (2026-06-17 / `162a522`) **「以后再说」session 持久**: 点「以后再说」关 sheet → 关 app → 重启 app → 进总览再点「移入废纸篓」→ 应再弹引导 (schemaVersion 仍 < 2)
-- [ ] (2026-06-17 / `162a522`) **DisclosureGroup 展开验** (轻验): 触发 sheet 后真鼠标 click 「> 为什么需要重新选?」→ 验展开行「macOS 沙盒授权模型限定：只读 bookmark 不能升级为读写，必须重新创建。」可见
+**军哥本机补验 4 项** (2026-06-17 全过):
+- [x] (2026-06-17 / `162a522`) **端到端 trashItem + 撤销** ✓: 真机点引导 sheet「重新选择根目录 →」→ NSOpenPanel 选 sync root → schemaVersion 切 2 → 总览先显「重新扫描中…」空态 → 重扫完总览自动 reload + selectedSha256s prune 后仍勾 → 用户点按钮真 trash → ~/.Trash 看到副本 → DB row 没了 → banner「已移 N 张 [撤销] [×]」出 → 点撤销 → 文件回原位
+- [x] (2026-06-17 / `162a522`) **跨视图持久 banner** ✓ (D33): 触发 banner 后切 V1 folder / 智能文件夹 / 搜索 → banner 一直可见可点
+- [x] (2026-06-17 / `162a522`) **「以后再说」session 持久** ✓: 点「以后再说」关 sheet → 关 app → 重启 app → 进总览再点「移入废纸篓」→ 应再弹引导 (schemaVersion 仍 < 2)
+- [x] (2026-06-17 / `162a522`) **DisclosureGroup 展开验** ✓ (轻验): 触发 sheet 后真鼠标 click 「> 为什么需要重新选?」→ 验展开行「macOS 沙盒授权模型限定：只读 bookmark 不能升级为读写，必须重新创建。」可见
 
 
 **step 5 CC 主 agent 自闭环验** (2026-06-17, build `642f0a9-d.0617-1130`, Mac mini 解锁 + Ghostty/tmux/screencapture/AX 工具链):
@@ -65,12 +65,8 @@
 
 
 
-- [ ] (2026-06-17 / `<pending>`) **(a1) 步骤 2.0.5 ship 完, V1 既有 bookmark 仍可看图无碍** (轻验, 步骤 2.0.5 单独 ship 完即可跑) — CC 自闭环 spike 已**根因定位** V1 bookmark `.securityScopeAllowOnlyReadAccess` 卡 trashItem code=513; D-M4-1 A 方向走 saveBookmark 去 flag 后, 验**既有 read scope 兼容性**, 既有 V1 bookmark 不会因升级失效:
-  1. 步骤 2.0.5 commit 后 build + 启 app
-  2. 既有 V1 加的 root (~/sync/ 等) 在 sidebar 「V1 folder 段」仍可点开
-  3. 缩略图正常加载 + 点开看 QV 看图正常
-  4. 进 「重复清理」总览看到 (任务 1 已 ship 的只读视图) 重复组列表正常
-- [ ] (2026-06-17 / `<pending>`) **(a2) 步骤 5 ship 完后端到端 trashItem + 撤销** (步骤 5 「移入废纸篓」按钮 ship 完才能跑) — 验 V2 read-write bookmark 真有写权限 + 引导 UI 流程 + 端到端撤销:
+- [x] (2026-06-17 / `bbf9038`) **(a1) V1 既有 bookmark 仍可看图无碍** ✓ — 军哥本机真机验通: V1 root 在 sidebar 可点开 + 缩略图加载 + QV 看图正常 + 进总览看到重复组列表
+- [x] (2026-06-17 / `bbf9038`) **(a2) 端到端 trashItem + 撤销** ✓ — 引导 sheet + 重选 root + schemaVersion=2 + trashItem + ~/.Trash + 撤销整套路径军哥本机真机过:
   1. 步骤 5 commit 后 build + 启 app
   2. 进 「重复清理」总览, 勾组, 点 「移入废纸篓」按钮
   3. 弹引导面板 「V2 升级首次清理需要重新选择根目录…」+ 「重新选择根目录 →」按钮
@@ -91,21 +87,10 @@
   - [ ] 只读卷: dmg mount 后 trashItem 抛 `NSFileWriteVolumeReadOnlyError` → member 级失败累积, 其余 member 仍 trash 成功
   - [ ] 卷弹出: 中途弹出 USB → 剩余 member 抛 `NSFileReadNoSuchFileError` → 不中断
   - [ ] 磁盘满: 人为构造接近满的卷 → `NSFileWriteOutOfSpaceError` 抛 → banner 单独提示「磁盘已满」
-- [ ] (2026-06-17 / `<pending>`) **(e) bookmark 迁移引导 UI 真机走一遍**
-  1. 启用 V1 build (read-only bookmark), 加 ≥1 root
-  2. 升级 V2 build (步骤 2.0.5 + 后续步骤实施完)
-  3. 验启动后既有 root 仍可看图 (read scope 兼容)
-  4. 验进总览 → 点 「移入废纸篓」 → 弹引导面板 (含 「为什么需要重新选?」 解释)
-  5. 验 「取消」 按钮关弹窗, trashSelected 不执行, 用户不被强制升级
-  6. 验 「重新选择根目录 →」 NSOpenPanel 弹, 用户重选 1 个 root 后 markSchemaV2 + 总览扫描 + 重新 load 行为对
-  7. 验下次再点 「移入废纸篓」 不再弹引导 (schemaVersion == 2 短路)
-- [ ] (2026-06-17 / `<pending>`) **(f) 重选 root 后 trashItem 跑通端到端** — 验 read-write bookmark 真的有写权限
-  1. (e) 重选完, 进总览, 勾组 + 「移入废纸篓」
-  2. trashItem 成功 0 个 NSCocoaErrorDomain code=513
-  3. 文件真进 ~/.Trash, banner 显示 「已移 N 张」
-  4. restore 后 DB row 重建, 总览组 reEvaluate 后副本数对
+- [x] (2026-06-17 / `bbf9038`) **(e) bookmark 迁移引导 UI 真机走一遍** ✓ — 引导 sheet 弹 + 「重新选择根目录 →」NSOpenPanel + 重选 + markSchemaV2 + 总览扫描 + 重新 load + 「以后再说」session 持久 + DisclosureGroup 展开 全过 (军哥 2026-06-17 本机肉眼验)
+- [x] (2026-06-17 / `bbf9038`) **(f) 重选 root 后 trashItem 跑通端到端** ✓ — 真进 ~/.Trash + banner 出 + 撤销文件回原位 (军哥 2026-06-17 本机肉眼验)
 
-**全过 → 报告 CC, 进步骤 3 后续 trashSelected + TrashService 实施; 任一失败 → 报告 CC, plan 暂停回 design 修订。**
+**(a)(e)(f) 全过 → bookmark 迁移路径解锁; (b)(c)(d) 卷类型矩阵保留 PENDING (外置 USB / iCloud / 失败 fallback, 需特殊环境单独跑, 不阻塞内置 APFS 主流程)**
 
 ---
 
@@ -218,6 +203,21 @@
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### V2 M4 任务 2 — bookmark 迁移引导 UI + trash 端到端（2026-06-17 用户验证全过）
+
+> bookmark 迁移引导 UI + 重选 root + schemaVersion=2 升级 + 端到端 trashItem + 撤销 + 跨视图持久 banner + 「以后再说」session 持久 + DisclosureGroup 展开 + 重扫期间专用空态 全过；commits `4da5817`~`bbf9038`（含 checkbox hit-area + 标题栏 followup fix）。
+
+- [x] (2026-06-17 / `bbf9038`) **端到端 trashItem + 撤销** 全闭环（引导 → NSOpenPanel → 重扫 → trash → ~/.Trash → 撤销 → 文件回原位）
+- [x] (2026-06-17 / `bbf9038`) **跨视图持久 banner** (D33)
+- [x] (2026-06-17 / `bbf9038`) **「以后再说」session 持久** + 重启再次弹引导
+- [x] (2026-06-17 / `bbf9038`) **DisclosureGroup 展开**「为什么需要重新选?」
+- [x] (2026-06-17 / `bbf9038`) **重扫期间专用空态**「重新扫描中…」(D4-bm-ui)
+- [x] (2026-06-17 / `bbf9038`) **bookmark 迁移引导 UI** (e) + **重选 root 后 trashItem 端到端** (f)
+- [x] (2026-06-17 / `3364231`) **重复清理组 checkbox 命中区漂移修复**（hit area 整行 + 自绘 checkbox + label 撑满）
+- [x] (2026-06-17 / `bbf9038`) **「重复清理」侧栏标题栏接管** — `navigationTitle("重复清理")` 修上次 SmartFolderGridView title 残留
+
+**(b)(c)(d) 卷类型矩阵保留 PENDING**（外置 USB / iCloud Drive / 失败 fallback，需特殊环境单独跑，不阻塞内置 APFS 主流程）
 
 ### QV toolbar Slice 2 — 全屏状态机（2026-06-15 用户验证 6 项全通过 + 2026-06-09 inheritedMain 验过）
 

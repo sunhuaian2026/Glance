@@ -35,6 +35,8 @@
 
 **2026-06-17 后续：bookmark 升级引导 UI 任务 A ship 完成**：design `specs/v2/2026-06-17-m4-task2-bookmark-migration-ui-design.md` (commits `90ef7bf` + `91c5289` codex review 第二轮折入 4 P1 + 2 P2) → plan `specs/v2/2026-06-17-m4-task2-bookmark-migration-ui-implementation-plan.md` (commits `cfc3cfe` + `b9e1404` codex review 第三轮折入 1 P1 + 1 P2) → 任务 A 实施 7 个 commit ship: A.1 DS.BookmarkMigration `4da5817` + A.2 BookmarkMigrationView `fcee86c` + A.3 BookmarkMigrationCoordinator `99d3d51` + A.4+A.5 model+ContentView 接 Coordinator `1daed1f` + A.6 重扫中专用空态 `162a522` + A.8 CC 自闭环 + PENDING `650722a` + A.9 GroupKey nonisolated Swift 6 warning 修 `eb80ebb`. **代码层全 ship + 引导 UI 全 ship = 任务 2 代码端到端完成**. CC 自闭环 5 项: 项 1 sheet 渲染 PASS + 项 3 「以后再说」 PASS + 项 4 NSOpenPanel Cancel atomicity 完美 PASS + 项 2 DisclosureGroup 展开 partial 降级 PENDING + 项 5 重扫期间「重新扫描中…」专用空态需真选 root 降级 PENDING. 剩军哥本机真机补验 4 项 (端到端 trashItem + 撤销 / 跨视图持久 banner / 「以后再说」session 持久 / DisclosureGroup 展开轻验) → 任务 2 100% closeout.
 
+**2026-06-17 任务 2 100% closeout**: 军哥本机真机 4 项真机补验**全过** + bookmark 迁移引导 UI 端到端 (引导 sheet + 「重新选择根目录 →」 NSOpenPanel + schemaVersion=2 升级 + 重扫 + trashItem + ~/.Trash + 撤销 + 跨视图持久 banner + 「以后再说」session 持久 + DisclosureGroup 展开 + 重扫期间专用空态) 端到端跑通. 加 followup 2 commit 修 a2.png 实测 bug (checkbox hit-area `3364231` + 标题栏接管 `bbf9038`). 任务 2 端到端**闭环**, **(b)(c)(d) 卷类型矩阵保留 PENDING** (外置 USB / iCloud / 失败 fallback 需特殊环境单独跑, 不阻塞内置 APFS 主流程). 任务 2 整体 25 commit 落地 + 6 commit 收尾 + 2 commit followup = **共 33 commit ship**.
+
 ---
 
 ## 已完成模块
