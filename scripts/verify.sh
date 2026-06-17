@@ -136,8 +136,8 @@ fi
 HP=$(git config --get core.hooksPath 2>/dev/null || echo "")
 [ "$HP" = ".githooks" ] && pass "core.hooksPath=.githooks" \
                         || fail "core.hooksPath unset — run: make hooks-install"
-[ -x .githooks/pre-push ] && pass ".githooks/pre-push executable" \
-                          || fail ".githooks/pre-push not executable — run: make hooks-install"
+[ -x .githooks/commit-msg ] && pass ".githooks/commit-msg executable" \
+                            || fail ".githooks/commit-msg not executable — run: make hooks-install"
 
 # 1d. 术语字典遵守（CONTEXT.md「术语字典表」强制规范）─────────────────
 # 规则源：.githooks/_glossary_rules.sh（单一来源，commit-msg hook 共用）

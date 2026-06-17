@@ -255,20 +255,21 @@ Why: 之前每个小问题都停下来问会拖慢实施节奏（plan 已经走�
 
 `make verify` / `make verify-codex` 便捷入口。完整 log 留 `.verify-logs/`（gitignored）。
 
-## Pre-Push Codex Review Hook
+## Codex Review 触发点（2026-06-17 调整）
 
-`.githooks/pre-push` 在 `git push` 时调用 codex（read-only sandbox + high reasoning）审查待推 diff（`.swift` + `*.md`），发现 `[P1]` 阻塞 push，`[P2]` 仅告警。
+**保留**（必须）：
+- **brainstorming skill 产 design 定稿后**（CC 主动调 `codex:rescue` 评审）— 高杠杆点，本 session 实证抓真问题（design 4 P1 + 2 P2）
+- **writing-plans skill 产 plan 定稿后**（同上）— 实施前的最后兜底，本 session 抓 1 P1 + 1 P2
+- **bug 修复迭代 ≥ 2 次仍未消时**（全局沉淀「新方案先过 codex:rescue」）— 失败兜底机制
+- **CC 主动 ad-hoc 调** `codex:rescue` / `codex review` skill — 任何时候需要 second opinion
 
-**安装一次**：`make hooks-install`（设 `core.hooksPath=.githooks`）
+**手动可选**：
+- `./scripts/verify.sh --with-codex` / `make verify-codex` — 跨 3+ 模块或架构重构时全项目审查
 
-**绕过方式**：
-- 单次紧急：`git push --no-verify`
-- 本次 session：`SKIP_CODEX_REVIEW=1 git push`
-- 按 commit 跳过：commit message 含 `[skip-codex]` 或 `[wip]`
+**已砍**：
+- ❌ **pre-push hook 自动每次 push 调 codex review**（2026-06-17 砍除）— 砍除理由：(1) codex 内部 reset HEAD 到 `refs/codex/curated-sync` bug 每次 push 必触发，修复成本 3 命令 (2) DEBUG inline self-check P2 误报噪音大 (3) 收益已被 design / plan review 前置覆盖 (4) 60-180s 阻塞节奏。**砍掉文件**：`.githooks/pre-push`. **保留 commit-msg hook**（字典禁用词扫描仍是项目硬约束）。
 
-**规则覆盖**（见 `.githooks/pre-push` 的 PROMPT）：通用代码规则 + UI 硬编码/DS.* / `.spring` 禁用 / QuickViewerOverlay 深色 / 文档同步硬规则。
-
-**缓存**：通过的 `local_sha` 写入 `.git/codex-reviewed-<sha>`，retry 不重复审。
+**核心原则**：质量关前置（design / plan review 把住），push 不再加 codex 一层。需要时主动调 ad-hoc，比强制每次跑灵活。
 
 ## Skill 行为约束
 
