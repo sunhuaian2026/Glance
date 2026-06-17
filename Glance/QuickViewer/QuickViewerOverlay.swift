@@ -184,6 +184,15 @@ struct QuickViewerOverlay: View {
             if let onToggleFullScreen { onToggleFullScreen() } else { appState.toggleFullScreen() }
             return .handled
         }
+        // 任务 A.6 — 裸 L / R 触发 VM 旋转（任务 B.4 会把 R handler 合并为「⌘⇧R Finder + 裸 R 旋转」分支）
+        .onKeyPress(.init("l"), phases: .down) { _ in
+            viewModel.rotateLeft()
+            return .handled
+        }
+        .onKeyPress(.init("r"), phases: .down) { _ in
+            viewModel.rotateRight()
+            return .handled
+        }
         // 捏合手势
         .gesture(
             MagnificationGesture()
