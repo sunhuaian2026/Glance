@@ -285,6 +285,36 @@ enum DS {
         static let groupCardBackgroundOpacity: Double = 0.06
         /// 缩略图占位（无图时）半透明 opacity
         static let thumbnailPlaceholderOpacity: Double = 0.15
+
+        // MARK: - M4 任务 2 — 删除 / 撤销 UI 常量
+
+        /// 组级 checkbox 高度
+        static let checkboxRowHeight: CGFloat = 24
+        /// 选中态 accent 色 (sidebar 入口选中色 mirror)
+        static let selectionAccentColor: SwiftUI.Color = .accentColor
+        /// 「移入废纸篓」按钮高度
+        static let trashButtonHeight: CGFloat = 32
+        /// 按钮圆角
+        static let trashButtonCornerRadius: CGFloat = 8
+        /// 删除中进度条 tint
+        static let progressBarTint: SwiftUI.Color = .accentColor
+        /// 撤销 banner 默认 auto-dismiss 秒数; 0 = 纯手动 dismiss.
+        /// D33 拍板 30s (codex review 第一/二轮 toast 1.5s 太短 → banner 跨视图 + 长时长).
+        static let bannerAutoDismissSeconds: TimeInterval = 30
+        /// banner 最大宽度 (居中 overlay 限宽)
+        static let bannerMaxWidth: CGFloat = 480
+        /// banner 圆角
+        static let bannerCornerRadius: CGFloat = 12
+        /// banner 半透明背景 opacity
+        static let bannerBackgroundOpacity: Double = 0.92
+        /// banner 距顶部偏移 (overlay 顶 + 内边距)
+        static let bannerTopPadding: CGFloat = 16
+        /// banner 内水平内边距
+        static let bannerHorizontalPadding: CGFloat = 16
+        /// banner 内垂直内边距
+        static let bannerVerticalPadding: CGFloat = 12
+        /// banner 中按钮间距
+        static let bannerButtonSpacing: CGFloat = 12
     }
 
     // MARK: - Icons（SF Symbols）
