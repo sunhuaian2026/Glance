@@ -31,6 +31,21 @@
 
 > **解锁条件** (design 8.2 codex review 第二轮 + 第五轮): (a) 内置 APFS 必过 + (b) 外置 USB/Thunderbolt 必过 + (c) iCloud Drive 行为明确 + (d) ≥1 类失败路径 fallback 验通 + **(e) V1 read-only bookmark 迁移路径已定 (D-M4-1 走 A: clearAllForMigration + schemaVersion 哨兵 + M4 删除入口首次引导重选)**。**全过才解锁本 plan 步骤 3+ 实施**。任一失败 → 反推 design 修订。
 
+**step 5 CC 主 agent 自闭环验** (2026-06-17, build `642f0a9-d.0617-1130`, Mac mini 解锁 + Ghostty/tmux/screencapture/AX 工具链):
+
+✅ **项 1 PASS** 组级 checkbox 渲染 + 勾选高亮 — AX: `AXCheckBox val=0→1` after click on x=588 y=222; 截图 `/tmp/glance-step5-04-window.png` 蓝色勾选 + 「选择此组清掉 1 张副本」文案 ✓
+
+✅ **项 2 PASS** 按钮文案 + disabled→enabled 切换 — AX: `AXButton enabled=false (selectedSha256s 空)→true (勾选后)` at x=1400 y=142; 截图右上「🗑 移入废纸篓 (1 张)」+ borderedProminent 蓝底 ✓
+
+⏸ **项 3+4+5 等 (e) 引导 UI 后续 task ship 后跑** — D2 A 拍板 step 5.4 暂不实现 V1→V2 bookmark 升级引导 UI; 现有 sync root 是 V1 时代 `.securityScopeAllowOnlyReadAccess` flagged bookmark; UserDefaults `bookmarkSchemaVersion` 键不存在(连 V1 标都没显式写); 点 「移入废纸篓」后:
+  - DB: id=39 (canonical) + id=122 (副本) 两条 record 都还在
+  - 文件系统: `~/sync/ScreenShot_..._副本.png` 还在原位, `~/.Trash/` 未见该文件
+  - banner 设计上沉默 (显示条件 successCount>0 OR undoResult≠nil; trash 全失败时不显示空 banner — D33 设计)
+
+这是 D-M4-1 的已知场景, code 层 (BookmarkManager V2 saveBookmark 去 flag + TrashService snapshot.urlBookmark resolve + scope) 完全正确, 是 sync root bookmark 数据兼容问题 — 走 (e) 引导 UI 后续 task + (f) 重选 root 端到端可验通。
+
+
+
 - [ ] (2026-06-17 / `<pending>`) **(a1) 步骤 2.0.5 ship 完, V1 既有 bookmark 仍可看图无碍** (轻验, 步骤 2.0.5 单独 ship 完即可跑) — CC 自闭环 spike 已**根因定位** V1 bookmark `.securityScopeAllowOnlyReadAccess` 卡 trashItem code=513; D-M4-1 A 方向走 saveBookmark 去 flag 后, 验**既有 read scope 兼容性**, 既有 V1 bookmark 不会因升级失效:
   1. 步骤 2.0.5 commit 后 build + 启 app
   2. 既有 V1 加的 root (~/sync/ 等) 在 sidebar 「V1 folder 段」仍可点开
