@@ -46,11 +46,13 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 hooks-install:
-	chmod +x .githooks/commit-msg scripts/verify.sh
+	chmod +x .githooks/commit-msg .githooks/pre-push scripts/verify.sh
 	git config core.hooksPath .githooks
 	@echo "✓ git hooks installed (core.hooksPath=.githooks)"
-	@echo "  active hooks: commit-msg (字典禁用词扫描)"
-	@echo "  pre-push hook 已于 2026-06-17 砍除 (异物 reset bug + 收益已被 design/plan review 覆盖)"
+	@echo "  active hooks:"
+	@echo "    commit-msg — 字典禁用词扫描"
+	@echo "    pre-push   — secrets/.env 防泄漏拦截 (轻量 0ms, 2026-06-17 重建)"
+	@echo "  bypass one push: git push --no-verify"
 
 hooks-uninstall:
 	-git config --unset core.hooksPath

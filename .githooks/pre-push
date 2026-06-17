@@ -1,0 +1,54 @@
+#!/bin/bash
+# pre-push: secrets / .env 防泄漏拦截
+#
+# 2026-06-17 重建:
+# - 砍掉了原 codex review hook(异物 reset bug + 60-180s 阻塞 + 收益已被 design/plan
+#   review 前置覆盖)
+# - 仅保留 catastrophic 0ms 0 误报安全网: 拦疑似凭据 / .env 文件推 remote
+#
+# 触发命中场景:
+# - diff 行含 AKIA... AWS access key / sk-... API key / *_PRIVATE_KEY block
+# - SECRET / API / TOKEN 等显式 KEY=VALUE 行(带引号)
+# - .env / .env.local / .env.production 文件被加进 push range
+#
+# 绕过(刻意贴示例文档时):
+# - git push --no-verify
+
+set -u
+
+ZERO="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$ZERO" ] && continue
+
+    if [ "$remote_sha" = "$ZERO" ]; then
+        # 新分支: 暂用 local_sha 单 commit 范围(全量扫太重, push 大新分支风险接受)
+        RANGE="$local_sha~1..$local_sha"
+    else
+        RANGE="${remote_sha}..${local_sha}"
+    fi
+
+    # 1. 高危 pattern 扫 (添加行 + 行)
+    if git diff "$RANGE" -- 2>/dev/null | \
+       grep -nE '^\+.*((AKIA[0-9A-Z]{16})|(sk-[a-zA-Z0-9]{20,})|((SECRET_KEY|API_KEY|ACCESS_TOKEN|PRIVATE_KEY|AUTH_TOKEN|DINGTALK_TOKEN)[[:space:]]*=[[:space:]]*["'\''][^"'\'' ]+["'\''])|(BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY))' >&2; then
+        echo "" >&2
+        echo "❌ pre-push BLOCKED: 检测到疑似凭据 (上方 +行 为命中行)" >&2
+        echo "   绕过(确认为误报/文档示例): git push --no-verify" >&2
+        exit 1
+    fi
+
+    # 2. .env 文件本身禁推(白名单除外: .env.example / .env.sample 模板可推)
+    LEAKED_ENV=$(git diff --name-only "$RANGE" 2>/dev/null | \
+                 grep -E '(^|/)\.env(\.local|\.production|\.development|\.staging)?$' | \
+                 grep -vE '(^|/)\.env\.(example|sample|template)$' || true)
+    if [ -n "$LEAKED_ENV" ]; then
+        echo "" >&2
+        echo "❌ pre-push BLOCKED: .env 类文件不能 push 到 remote:" >&2
+        echo "$LEAKED_ENV" | sed 's/^/  /' >&2
+        echo "   .env.example / .env.sample / .env.template 模板可推" >&2
+        echo "   绕过: git push --no-verify" >&2
+        exit 1
+    fi
+done
+
+exit 0

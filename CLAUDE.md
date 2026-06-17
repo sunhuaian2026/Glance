@@ -267,9 +267,16 @@ Why: 之前每个小问题都停下来问会拖慢实施节奏（plan 已经走�
 - `./scripts/verify.sh --with-codex` / `make verify-codex` — 跨 3+ 模块或架构重构时全项目审查
 
 **已砍**：
-- ❌ **pre-push hook 自动每次 push 调 codex review**（2026-06-17 砍除）— 砍除理由：(1) codex 内部 reset HEAD 到 `refs/codex/curated-sync` bug 每次 push 必触发，修复成本 3 命令 (2) DEBUG inline self-check P2 误报噪音大 (3) 收益已被 design / plan review 前置覆盖 (4) 60-180s 阻塞节奏。**砍掉文件**：`.githooks/pre-push`. **保留 commit-msg hook**（字典禁用词扫描仍是项目硬约束）。
+- ❌ **pre-push hook 自动每次 push 调 codex review**（2026-06-17 砍除）— 砍除理由：(1) codex 内部 reset HEAD 到 `refs/codex/curated-sync` bug 每次 push 必触发 (2) DEBUG inline self-check P2 误报噪音大 (3) 收益已被 design / plan review 前置覆盖 (4) 60-180s 阻塞节奏。
 
 **核心原则**：质量关前置（design / plan review 把住），push 不再加 codex 一层。需要时主动调 ad-hoc，比强制每次跑灵活。
+
+## Git Hooks 现状（2026-06-17 调整）
+
+- **commit-msg hook**（`.githooks/commit-msg`）— 字典禁用词扫描（CONTEXT.md 术语字典强约束），项目硬规则，**不可砍**
+- **pre-push hook**（`.githooks/pre-push`）— 2026-06-17 重建，**仅保留 catastrophic 0ms 0 误报安全网**：拦疑似凭据（AWS access key / API key / TOKEN= 显式赋值 / PRIVATE KEY block）+ 拦 .env / .env.local / .env.production 类文件被 push（.env.example / .env.sample / .env.template 模板豁免）。绕过：`git push --no-verify`。**不再做 codex review**（前置 design/plan review 已覆盖）。
+
+**安装一次**：`make hooks-install`（设 `core.hooksPath=.githooks` + chmod +x 两个 hook 文件）
 
 ## Skill 行为约束
 
