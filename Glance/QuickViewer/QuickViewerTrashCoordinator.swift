@@ -48,7 +48,10 @@ final class QuickViewerTrashCoordinator: ObservableObject {
     /// 把 URL 对应的图片移入系统废纸篓 + 同步删 DB row + reEvaluateGroup + 跨视图广播.
     /// 返回 outcome (撤销用); nil 表示 schema gate 未过 / 索引未装配 / 路径未索引.
     func trash(url: URL) async -> TrashOutcome? {
-        // (a) schema gate — V1 read-only bookmark 无 trashItem 写权限
+        // (a) schema gate (codex P0 修): V1 老 bookmark 不能删 (read-only bookmark 无 trashItem
+        // 写权限), return nil 让 Overlay 走「无 outcome」分支显 toast 提示用户升级 V2。
+        // C.12 下沉决策: 不在 Overlay 内查 schema(避免给独立 NSWindow 注入 BookmarkManager),
+        // 统一在 Coordinator 入口拦截。
         guard (bookmarkManager?.currentSchemaVersion ?? 0) >= 2 else { return nil }
         guard let store = indexStore else { return nil }
         guard let bridgeRef = bridge else { return nil }

@@ -707,7 +707,9 @@ struct QuickViewerOverlay: View {
             trashUndoOutcome = nil
             scheduleTrashDismiss()
         } else {
-            // 无 outcome = Coordinator schema gate 拦截 / IndexStore 反查 nil / 未入库图
+            // 无 outcome = Coordinator schema gate 拦截 / IndexStore 反查 nil / 未入库图。
+            // C.12: schema gate 下沉在 Coordinator 入口 (QuickViewerTrashCoordinator.swift),
+            // 避免给独立 NSWindow Overlay 注入 BookmarkManager；这里只渲染失败 toast。
             trashFailureMessage = "无法删除该图(可能未入库 / V1 老 bookmark / 已升级 V2 才能删)"
             trashUndoOutcome = nil
             scheduleTrashDismiss()
