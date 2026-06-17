@@ -62,6 +62,14 @@ final class FolderStoreIndexBridge: ObservableObject {
         }
     }
 
+    /// M4 任务 2 — 公开广播入口 (codex review P1(跨视图刷新闭环缺口) 修).
+    /// TrashService 删除路径 / DuplicateOverviewModel.undo 撤销路径完成后主动调,
+    /// 让智能文件夹 / 搜索 / 其它已注册 observer 视图自动刷新 (D33 跨视图持久 banner +
+    /// 跨视图数据一致). 私有 fireIndexChanged 内部 fire 点不变, 公开版仅提供外部触发.
+    func triggerIndexChanged() {
+        fireIndexChanged()
+    }
+
     /// Slice I.1 — 当首次扫描进度更新时调用，让 caller 把进度推到 UI（IndexStoreHolder
     /// .progress）。nil = 扫描结束或未开始 → 隐藏 progress chip。
     var onScanProgress: ((IndexingProgress?) -> Void)? = nil
@@ -355,5 +363,62 @@ final class FolderStoreIndexBridge: ObservableObject {
             return String(filePath.dropFirst(rootPath.count).drop(while: { $0 == "/" }))
         }
         return file.lastPathComponent
+    }
+
+    /// M4 任务 2 — 撤销回补降级路径 (D34).
+    /// restoreImageFromSnapshot 失败时 (snapshot 信息不全 / UNIQUE 冲突 / 业务认为该走
+    /// FolderScanner 兜底) 走本 API. 实现路径: 找 folder root → resolve bookmark + 拼 child URL
+    /// → ImageMetadataReader.read → insertImageIfAbsent → 返回新 row id.
+    ///
+    /// async 函数返回时 row 已恢复或明确失败, **禁止 fire-and-forget** (codex review 第三轮 P2(fire-and-forget 不行)).
+    /// 调用方拿 id 立即 reEvaluateGroup + load() 无 race.
+    ///
+    /// 退化代价: 降级路径不还原 dedup_canonical / feature_print 系列 / exif_capture_date
+    /// (IO 不可得), 这些列后续靠 DedupPass.reEvaluateGroup + FeaturePrintIndexer + EXIF
+    /// reader 后台异步补齐. 用户感知: 撤销立即"图回来", 但 V2 找相似图 / 搜索可能需等几秒
+    /// 到几分钟后台跑完.
+    func requestRescan(folderId: Int64, relativePath: String) async throws -> Int64 {
+        // 1. 找 root 拿 bookmark
+        let roots = try indexStore.fetchRoots()
+        guard let root = roots.first(where: { $0.id == folderId && $0.rootBookmark != nil }),
+              let bookmark = root.rootBookmark else {
+            throw NSError(domain: "M4.TaskTwo.RequestRescan", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "root folderId=\(folderId) not found or no bookmark"])
+        }
+
+        // 2. Resolve bookmark + startAccessing + 拼 child URL (复刻 DedupPass.computeSha 模式)
+        let metadata: ImageMetadata? = await Task.detached(priority: .userInitiated) {
+            var stale = false
+            guard let rootURL = try? URL(
+                resolvingBookmarkData: bookmark,
+                options: [.withSecurityScope],
+                bookmarkDataIsStale: &stale
+            ) else { return nil }
+            let didStart = rootURL.startAccessingSecurityScopedResource()
+            defer { if didStart { rootURL.stopAccessingSecurityScopedResource() } }
+            guard didStart else { return nil }
+            let fileURL = rootURL.appendingPathComponent(relativePath)
+            return ImageMetadataReader.read(at: fileURL)
+        }.value
+
+        guard let metadata else {
+            throw NSError(domain: "M4.TaskTwo.RequestRescan", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "metadata read failed for \(relativePath) (file missing or scope denied)"])
+        }
+
+        // 3. insertImageIfAbsent (复用现有 ingest 路径)
+        let record = ImageInsertRecord(
+            urlBookmark: bookmark,
+            birthTime: metadata.birthTime,
+            fileSize: metadata.fileSize,
+            format: metadata.format,
+            filename: metadata.filename,
+            relativePath: relativePath,
+            folderId: folderId,
+            dimensionsWidth: metadata.dimensionsWidth,
+            dimensionsHeight: metadata.dimensionsHeight
+        )
+        let rowId = try indexStore.insertImageIfAbsent(record)
+        return rowId
     }
 }
