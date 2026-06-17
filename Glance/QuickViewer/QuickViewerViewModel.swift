@@ -60,6 +60,7 @@ class QuickViewerViewModel: ObservableObject {
 
     var canPan: Bool {
         guard let image = currentNSImage, viewportSize != .zero else { return false }
+        // 注: fitScale 内部已用 effectiveImageSize 口径，此处不必再换算
         return scale > fitScale(for: image, in: viewportSize)
     }
 
@@ -180,10 +181,24 @@ class QuickViewerViewModel: ObservableObject {
 
     func rotateLeft() {
         rotationQuarterTurns -= 1
+        applyRotationLayoutSideEffects()
     }
 
     func rotateRight() {
         rotationQuarterTurns += 1
+        applyRotationLayoutSideEffects()
+    }
+
+    /// 旋转后 fit 模式重算 scale（90/270 宽高互换后 fit 比例变了）；
+    /// 非 fit 模式（zoomIn/Out 后）保 scale 仅 clamp 现 offset，避免缩放级别被旋转吞掉。
+    private func applyRotationLayoutSideEffects() {
+        if zoomMode == .fit, let image = currentNSImage, viewportSize != .zero {
+            scale = fitScale(for: image, in: viewportSize)
+            baseScale = scale
+            offset = .zero
+        } else {
+            clampOffset()
+        }
     }
 
     func toggleFlipH() {
@@ -207,9 +222,10 @@ class QuickViewerViewModel: ObservableObject {
     //   图 ≤ 窗口：保 nativeScale（1:1 原生像素，避免上采样模糊，小图不强拉伸）
     //   图 >  窗口：缩到窗口 fitPadding 占比，四周留呼吸边
     func fitScale(for image: NSImage, in viewport: CGSize) -> CGFloat {
-        guard image.size.width > 0, image.size.height > 0 else { return DS.Viewer.nativeScale }
-        let scaleW = viewport.width / image.size.width
-        let scaleH = viewport.height / image.size.height
+        let eff = effectiveImageSize(image)
+        guard eff.width > 0, eff.height > 0 else { return DS.Viewer.nativeScale }
+        let scaleW = viewport.width / eff.width
+        let scaleH = viewport.height / eff.height
         let fit = min(scaleW, scaleH)
         return fit >= DS.Viewer.nativeScale ? DS.Viewer.nativeScale : fit * DS.Viewer.fitPadding
     }
@@ -219,8 +235,9 @@ class QuickViewerViewModel: ObservableObject {
             offset = .zero
             return
         }
-        let scaledW = image.size.width * scale
-        let scaledH = image.size.height * scale
+        let eff = effectiveImageSize(image)
+        let scaledW = eff.width * scale
+        let scaledH = eff.height * scale
         let maxOffsetX = max(0, (scaledW - viewportSize.width) / 2)
         let maxOffsetY = max(0, (scaledH - viewportSize.height) / 2)
         offset = CGSize(
