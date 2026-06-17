@@ -1250,9 +1250,9 @@ Self-review 通过. plan 进 codex review.
 ### 任务 B — /go 收尾
 
 - B.1 verify.sh 三段, 结果 13 passed, 0 failed, Stage 2 BUILD SUCCEEDED 0 code warnings（A.9 修后）
-- B.2 文档同步 (Roadmap M4 任务 2 状态扩展 + CLAUDE.md 加 Glance/Migration/ 子目录 + 2 个新文件描述 + Dedup/DuplicateOverviewModel/DuplicateOverviewView 描述加 step A.4/A.6 增量 + ContentView 描述加 step A.5 集成 + 本 plan 实施记录回填), commit `<B.4 提交>` (2026-06-17)
+- B.2 文档同步 (Roadmap M4 任务 2 状态扩展 + CLAUDE.md 加 Glance/Migration/ 子目录 + 2 个新文件描述 + Dedup/DuplicateOverviewModel/DuplicateOverviewView 描述加 step A.4/A.6 增量 + ContentView 描述加 step A.5 集成 + 本 plan 实施记录回填), commit `6cd1f3c` (2026-06-17)
 - B.3 PENDING 确认 (任务 A.8 已写完，含 4 项军哥本机补验)
-- B.4 docs-only commit + 两段式 push, commit `<B.4 提交>` (2026-06-17)
+- B.4 docs-only commit + 两段式 push, commit `6cd1f3c` (2026-06-17)
 - B.5 一段话汇报
 
 **总结**: 任务 2 端到端闭环达成 (代码层 16 commit + 引导 UI 7 commit = 共 23 commit 跨多 session)。剩军哥本机真机补验 4 项 → 任务 2 100% closeout。
