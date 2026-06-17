@@ -53,6 +53,22 @@
 
 ---
 
+### V2 快速看图器增强 任务 C — Delete/⌘⌫ 移废纸篓 + 单张撤销 toast(2026-06-17 ship 待真机验)
+
+> 任务 C ship `17c3424.0617-2308`(12 commit `f52b29c`..`17c3424`)。verify.sh 三段全过(14/14, build 0 error 0 warning), subagent-driven 2 轮 self-fix(C.2 `import Combine + objectWillChange`; C.6 `.onKeyPress(.delete, phases: .down)` 现代 pattern)。新增 5 文件改动: DesignSystem + QuickViewerTrashCoordinator(新建 159 行) + IndexedImage(byFullPath SQL) + VM(images mutable + removeCurrent) + MainQVController + Overlay(onTrash/onUndoTrash/Delete/⌘⌫/toast/contextMenu 末项) + ContentView wire。
+
+军哥本机验项(plan C.14 + C.15 合并, **真删用户文件场景需谨慎**):
+- [ ] (2026-06-17 / `17c3424`) **端到端 Delete 真删**: 进任一图(已在 V2 IndexStore 有 row)双击进快速看图器 → 按 **Delete** → ~/.Trash 见文件 + DB row 删 + 自动跳下一张 + 右下角弹「已移废纸篓 [撤销] [×]」toast
+- [ ] (2026-06-17 / `17c3424`) **撤销文件恢复**: toast 点「撤销」→ 文件回原路径 + DB row 重建 + toast 切「文件恢复, 列表稍后刷新」+ 5 秒后 auto-dismiss
+- [ ] (2026-06-17 / `17c3424`) **删到最后一张关窗**(D40): 快速看图器只剩 1 张时按 Delete → 最后那张进废纸篓 + 自动关快速看图器(因 images 空)
+- [ ] (2026-06-17 / `17c3424`) **⌘⌫ 同 Delete**: 按 ⌘⌫ 行为跟裸 Delete 一致(走 .onKeyPress("⌫") + .command 分支)
+- [ ] (2026-06-17 / `17c3424`) **右键 contextMenu 移到废纸篓**: 右键弹菜单 → 最后一项「移到废纸篓 (⌫)」红色 destructive → 点击行为同 Delete
+- [ ] (2026-06-17 / `17c3424`) **V1 老 bookmark schema gate 拦截**: 进 V1 时代 bookmark 加的 root 里某张图(未升级 V2 = schemaVersion < 2) → 按 Delete → 右下角弹红色失败 toast「无法删除该图(可能未入库 / V1 老 bookmark / 已升级 V2 才能删)」, 文件不动 DB 不动, 用户被引导走 M4 重复清理升级路径
+- [ ] (2026-06-17 / `17c3424`) **总览同步刷新**: 删完一张后切到「重复清理」总览, 看到组数 / 可省字节数对应减少(Coordinator 调 reEvaluateGroup + promoteOrphanDuplicates + triggerIndexChanged 让总览 reload)
+- [ ] (2026-06-17 / `17c3424`) **OpenWith 路径不接 trash**: 通过 Finder「打开方式 → Glance」打开图(走 ExternalViewerWindowController) → Delete 应该无响应(OpenWith 路径 onTrash 默认 nil, handleTrashCurrent guard 兜底)
+
+---
+
 
 （本段 CC 维护，追加新项。测完移到 Done。）
 
