@@ -522,6 +522,15 @@ struct QuickViewerOverlay: View {
             }
         }
     }
+
+    // MARK: - 任务 B — 复制 / Finder helpers
+
+    /// 任务 B.2 — 复制当前图到系统剪贴板（NSPasteboard.writeObjects），Finder/Notes/Slack 等可粘贴
+    private func copyImageToPasteboard() {
+        guard let nsImage = viewModel.currentNSImage else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([nsImage])
+    }
 }
 
 // MARK: - Array safe subscript
