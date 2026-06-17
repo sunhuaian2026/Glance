@@ -116,6 +116,9 @@ struct ContentView: View {
     @StateObject private var duplicateOverviewModel = DuplicateOverviewModel.placeholder()
     /// M4 任务 2 收尾 — V1→V2 bookmark 升级引导 Coordinator (步骤 A.5 加).
     @StateObject private var migrationCoordinator = BookmarkMigrationCoordinator.placeholder()
+    /// 任务 C.11 — 快速看图器单张删除适配 Coordinator (URL → TrashService 桥)。schema gate
+    /// 在 Coordinator 入口 (V1 老 bookmark return nil 让 Overlay toast 提示)。
+    @StateObject private var quickViewerTrashCoordinator = QuickViewerTrashCoordinator()
     /// M4 任务 1 — 是否切换到重复清理总览(五态互斥的第五态)
     @State private var showDuplicateOverview: Bool = false
     @State private var indexBridge: FolderStoreIndexBridge?
@@ -645,7 +648,15 @@ struct ContentView: View {
                     folderStore.selectedImageIndex = nil
                 }
             },
-            onDismiss: { reason, entry in handleQVDismiss(reason: reason, entry: entry) }
+            onDismiss: { reason, entry in handleQVDismiss(reason: reason, entry: entry) },
+            // 任务 C.11 — 单张删除入口：Overlay 按 Delete/⌘⌫/右键废纸篓时回调，转给 Coordinator
+            onTrash: { [quickViewerTrashCoordinator] url in
+                await quickViewerTrashCoordinator.trash(url: url)
+            },
+            // 任务 C.11 — toast「撤销」按钮触发，转给 Coordinator.restore
+            onUndoTrash: { [quickViewerTrashCoordinator] outcome in
+                _ = await quickViewerTrashCoordinator.restore(outcome: outcome)
+            }
         )
     }
 
@@ -726,6 +737,12 @@ struct ContentView: View {
             bridgeRef.cancelCurrentScan()
         }
         indexBridge = bridge
+        // 任务 C.11 — 装配 QV 单张删除 Coordinator (三依赖注入, schema gate 在 Coordinator 入口)
+        quickViewerTrashCoordinator.attach(
+            indexStore: store,
+            bridge: bridge,
+            bookmarkManager: bookmarkManager
+        )
         await bridge.sync(with: folderStore.rootFolders, managedRootPaths: folderStore.managedRootPaths)
 
         // M4 任务 1 — wireIfReady race 补偿：用户在 indexStoreHolder ready 前点了「重复清理」入口。
