@@ -69,6 +69,7 @@ class QuickViewerViewModel: ObservableObject {
     func goBack() {
         guard canGoBack else { return }
         currentIndex -= 1
+        resetRotationAndFlip()
         resetToFit()
         loadCurrentImage()
     }
@@ -76,6 +77,7 @@ class QuickViewerViewModel: ObservableObject {
     func goForward() {
         guard canGoForward else { return }
         currentIndex += 1
+        resetRotationAndFlip()
         resetToFit()
         loadCurrentImage()
     }
@@ -83,6 +85,7 @@ class QuickViewerViewModel: ObservableObject {
     func goTo(index: Int) {
         guard index >= 0, index < images.count, index != currentIndex else { return }
         currentIndex = index
+        resetRotationAndFlip()
         resetToFit()
         loadCurrentImage()
     }
