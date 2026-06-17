@@ -18,6 +18,7 @@ struct DuplicateOverviewView: View {
         mainContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(NSColor.windowBackgroundColor))
+            .navigationTitle("重复清理")
     }
     // 注：本 view 不持 .onAppear 触发 load —— load 单一 owner = ContentView
     // .onChange(of: showDuplicateOverview)（双触发会让先返回的旧结果反向覆盖后返回的新结果，
@@ -169,17 +170,24 @@ private struct DuplicateGroupRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             // M4 任务 2 — 组级 checkbox（D28 整组勾选，不给单文件 checkbox）
-            Toggle(isOn: Binding(
-                get: { isSelected },
-                set: { _ in onToggleSelection() }
-            )) {
-                Text("选择此组清掉 \(group.duplicates.count) 张副本")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+            // 自绘 checkbox + Button 包整行: native Toggle(.checkbox) 在
+            // LazyVStack item 复用场景下 hit area 漂移(个别 cell 死透), 改 Button
+            // 自己控 hit area 稳定 (a2.png 实测撞到 + 上轮 contentShape 仅修了 label
+            // 撑满但 Toggle 内部 Button hit 仍是 SwiftUI 黑盒).
+            Button {
+                onToggleSelection()
+            } label: {
+                HStack(spacing: DS.Spacing.xs) {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                        .foregroundStyle(isSelected ? SwiftUI.Color.accentColor : SwiftUI.Color.secondary)
+                    Text("选择此组清掉 \(group.duplicates.count) 张副本")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: DS.Spacing.zero)
+                }
+                .contentShape(Rectangle())
             }
-            .toggleStyle(.checkbox)
+            .buttonStyle(.plain)
             .frame(height: DS.Dedup.checkboxRowHeight)
 
             HStack(alignment: .top, spacing: DS.Spacing.md) {
