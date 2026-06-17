@@ -31,6 +31,25 @@
 
 > **解锁条件** (design 8.2 codex review 第二轮 + 第五轮): (a) 内置 APFS 必过 + (b) 外置 USB/Thunderbolt 必过 + (c) iCloud Drive 行为明确 + (d) ≥1 类失败路径 fallback 验通 + **(e) V1 read-only bookmark 迁移路径已定 (D-M4-1 走 A: clearAllForMigration + schemaVersion 哨兵 + M4 删除入口首次引导重选)**。**全过才解锁本 plan 步骤 3+ 实施**。任一失败 → 反推 design 修订。
 
+**任务 A 升级 UI 端到端 CC 主 agent 自闭环验** (2026-06-17, build `162a522-d.0617-1621`, Mac mini 解锁 + Ghostty/tmux/screencapture/AX 工具链, V1 时代 sync root 当 bench schemaVersion 未设置):
+
+✅ **项 1 PASS** sheet 渲染 — 进重复清理总览勾组点「移入废纸篓」→ AX `SHEET_COUNT: 1, x=725 y=366 w=470 h=207`, 文案完整匹配「升级清理权限」+ 三句话主文案 + DisclosureGroup「为什么需要重新选?」(折起) + 两按钮「以后再说」/「重新选择根目录 →」; 截图存证 `~/sync/glance-bm-ui-01-sheet.png`
+
+⏸ **项 2 partial** DisclosureGroup 展开 — 渲染存在 (截图 + AX `AXDisclosureTriangle x=731 y=486` 命中), 但 CGEvent click triangle 没触发展开 (SwiftUI DisclosureGroup 内部 view 层级 AX 找不到 「为什么需要重新选?」AXStaticText 来精确点); **降级 PENDING 给军哥本机真鼠标点验展开**; 不阻塞其它功能
+
+✅ **项 3 PASS** 「以后再说」按钮 — click x=949 y=525 后 `SHEET_COUNT: 0` (sheet 关) + `defaults read com.sunhongjun.glance bookmarkSchemaVersion` 仍报 does not exist (schemaVersion 未升, V1 不动) + sync root 仍在侧边栏 + checkbox 仍勾 + 按钮 enabled 「移入废纸篓 (1 张)」(**D5 selectedSha256s 保留**); 截图 `~/sync/glance-bm-ui-03-after-later.png`
+
+✅ **项 4 PASS — atomicity 验证完美** NSOpenPanel Cancel — 再次点「移入废纸篓」→ sheet 重弹 → click「重新选择根目录 →」x=1102 y=537 → NSOpenPanel 出 (`WIN: 打开, WIN: 全部最近`) → 截图 `~/sync/glance-bm-ui-04-nsopenpanel.png` → Esc 取消 → panel + sheet 都关 + `schemaVersion does not exist` (**D3-bm-ui atomicity: 取消零数据丢失 V1 bookmark 不动**)
+
+⏸ **项 5 PENDING** 重扫期间 chip + 总览「重新扫描中…」专用空态 — 需真选 root 触发 V2 重扫才能验, 不能在 CC 自闭环跑 (会真改用户 bookmark schema); 留军哥本机补验
+
+**军哥本机补验 3 项** (PENDING M4 任务 2 (a2) + (e) + (f)):
+- [ ] (2026-06-17 / `162a522`) **端到端 trashItem + 撤销**: 真机点引导 sheet「重新选择根目录 →」→ NSOpenPanel 选 sync root → schemaVersion 切 2 → 总览先显「重新扫描中…」空态 → 重扫完总览自动 reload + selectedSha256s prune 后仍勾 → 用户点按钮真 trash → ~/.Trash 看到副本 → DB row 没了 → banner「已移 N 张 [撤销] [×]」出 → 点撤销 → 文件回原位
+- [ ] (2026-06-17 / `162a522`) **跨视图持久 banner** (D33): 触发 banner 后切 V1 folder / 智能文件夹 / 搜索 → banner 一直可见可点
+- [ ] (2026-06-17 / `162a522`) **「以后再说」session 持久**: 点「以后再说」关 sheet → 关 app → 重启 app → 进总览再点「移入废纸篓」→ 应再弹引导 (schemaVersion 仍 < 2)
+- [ ] (2026-06-17 / `162a522`) **DisclosureGroup 展开验** (轻验): 触发 sheet 后真鼠标 click 「> 为什么需要重新选?」→ 验展开行「macOS 沙盒授权模型限定：只读 bookmark 不能升级为读写，必须重新创建。」可见
+
+
 **step 5 CC 主 agent 自闭环验** (2026-06-17, build `642f0a9-d.0617-1130`, Mac mini 解锁 + Ghostty/tmux/screencapture/AX 工具链):
 
 ✅ **项 1 PASS** 组级 checkbox 渲染 + 勾选高亮 — AX: `AXCheckBox val=0→1` after click on x=588 y=222; 截图 `/tmp/glance-step5-04-window.png` 蓝色勾选 + 「选择此组清掉 1 张副本」文案 ✓
