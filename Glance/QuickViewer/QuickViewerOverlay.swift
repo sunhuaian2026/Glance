@@ -29,6 +29,8 @@ struct QuickViewerOverlay: View {
     @FocusState private var isFocused: Bool
     @State private var controlsVisible = true
     @State private var hideTask: Task<Void, Never>?
+    /// 任务 A.7 — 当前图 metadata（分辨率 · 大小），跟随 currentIndex 异步加载；nil = 未加载完 / 失败 → 气泡不渲染
+    @State private var currentMetadata: ImageMetadata?
 
     init(
         images: [URL],
@@ -112,11 +114,25 @@ struct QuickViewerOverlay: View {
                     filmstrip
                         .opacity(controlsVisible ? 1 : 0)
                 }
+
+                // 任务 A.7 — 左下角信息气泡（分辨率 · 大小），跟随 controlsVisible 隐藏
+                VStack {
+                    Spacer()
+                    HStack {
+                        infoBadge
+                            .opacity(controlsVisible ? 1 : 0)
+                        Spacer()
+                    }
+                }
+                .padding(.leading, DS.Spacing.lg)
+                .padding(.bottom, DS.Viewer.filmstripHeight + DS.Spacing.md)
+                .allowsHitTesting(false)
             }
             .onAppear {
                 viewModel.applyViewportSize(geo.size)
                 requestKeyboardFocusIfWindowIsKey()
                 showControlsTemporarily()
+                loadCurrentMetadata()
             }
             .onChange(of: geo.size) { _, newSize in
                 viewModel.applyViewportSize(newSize)
@@ -130,6 +146,7 @@ struct QuickViewerOverlay: View {
             // / filmstrip tap (goTo) / 方向键 三种 QV 内导航路径，避免补 key handler 漏渠道
             .onChange(of: viewModel.currentIndex) { _, newValue in
                 onIndexChange(newValue)
+                loadCurrentMetadata()
             }
         }
         // 用本地 SwiftUI environment 注入 dark colorScheme 而非 .preferredColorScheme(.dark)。
@@ -386,6 +403,46 @@ struct QuickViewerOverlay: View {
                 if viewModel.images.indices.contains(viewModel.currentIndex) {
                     proxy.scrollTo(viewModel.images[viewModel.currentIndex], anchor: .center)
                 }
+            }
+        }
+    }
+
+    // MARK: - Info Badge (任务 A.7 — 分辨率 · 大小)
+
+    @ViewBuilder
+    private var infoBadge: some View {
+        if let meta = currentMetadata,
+           let w = meta.dimensionsWidth, let h = meta.dimensionsHeight {
+            let sizeText = ByteCountFormatter().string(fromByteCount: meta.fileSize)
+            Text("\(w)×\(h) · \(sizeText)")
+                .font(.caption)
+                .foregroundColor(.white)
+                .padding(.horizontal, DS.Spacing.sm + DS.Spacing.xs)
+                .padding(.vertical, DS.Spacing.xs)
+                .background(
+                    Color(white: 0, opacity: DS.Viewer.infoBadgeOpacity),
+                    in: RoundedRectangle(cornerRadius: DS.Viewer.infoBadgeCornerRadius)
+                )
+        } else {
+            EmptyView()
+        }
+    }
+
+    /// 任务 A.7 — 异步读 ImageMetadata（off-main IO + ImageIO 读 dimensions），回主线程赋值
+    private func loadCurrentMetadata() {
+        guard let url = viewModel.images[safe: viewModel.currentIndex] else {
+            currentMetadata = nil
+            return
+        }
+        // 切图先清旧 metadata，避免新图未加载完时短暂显示上一张的尺寸
+        currentMetadata = nil
+        let capturedIndex = viewModel.currentIndex
+        Task.detached(priority: .userInitiated) {
+            let meta = ImageMetadataReader.read(at: url)
+            await MainActor.run {
+                // currentIndex 已切走 → 丢弃 stale 结果
+                guard capturedIndex == viewModel.currentIndex else { return }
+                currentMetadata = meta
             }
         }
     }
