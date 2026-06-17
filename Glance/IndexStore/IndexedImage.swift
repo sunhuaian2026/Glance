@@ -806,6 +806,101 @@ nonisolated extension IndexStore {
         }
     }
 
+    /// M4 任务 2 — 撤销回补首选路径 (D34). INSERT 15 列还原 row.
+    /// 按 (folder_id, relative_path) UNIQUE key 写; 冲突 (同 path 已被 FSEvents 抢先 ingest)
+    /// 抛 SQLITE_CONSTRAINT 让调用方降级走 requestRescan 兜底.
+    ///
+    /// 本 API 仅给 D34 撤销回补用. 其它 ingest 路径 (FolderScanner / FSEvents) 走
+    /// `insertImageIfAbsent` 只写基础列, 两条路径不互相覆盖.
+    ///
+    /// 同步返回新 row id, 调用方拿 id 立即 reEvaluateGroup + load() 无 race.
+    func restoreImageFromSnapshot(_ snapshot: IndexedImageSnapshot) throws -> Int64 {
+        try sync { db in
+            let stmt = try db.prepare("""
+                INSERT INTO images
+                (url_bookmark, birth_time, file_size, format, filename, relative_path,
+                 folder_id, dimensions_width, dimensions_height,
+                 content_sha256, dedup_canonical,
+                 feature_print, feature_print_revision, supports_feature_print,
+                 exif_capture_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """)
+            defer { sqlite3_finalize(stmt) }
+
+            let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+            // 1: url_bookmark BLOB NOT NULL
+            let bmBytes = snapshot.urlBookmark as NSData
+            try checkBind(sqlite3_bind_blob(stmt, 1, bmBytes.bytes, Int32(bmBytes.length), transient), index: 1, db: db)
+            // 2: birth_time REAL NOT NULL
+            try checkBind(sqlite3_bind_double(stmt, 2, snapshot.birthTime.timeIntervalSince1970), index: 2, db: db)
+            // 3: file_size INTEGER NOT NULL
+            try checkBind(sqlite3_bind_int64(stmt, 3, snapshot.fileSize), index: 3, db: db)
+            // 4: format TEXT NOT NULL
+            try checkBind(sqlite3_bind_text(stmt, 4, (snapshot.format as NSString).utf8String, -1, transient), index: 4, db: db)
+            // 5: filename TEXT NOT NULL
+            try checkBind(sqlite3_bind_text(stmt, 5, (snapshot.filename as NSString).utf8String, -1, transient), index: 5, db: db)
+            // 6: relative_path TEXT NOT NULL
+            try checkBind(sqlite3_bind_text(stmt, 6, (snapshot.relativePath as NSString).utf8String, -1, transient), index: 6, db: db)
+            // 7: folder_id INTEGER NOT NULL
+            try checkBind(sqlite3_bind_int64(stmt, 7, snapshot.folderId), index: 7, db: db)
+            // 8: dimensions_width INTEGER nullable
+            if let w = snapshot.dimensionsWidth {
+                try checkBind(sqlite3_bind_int(stmt, 8, Int32(w)), index: 8, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 8), index: 8, db: db)
+            }
+            // 9: dimensions_height INTEGER nullable
+            if let h = snapshot.dimensionsHeight {
+                try checkBind(sqlite3_bind_int(stmt, 9, Int32(h)), index: 9, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 9), index: 9, db: db)
+            }
+            // 10: content_sha256 TEXT nullable
+            if let sha = snapshot.contentSha256 {
+                try checkBind(sqlite3_bind_text(stmt, 10, (sha as NSString).utf8String, -1, transient), index: 10, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 10), index: 10, db: db)
+            }
+            // 11: dedup_canonical INTEGER nullable (1=true / 0=false / NULL=未决议)
+            if let dedup = snapshot.dedupCanonical {
+                try checkBind(sqlite3_bind_int64(stmt, 11, dedup ? 1 : 0), index: 11, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 11), index: 11, db: db)
+            }
+            // 12: feature_print BLOB nullable
+            if let fp = snapshot.featurePrint {
+                let fpBytes = fp as NSData
+                try checkBind(sqlite3_bind_blob(stmt, 12, fpBytes.bytes, Int32(fpBytes.length), transient), index: 12, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 12), index: 12, db: db)
+            }
+            // 13: feature_print_revision INTEGER nullable
+            if let rev = snapshot.featurePrintRevision {
+                try checkBind(sqlite3_bind_int(stmt, 13, Int32(rev)), index: 13, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 13), index: 13, db: db)
+            }
+            // 14: supports_feature_print INTEGER NOT NULL
+            try checkBind(sqlite3_bind_int64(stmt, 14, snapshot.supportsFeaturePrint ? 1 : 0), index: 14, db: db)
+            // 15: exif_capture_date REAL nullable
+            if let exif = snapshot.exifCaptureDate {
+                try checkBind(sqlite3_bind_double(stmt, 15, exif.timeIntervalSince1970), index: 15, db: db)
+            } else {
+                try checkBind(sqlite3_bind_null(stmt, 15), index: 15, db: db)
+            }
+
+            let stepResult = sqlite3_step(stmt)
+            guard stepResult == SQLITE_DONE else {
+                throw IndexDatabaseError.stepFailed(message: """
+                    restoreImageFromSnapshot step \(stepResult): \(db.lastErrorMessage()) — \
+                    folder_id=\(snapshot.folderId), relative_path=\(snapshot.relativePath)
+                    """)
+            }
+            return sqlite3_last_insert_rowid(db.handle)
+        }
+    }
+
     private func checkBind(_ result: Int32, index: Int, db: IndexDatabase) throws {
         if result != SQLITE_OK {
             throw IndexDatabaseError.bindFailed(index: index, message: "bind result \(result): \(db.lastErrorMessage())")
