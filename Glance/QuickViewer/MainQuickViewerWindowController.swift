@@ -64,6 +64,10 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     private var onPrepareDismiss: ((QVDismissalReason, QuickViewerEntry) -> Void)?
     /// 退出回调：windowWillClose 时经 MainWindowController.runAfterNextBecomeKey 延迟触发。
     private var onDismiss: ((QVDismissalReason, QuickViewerEntry) -> Void)?
+    /// 任务 C.5 — 单张删除入口：Overlay 按 Delete/⌘⌫/右键废纸篓时回调，caller (ContentView)
+    /// 转给 QuickViewerTrashCoordinator.trash(url:)。默认 nil 兼容 ExternalViewerWindowController
+    /// OpenWith 路径（看图器单 session 不挂主索引，无删除入口）。
+    private var onTrash: ((URL) async -> TrashOutcome?)?
     /// 本次 show 的进入路径，原样回传给 onDismiss。
     private var entry: QuickViewerEntry?
     /// 弱引用图库主窗：windowWillClose 时归还焦点 + 同框 frame 跟随用。
@@ -94,7 +98,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
               currentSupportsFeaturePrint: Bool,
               onIndexChange: @escaping (Int) -> Void,
               onPrepareDismiss: @escaping (QVDismissalReason, QuickViewerEntry) -> Void,
-              onDismiss: @escaping (QVDismissalReason, QuickViewerEntry) -> Void) {
+              onDismiss: @escaping (QVDismissalReason, QuickViewerEntry) -> Void,
+              onTrash: ((URL) async -> TrashOutcome?)? = nil) {
         // M6：isClosing 复位前移到方法开头，empty-images 早退路径也对称复位。
         isClosing = false
         // I2：新 session 自增代次，让上个 session 延迟 drain 的 onDismiss guard 失配被 skip。
@@ -110,6 +115,7 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         self.onIndexChange = onIndexChange
         self.onPrepareDismiss = onPrepareDismiss
         self.onDismiss = onDismiss
+        self.onTrash = onTrash
         self.entry = entry
         self.mainWindow = mainWindow
         self.pendingDismissReason = .normal
@@ -140,7 +146,8 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
                 onFindSimilar: { [weak self] url in self?.close(reason: .findSimilar(url)) },
                 currentSupportsFeaturePrint: currentSupportsFeaturePrint,
                 onCommandF: { [weak self] in self?.close(reason: .commandF) },
-                onToggleFullScreen: { [weak self] in self?.toggleFullScreenFromViewer() }
+                onToggleFullScreen: { [weak self] in self?.toggleFullScreenFromViewer() },
+                onTrash: onTrash
             )
             .environmentObject(viewerAppState)
             .id(UUID())
@@ -409,6 +416,7 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         self.onDismiss = nil
         self.onPrepareDismiss = nil
         self.onIndexChange = nil
+        self.onTrash = nil
         self.entry = nil
         self.mainWindow = nil
         self.pendingDismissReason = .normal

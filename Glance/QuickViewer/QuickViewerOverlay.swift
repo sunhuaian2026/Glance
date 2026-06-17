@@ -25,6 +25,9 @@ struct QuickViewerOverlay: View {
     /// Slice 2 Task2.1 — 全屏切换经 controller 路由（4 态状态机前提）。
     /// nil → 退化到 appState.toggleFullScreen()（ExternalViewer 等独立看图窗不路由）。
     let onToggleFullScreen: (() -> Void)?
+    /// 任务 C.5/C.6 — 单张移废纸篓回调，按 Delete/⌘⌫/右键菜单触发。
+    /// nil = 不渲染删除入口（ExternalViewer OpenWith 路径不挂主索引，无删除能力）。
+    let onTrash: ((URL) async -> TrashOutcome?)?
 
     @FocusState private var isFocused: Bool
     @State private var controlsVisible = true
@@ -40,7 +43,8 @@ struct QuickViewerOverlay: View {
         onFindSimilar: ((URL) -> Void)? = nil,
         currentSupportsFeaturePrint: Bool = true,
         onCommandF: (() -> Void)? = nil,
-        onToggleFullScreen: (() -> Void)? = nil
+        onToggleFullScreen: (() -> Void)? = nil,
+        onTrash: ((URL) async -> TrashOutcome?)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: QuickViewerViewModel(images: images, startIndex: startIndex))
         self.onDismiss = onDismiss
@@ -49,6 +53,7 @@ struct QuickViewerOverlay: View {
         self.currentSupportsFeaturePrint = currentSupportsFeaturePrint
         self.onCommandF = onCommandF
         self.onToggleFullScreen = onToggleFullScreen
+        self.onTrash = onTrash
     }
 
     var body: some View {
