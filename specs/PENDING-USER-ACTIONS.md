@@ -38,6 +38,21 @@
 
 ---
 
+### V2 快速看图器增强 任务 B — 复制图 + 复制路径 + Finder + 右键 contextMenu(2026-06-17 ship 待真机验)
+
+> 任务 B ship `fd9d4f7.0617-2242`(5 commit `9e93a0d`..`fd9d4f7`)。verify.sh 三段全过(14/14, build 0 error 0 warning), subagent-driven 0 self-fix 单轮过。B.4 已**替换** A.6 的 `.onKeyPress("r")` 为合并版本(裸 R 旋转 + ⌘⇧R Finder 显示同 keypress 内分支)。
+
+军哥本机验项(plan B.7 + B.8 合并):
+- [ ] (2026-06-17 / `fd9d4f7`) **右键 contextMenu 视觉**: 进快速看图器右键弹菜单, 7 项排列(旋转左 L / 旋转右 R / 水平翻转 / 垂直翻转 / 复制图片 ⌘C / 复制路径 ⌘⌥C / 在 Finder 中显示 ⌘⇧R)对齐 macOS 习惯, 图标 + 文字 + 快捷键 hint 都显示
+- [ ] (2026-06-17 / `fd9d4f7`) **⌘C 复制图片 fidelity**: ⌘C 后到 (a) Slack 粘贴看图; (b) macOS 备忘录粘贴看图; (c) Finder 桌面粘贴(应该生成文件) — 三处 fidelity 都 OK
+- [ ] (2026-06-17 / `fd9d4f7`) **⌘⌥C 复制路径**: ⌘⌥C 后 terminal `pbpaste` 看完整路径, 或粘贴到任何 textbox 看完整字符串
+- [ ] (2026-06-17 / `fd9d4f7`) **⌘⇧R Finder 显示**: ⌘⇧R 后 Finder 弹窗 + 当前图被反高亮
+- [ ] (2026-06-17 / `fd9d4f7`) **R 合并 handler 不冲突**: 裸 **R** 仍旋转 90° (任务 A 行为), **⌘⇧R** 触发 Finder, 不会撞或互相干扰
+
+任务 C 待实施 — Delete/⌘⌫ 移废纸篓 + 单张撤销 toast(单张删除适配层 QuickViewerTrashCoordinator), C.10 会**追加** contextMenu 末尾「移到废纸篓」.destructive 项。
+
+---
+
 
 （本段 CC 维护，追加新项。测完移到 Done。）
 
