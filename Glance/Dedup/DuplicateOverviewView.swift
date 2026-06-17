@@ -15,16 +15,11 @@ struct DuplicateOverviewView: View {
     @EnvironmentObject var migrationCoordinator: BookmarkMigrationCoordinator
 
     var body: some View {
-        // ZStack + background 独立层 ignoresSafeArea: 让 detail 区背景延伸到
-        // toolbar 之下融合窗口 titlebar 圆角(消除"重复清理"标题左上角方形).
-        // 颜色换 DS.Color.gridBackground 跟 SmartFolderGridView 统一项目风格.
-        ZStack {
-            DS.Color.gridBackground
-                .ignoresSafeArea()
-            mainContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .navigationTitle("重复清理")
+        // background 挂在 mainContent 各子分支上(mirror SmartFolderGridView 模式),
+        // 不在 body 外层套 ignoresSafeArea — 否则 background 会延伸到 detail
+        // 工具栏区域染色, 跟 sidebar vibrancy 形成"标题左上角方形"突兀色块.
+        mainContent
+            .navigationTitle("重复清理")
     }
     // 注：本 view 不持 .onAppear 触发 load —— load 单一 owner = ContentView
     // .onChange(of: showDuplicateOverview)（双触发会让先返回的旧结果反向覆盖后返回的新结果，
@@ -59,6 +54,7 @@ struct DuplicateOverviewView: View {
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.vertical, DS.Spacing.md)
         }
+        .background(DS.Color.gridBackground)
     }
 
     private var statsBar: some View {
@@ -121,6 +117,7 @@ struct DuplicateOverviewView: View {
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.Color.gridBackground)
     }
 
     /// M4 任务 2 收尾 — D4-bm-ui 重扫中专用空态
@@ -141,6 +138,7 @@ struct DuplicateOverviewView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, DS.Spacing.lg)
+        .background(DS.Color.gridBackground)
     }
 
     private func errorState(message: String) -> some View {
@@ -157,6 +155,7 @@ struct DuplicateOverviewView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, DS.Spacing.lg)
+        .background(DS.Color.gridBackground)
     }
 
     private var formattedReclaimable: String {
