@@ -15,7 +15,10 @@ enum ZoomMode {
 
 class QuickViewerViewModel: ObservableObject {
     // 数据
-    let images: [URL]
+    /// 快速看图器增强 任务 C — 单张删除后 removeCurrent() 需 in-place 改 images,
+    /// 改成 private(set) var 让外部仍只读 (progress / canGoBack 等 computed 不破坏),
+    /// 写权限仅本类内部.
+    private(set) var images: [URL]
     @Published var currentIndex: Int
     @Published var currentNSImage: NSImage?
     /// 方案 3 — 加载失败（文件已删 / 解码失败）→ overlay 显占位而非无限 ProgressView。
@@ -85,6 +88,43 @@ class QuickViewerViewModel: ObservableObject {
     func goTo(index: Int) {
         guard index >= 0, index < images.count, index != currentIndex else { return }
         currentIndex = index
+        resetRotationAndFlip()
+        resetToFit()
+        loadCurrentImage()
+    }
+
+    // MARK: - 快速看图器增强 任务 C — 单张删除后导航
+
+    /// 列表是否被删空 (Overlay 据此触发 onDismiss 关 QV 窗 — D40 策略).
+    /// computed 跟 images.isEmpty, removeCurrent 把最后一张删掉后立即翻 true.
+    var wasEmptied: Bool { images.isEmpty }
+
+    /// QuickViewerTrashCoordinator.trash 成功后由 Overlay 调.
+    /// (a) 校验当前 index 合法 (b) 从 images in-place 移除 (c) 全清 prefetch 重建
+    /// (d) D40 导航策略: 空 → 设 nil 让 Overlay onDismiss; 末尾被删 → 回退到新末尾; 否则
+    /// 当前 index 自动落到下一张 (index 不变, 但 images[index] 已变).
+    func removeCurrent() {
+        // (a) 校验
+        guard !images.isEmpty, currentIndex >= 0, currentIndex < images.count else { return }
+
+        // (b) in-place 移除当前
+        images.remove(at: currentIndex)
+
+        // (c) prefetch 全清重建 — 不能仅 removeValue(forKey: currentIndex), 否则 > currentIndex
+        //     的所有 key 错位 (cache 用 absolute index 做 key).
+        clearPrefetchCache()
+
+        // (d) D40 导航策略
+        if images.isEmpty {
+            // 列表空 → 让 Overlay onChange(wasEmptied) 触发 onDismiss; 不加载新图
+            currentNSImage = nil
+            return
+        }
+        if currentIndex >= images.count {
+            // 删的是末尾 → 回退到新末尾
+            currentIndex = images.count - 1
+        }
+        // 否则 currentIndex 不变, images[currentIndex] 已自动落到原来的下一张
         resetRotationAndFlip()
         resetToFit()
         loadCurrentImage()
