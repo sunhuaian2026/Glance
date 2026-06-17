@@ -176,6 +176,8 @@ private struct DuplicateGroupRowView: View {
                 Text("选择此组清掉 \(group.duplicates.count) 张副本")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .toggleStyle(.checkbox)
             .frame(height: DS.Dedup.checkboxRowHeight)
