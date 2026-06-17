@@ -9,10 +9,41 @@ import Combine
 class BookmarkManager: ObservableObject {
     private let defaultsKey = "savedBookmarks"
 
+    /// UserDefaults int key, 标记当前持久化 bookmark 的 schema 版本.
+    /// V1 (read-only) = 0 或 missing; V2 (read-write) = 2.
+    /// 用于 M4 任务 2 「移入废纸篓」入口判别是否需要清旧 bookmark + 引导用户重选
+    /// (D-M4-1 + design 4.5.4, 2026-06-17 codex review 第五轮 A 方向).
+    private static let schemaVersionKey = "bookmarkSchemaVersion"
+
+    /// 当前已持久化 bookmark 的 schema 版本 (0 = V1 read-only, 2 = V2 read-write).
+    var currentSchemaVersion: Int {
+        UserDefaults.standard.integer(forKey: Self.schemaVersionKey)
+    }
+
+    /// 标记当前持久化 bookmark 已升级到 V2.
+    /// 触发时机: 用户走 NSOpenPanel grant 流程重选 >= 1 个 root 后,
+    /// 在第一个 saveBookmark 成功后立即调.
+    func markSchemaV2() {
+        UserDefaults.standard.set(2, forKey: Self.schemaVersionKey)
+    }
+
+    /// V2 升级触发点用 — 一次性清空 V1 持久化 bookmark + 重置 schema version 为 0.
+    /// 调用方拿到返回后立刻调 FolderStore.reloadFromDefaults() 同步内存 + 弹引导 UI.
+    ///
+    /// 调用约束: 仅在 V2 升级触发点 (M4 删除入口首次) 由 DuplicateOverviewModel.trashSelected
+    /// 入口前置调一次, 之后流程内的 currentSchemaVersion == 2 判别会让本 API 不重复触发.
+    func clearAllForMigration() {
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
+        UserDefaults.standard.set(0, forKey: Self.schemaVersionKey)
+    }
+
     /// 为用户选择的文件夹创建 bookmark 并持久化
+    /// V2 起去掉 .securityScopeAllowOnlyReadAccess flag, 让 scope 携带写权限
+    /// (trashItem 必需; D-M4-1 + design 4.5.4.1).
+    /// V1 既有 bookmark 走 clearAllForMigration + 用户重选迁移路径.
     func saveBookmark(for url: URL) throws {
         let data = try url.bookmarkData(
-            options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+            options: [.withSecurityScope],
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )

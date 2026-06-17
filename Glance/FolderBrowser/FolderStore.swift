@@ -126,6 +126,19 @@ class FolderStore: ObservableObject {
         }
     }
 
+    /// V2 升级触发点用 — BookmarkManager.clearAllForMigration 后同步内存状态重置.
+    /// 与 loadSavedFolders 区别: 主动清空 rootFolders + selectedFolder + images,
+    /// 不调 restoreBookmarks (因为 clearAllForMigration 已清空持久化, 重新选才会有 root).
+    /// 调用方: DuplicateOverviewModel.trashSelected 入口 (M4 删除入口首次, design 4.5.4.4).
+    @MainActor
+    func reloadFromDefaults() {
+        rootFolders.removeAll()
+        selectedFolder = nil
+        images.removeAll()
+        selectedImageIndex = nil
+        imageCountByFolder.removeAll()
+    }
+
     func addFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false

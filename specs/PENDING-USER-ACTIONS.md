@@ -31,9 +31,14 @@
 
 > **解锁条件** (design 8.2 codex review 第二轮 + 第五轮): (a) 内置 APFS 必过 + (b) 外置 USB/Thunderbolt 必过 + (c) iCloud Drive 行为明确 + (d) ≥1 类失败路径 fallback 验通 + **(e) V1 read-only bookmark 迁移路径已定 (D-M4-1 走 A: clearAllForMigration + schemaVersion 哨兵 + M4 删除入口首次引导重选)**。**全过才解锁本 plan 步骤 3+ 实施**。任一失败 → 反推 design 修订。
 
-- [ ] (2026-06-17 / `<pending>`) **(a) 内置 APFS 跨 root** — CC 自闭环跨 root spike 已**根因定位**: V1 bookmark 用 `.securityScopeAllowOnlyReadAccess` flag, 沙盒拒 trashItem 报 NSCocoaErrorDomain code=513。走 D-M4-1 A 方向后:
-  1. 步骤 2.0.5 实施完, 启 app, V1 既有 bookmark 仍可看图无碍
-  2. 进 「重复清理」总览, 勾组, 点 「移入废纸篓」
+- [ ] (2026-06-17 / `<pending>`) **(a1) 步骤 2.0.5 ship 完, V1 既有 bookmark 仍可看图无碍** (轻验, 步骤 2.0.5 单独 ship 完即可跑) — CC 自闭环 spike 已**根因定位** V1 bookmark `.securityScopeAllowOnlyReadAccess` 卡 trashItem code=513; D-M4-1 A 方向走 saveBookmark 去 flag 后, 验**既有 read scope 兼容性**, 既有 V1 bookmark 不会因升级失效:
+  1. 步骤 2.0.5 commit 后 build + 启 app
+  2. 既有 V1 加的 root (~/sync/ 等) 在 sidebar 「V1 folder 段」仍可点开
+  3. 缩略图正常加载 + 点开看 QV 看图正常
+  4. 进 「重复清理」总览看到 (任务 1 已 ship 的只读视图) 重复组列表正常
+- [ ] (2026-06-17 / `<pending>`) **(a2) 步骤 5 ship 完后端到端 trashItem + 撤销** (步骤 5 「移入废纸篓」按钮 ship 完才能跑) — 验 V2 read-write bookmark 真有写权限 + 引导 UI 流程 + 端到端撤销:
+  1. 步骤 5 commit 后 build + 启 app
+  2. 进 「重复清理」总览, 勾组, 点 「移入废纸篓」按钮
   3. 弹引导面板 「V2 升级首次清理需要重新选择根目录…」+ 「重新选择根目录 →」按钮
   4. 点重选, NSOpenPanel 弹出, 选 1 个 root (家目录, 如 ~/Documents/screenshots)
   5. 重选后 schemaVersion 切 2, 总览重新索引扫描 + 重新 load
