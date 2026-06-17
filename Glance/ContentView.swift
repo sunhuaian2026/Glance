@@ -247,6 +247,7 @@ struct ContentView: View {
             }
             .environmentObject(smartFolderStore)
             .environmentObject(duplicateOverviewModel)
+            .environmentObject(migrationCoordinator)
         }
         // M4 任务 2 — 撤销 banner 全局 overlay (D33 跨视图持久, 不仅 detail pane).
         // codex P2-04: NavigationSplitView 外层 modifier 链, mirror 任务 1 全局 chip overlay.

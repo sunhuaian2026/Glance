@@ -12,6 +12,7 @@ import SwiftUI
 
 struct DuplicateOverviewView: View {
     @EnvironmentObject var model: DuplicateOverviewModel
+    @EnvironmentObject var migrationCoordinator: BookmarkMigrationCoordinator
 
     var body: some View {
         mainContent
@@ -26,6 +27,9 @@ struct DuplicateOverviewView: View {
     private var mainContent: some View {
         if let err = model.errorMessage {
             errorState(message: err)
+        } else if case .rescanning = migrationCoordinator.phase {
+            // M4 任务 2 收尾 — D4-bm-ui 重扫中专用空态 (区别于 emptyState)
+            rescanningState
         } else if model.groupCount == 0 && !model.isLoading {
             emptyState
         } else {
@@ -110,6 +114,26 @@ struct DuplicateOverviewView: View {
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// M4 任务 2 收尾 — D4-bm-ui 重扫中专用空态
+    /// 区别于 emptyState 「没找到重复图」, 这是「等扫描结果」的中间态.
+    private var rescanningState: some View {
+        VStack(spacing: DS.Spacing.md) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.regular)
+            Text("重新扫描中…")
+                .font(DS.BookmarkMigration.rescanEmptyStateFont)
+                .foregroundStyle(.secondary)
+            Text("重选根目录后正在重建图像索引,扫完会自动显示重复组。")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, DS.Spacing.lg)
     }
 
     private func errorState(message: String) -> some View {
