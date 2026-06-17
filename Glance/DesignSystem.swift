@@ -317,6 +317,29 @@ enum DS {
         static let bannerButtonSpacing: CGFloat = 12
     }
 
+    // MARK: - M4 任务 2 — V1→V2 bookmark 升级引导 UI 常量
+
+    enum BookmarkMigration {
+        /// sheet 最小宽度
+        static let sheetMinWidth: CGFloat = 420
+        /// sheet 垂直内边距
+        static let sheetVerticalPadding: CGFloat = 24
+        /// sheet 水平内边距
+        static let sheetHorizontalPadding: CGFloat = 28
+        /// 标题字号 (.title3 weight semibold)
+        static let titleFont: Font = .title3.weight(.semibold)
+        /// 主文案字号
+        static let bodyFont: Font = .body
+        /// DisclosureGroup 「为什么」展开行字号
+        static let disclosureFont: Font = .callout
+        /// 主文案与按钮区垂直间距
+        static let contentSpacing: CGFloat = 20
+        /// 两按钮间距
+        static let buttonSpacing: CGFloat = 12
+        /// 「重扫中」总览专用空态字号
+        static let rescanEmptyStateFont: Font = .body
+    }
+
     // MARK: - Icons（SF Symbols）
 
     enum Icon {
