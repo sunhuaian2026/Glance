@@ -216,6 +216,9 @@
 - [x] (2026-06-17 / `bbf9038`) **bookmark 迁移引导 UI** (e) + **重选 root 后 trashItem 端到端** (f)
 - [x] (2026-06-17 / `3364231`) **重复清理组 checkbox 命中区漂移修复**（hit area 整行 + 自绘 checkbox + label 撑满）
 - [x] (2026-06-17 / `bbf9038`) **「重复清理」侧栏标题栏接管** — `navigationTitle("重复清理")` 修上次 SmartFolderGridView title 残留
+- [x] (2026-06-17 / `562d2ff`) **banner 居中点移到 detail 区** — overlay 从外层挂到 detail closure 内 HStack
+- [x] (2026-06-17 / `3976f67`) **标题栏方形终修** — mirror V1 ImageGridView 删 SmartFolderGridView/DuplicateOverviewView/ImagePreviewView 显式 background, 让 NavigationSplitView 默认 material 接管跟侧边栏 vibrancy 融合
+- [x] (2026-06-17 / `02bd2e7`) **预览背景遮罩恢复** — ImagePreviewView 加回 appBackground 不带 ignoresSafeArea (背景填 safe area 遮 grid + 工具栏区透明不出方形)
 
 **(b)(c)(d) 卷类型矩阵保留 PENDING**（外置 USB / iCloud Drive / 失败 fallback，需特殊环境单独跑，不阻塞内置 APFS 主流程）
 
