@@ -165,6 +165,18 @@ struct QuickViewerOverlay: View {
                 .padding(.leading, DS.Spacing.lg)
                 .padding(.bottom, DS.Viewer.filmstripHeight + DS.Spacing.md)
                 .allowsHitTesting(false)
+
+                // 任务 C.7 — 右下角 toast（成功 撤销 / 失败 提示），不跟 controlsVisible 联动：
+                // 反馈通知不应随鼠标静止隐藏，跟 M4 全局 banner 行为对齐。允许命中（撤销/× 按钮）。
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        trashToast
+                    }
+                }
+                .padding(.trailing, DS.Spacing.lg)
+                .padding(.bottom, DS.Viewer.filmstripHeight + DS.Spacing.md)
             }
             .onAppear {
                 viewModel.applyViewportSize(geo.size)
@@ -493,6 +505,73 @@ struct QuickViewerOverlay: View {
         } else {
             EmptyView()
         }
+    }
+
+    // MARK: - 任务 C.7 — Trash Toast（成功撤销 / 失败提示）
+
+    @ViewBuilder
+    private var trashToast: some View {
+        if let outcome = trashUndoOutcome {
+            HStack(spacing: DS.Spacing.sm) {
+                Text("已移废纸篓")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                Button("撤销") { Task { await handleUndoTrash() } }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.white)
+                    .font(.subheadline.weight(.medium))
+                Button {
+                    trashUndoOutcome = nil
+                    trashDismissTask?.cancel()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, DS.Spacing.sm)
+            .background(
+                Color(white: 0, opacity: DS.QuickViewerTrash.toastBackgroundOpacity),
+                in: RoundedRectangle(cornerRadius: DS.QuickViewerTrash.toastCornerRadius)
+            )
+            // 抑制 outcome.successCount 未读警告（撤销时仍可访问 outcome 整体值）
+            .accessibilityLabel("已移废纸篓 \(outcome.successCount) 张")
+        } else if let msg = trashFailureMessage {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundColor(.white)
+                Text(msg)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                Button {
+                    trashFailureMessage = nil
+                    trashDismissTask?.cancel()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, DS.Spacing.sm)
+            .background(
+                Color.red.opacity(DS.QuickViewerTrash.toastBackgroundOpacity),
+                in: RoundedRectangle(cornerRadius: DS.QuickViewerTrash.toastCornerRadius)
+            )
+            .frame(maxWidth: 360)
+        } else {
+            EmptyView()
+        }
+    }
+
+    /// 任务 C.8 占位 — 撤销 callback 实施在 C.8 步骤补全（onUndoTrash 参数 + 文案切换）。
+    /// C.7 commit 阶段先空实现，让 trashToast.撤销按钮可编译。
+    private func handleUndoTrash() async {
+        // C.8 step 实现：调 onUndoTrash(outcome) + 切 failureMessage 显「文件恢复, 列表稍后刷新」
     }
 
     /// 任务 A.7 — 异步读 ImageMetadata（off-main IO + ImageIO 读 dimensions），回主线程赋值
