@@ -230,6 +230,17 @@ struct ContentView: View {
                     .keyboardShortcut("i", modifiers: .command)
                     .disabled(folderStore.selectedImageIndex == nil)
                 }
+                // 工具栏查找按钮 — 点击 = ⌘F 同效果(开搜索 overlay), 让不熟键盘用户也能发现。
+                // 不挂 .keyboardShortcut("f") 避免与下方 .onKeyPress(.init("f")) 双绑触发两次,
+                // ⌘F 仍走 .onKeyPress 唯一处理, button 仅当点击入口 + help tooltip 显示快捷键
+                ToolbarItem(placement: .automatic) {
+                    Button {
+                        openSearch()
+                    } label: {
+                        Label("查找 (⌘F)", systemImage: DS.Icon.search)
+                    }
+                    .help("查找 (⌘F)")
+                }
                 ToolbarItem(placement: .automatic) {
                     Menu {
                         ForEach(AppearanceMode.allCases, id: \.self) { mode in

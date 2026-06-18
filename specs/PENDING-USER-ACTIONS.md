@@ -81,6 +81,18 @@
 
 ---
 
+### V2 主窗 detail 列工具栏 — 加查找按钮(2026-06-18 ship 待真机验)
+
+> 军哥反馈: 主窗顶部标题栏想要查找按钮入口, 不熟键盘的用户不知道有 ⌘F。改动: ContentView `.toolbar` 在「信息 ⌘I」和「外观切换」之间插一个查找按钮(`magnifyingglass` 图标), 点击 = `openSearch()` 跟 ⌘F 同效果。**不挂 `.keyboardShortcut("f")`** 避免与下方 `.onKeyPress(.init("f"))` 双绑触发两次, ⌘F 仍走原 `.onKeyPress` 唯一处理, button 只当点击入口 + help tooltip 显「查找 (⌘F)」。verify.sh 三段全过(14/14, build 0 error 0 warning)。
+
+军哥本机验项:
+- [ ] (2026-06-18) **工具栏查找按钮可见**: 主窗顶部标题栏看「信息 ⓘ」和「外观切换 ◐」之间多一个放大镜 `magnifyingglass` 按钮, hover tooltip 显「查找 (⌘F)」
+- [ ] (2026-06-18) **点击行为 = ⌘F**: 点击查找按钮 → 主窗弹搜索 overlay(跟按 ⌘F 一样的效果, Spotlight 式输入框 + chip bar + filmstrip)
+- [ ] (2026-06-18) **⌘F 仍只触发一次**: 按 ⌘F 弹搜索 overlay, **不要弹两次或闪烁**(确认 .keyboardShortcut + .onKeyPress 没双绑)
+- [ ] (2026-06-18) **进入快速看图器后工具栏被遮**: 双击图进快速看图器 → 主窗工具栏被独立 QV 窗盖住物理不可见(预期); 关 QV 后工具栏回归
+
+---
+
 
 （本段 CC 维护，追加新项。测完移到 Done。）
 
