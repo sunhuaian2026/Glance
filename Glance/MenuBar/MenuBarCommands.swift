@@ -46,14 +46,43 @@ struct EditMenuCommands: View {
     }
 }
 
-/// 显示菜单(任务 E 填充).
+/// 显示菜单(任务 E).
 struct ViewMenuCommands: View {
     @ObservedObject var inspectorState: InspectorState
     @ObservedObject var qvController: MainQuickViewerWindowController
     @ObservedObject var folderStore: FolderStore
 
     var body: some View {
-        EmptyView()  // 任务 E 填充
+        Group {
+            // D-mb-8 — 动态文案: 信息切换
+            Button(inspectorState.isShown ? "隐藏信息  (⌘I)" : "显示信息  (⌘I)") {
+                inspectorState.isShown.toggle()
+            }
+            .disabled(folderStore.selectedImageIndex == nil)
+
+            Divider()
+
+            // 缩放系列 (快速看图器在场时 enable)
+            Button("适合窗口  (⌘0)") {
+                qvController.performCommand(.resetToFit)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Button("实际大小  (0)") {
+                qvController.performCommand(.resetToOneToOne)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Button("放大  (⌘=)") {
+                qvController.performCommand(.zoomIn)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Button("缩小  (⌘−)") {
+                qvController.performCommand(.zoomOut)
+            }
+            .disabled(!qvController.isPresenting)
+        }
     }
 }
 

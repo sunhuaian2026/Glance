@@ -51,6 +51,14 @@ struct GlanceApp: App {
             CommandMenu("图像") {
                 ImageMenuCommands(qvController: MainQuickViewerWindowController.shared)
             }
+            // 任务 E — 显示菜单 5 项 (信息切换 + 缩放系列)
+            CommandGroup(after: .sidebar) {
+                ViewMenuCommands(
+                    inspectorState: appDelegate.inspectorState,
+                    qvController: MainQuickViewerWindowController.shared,
+                    folderStore: appDelegate.folderStore
+                )
+            }
         }
     }
 }
