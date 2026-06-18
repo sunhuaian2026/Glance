@@ -151,20 +151,50 @@ final class InspectorState: ObservableObject {
 }
 ```
 
-- [ ] **A.3: 新建 `MainQuickViewerWindowController+Commands.swift` (enum + 新 facade methods) + 必改主文件加 stored properties**
+- [ ] **A.3: 必改主文件 stored properties + register/clear methods (codex plan P0 修); 新建 +Commands.swift extension 放 enum + performCommand/performTrash (只读)**
 
-**self-review 修正**: 不用 extension static dict 模式(hacky workaround), 改 stored properties 落在主文件 `MainQuickViewerWindowController.swift`, extension 只放 enum + 行为方法。
+**codex plan P0 修法**: Swift `private(set)` 在跨文件 extension 内不可 set。改方案 — `register/clear` 写状态的方法放**主文件** (跟 stored properties 同文件), `+Commands.swift` extension 只放 enum + 只读 facade methods。
 
-**步骤 1**: 新建 enum 文件 `Glance/QuickViewer/MainQuickViewerWindowController+Commands.swift`:
+**步骤 1**: 必改 `Glance/QuickViewer/MainQuickViewerWindowController.swift` 在既有 `@Published private(set) var isPresenting` 之后 (line 47 附近) 加 3 stored properties + 2 写入 method:
+
+```swift
+// 在 line 47 之后加:
+
+// MARK: - D-mb-9.2 菜单栏 closure registry
+
+@Published private(set) var commandHandlers: [QuickViewerCommand: () -> Void] = [:]
+private(set) var trashHandler: (() async -> Void)? = nil
+private(set) var hasImageProvider: () -> Bool = { false }
+
+func registerCommandHandlers(
+    handlers: [QuickViewerCommand: () -> Void],
+    trash: @escaping () async -> Void,
+    hasImage: @escaping () -> Bool
+) {
+    self.commandHandlers = handlers
+    self.trashHandler = trash
+    self.hasImageProvider = hasImage
+    // commandHandlers 是 @Published 自动 send; trashHandler/hasImageProvider 不是,
+    // 显式 send 确保 hasCurrentImage computed property 的 view binding 同步更新.
+    objectWillChange.send()
+}
+
+func clearCommandHandlers() {
+    self.commandHandlers = [:]
+    self.trashHandler = nil
+    self.hasImageProvider = { false }
+    objectWillChange.send()
+}
+```
+
+**步骤 2**: 新建 enum + 只读 facade `Glance/QuickViewer/MainQuickViewerWindowController+Commands.swift`:
 
 ```swift
 //
 //  MainQuickViewerWindowController+Commands.swift
 //  Glance
 //
-//  D-mb-9.2 — 快速看图器命令 closure registry.
-//  Overlay onAppear 注册 11 个 action closure, controller facade 调用 lookup.
-//  不动 viewModel ownership.
+//  D-mb-9.2 — 快速看图器命令 closure registry (只读 facade 段, 写入在主文件).
 //
 
 import SwiftUI
@@ -180,26 +210,6 @@ enum QuickViewerCommand: Hashable {
 
 @MainActor
 extension MainQuickViewerWindowController {
-    func registerCommandHandlers(
-        handlers: [QuickViewerCommand: () -> Void],
-        trash: @escaping () async -> Void,
-        hasImage: @escaping () -> Bool
-    ) {
-        self.commandHandlers = handlers
-        self.trashHandler = trash
-        self.hasImageProvider = hasImage
-        // 触发 @Published commandHandlers 已自动 objectWillChange, 但 hasImageProvider 是普通 var,
-        // 显式 send 确保 hasCurrentImage 计算属性的 view binding 更新.
-        objectWillChange.send()
-    }
-
-    func clearCommandHandlers() {
-        self.commandHandlers = [:]
-        self.trashHandler = nil
-        self.hasImageProvider = { false }
-        objectWillChange.send()
-    }
-
     /// 菜单栏 commands 触发入口(同步动作).
     func performCommand(_ cmd: QuickViewerCommand) {
         guard isPresenting, let handler = commandHandlers[cmd] else { return }
@@ -208,8 +218,8 @@ extension MainQuickViewerWindowController {
 
     /// 菜单栏 commands 触发入口(异步动作, 仅 trash).
     func performTrash() async {
-        guard isPresenting, let trashHandler = trashHandler else { return }
-        await trashHandler()
+        guard isPresenting, let handler = trashHandler else { return }
+        await handler()
     }
 
     /// commands view 用作 .disabled binding 第三层(快速看图器在场 + 有图).
@@ -220,16 +230,7 @@ extension MainQuickViewerWindowController {
 }
 ```
 
-**步骤 2**: 必改 `Glance/QuickViewer/MainQuickViewerWindowController.swift` 加 3 个 stored properties (`@Published private(set) var isPresenting` 附近, 即 line 47 后):
-
-```swift
-// 在既有 @Published private(set) var isPresenting 之后加:
-@Published private(set) var commandHandlers: [QuickViewerCommand: () -> Void] = [:]
-private(set) var trashHandler: (() async -> Void)? = nil
-private(set) var hasImageProvider: () -> Bool = { false }
-```
-
-**注意**: `commandHandlers` 标 @Published 让菜单 view `.disabled(commandHandlers.isEmpty)` 之类 binding 可观察; `trashHandler` / `hasImageProvider` 不需要 @Published (commands view 不直接读, 走 `performTrash()` / `hasCurrentImage` 包装)。
+**为什么拆分**: extension 文件只读 stored properties 不需要 setter access, `private(set)` 限制不冲突; 写入逻辑在主文件保留 strict access control。
 
 - [ ] **A.4: 新建 `MenuBarCommands.swift` 空骨架**
 
@@ -293,6 +294,8 @@ struct WindowMenuCommands: View {
     let folderStore: FolderStore
     let appState: AppState
     let indexStoreHolder: IndexStoreHolder
+    let searchOverlayState: SearchOverlayState
+    let inspectorState: InspectorState
     @ObservedObject var mainWindowController: MainWindowController
 
     var body: some View {
@@ -302,7 +305,9 @@ struct WindowMenuCommands: View {
                     bookmarkManager: bookmarkManager,
                     folderStore: folderStore,
                     appState: appState,
-                    indexStoreHolder: indexStoreHolder
+                    indexStoreHolder: indexStoreHolder,
+                    searchOverlayState: searchOverlayState,
+                    inspectorState: inspectorState
                 )
             }
         }
@@ -310,7 +315,25 @@ struct WindowMenuCommands: View {
 }
 ```
 
-**Note A.4.1**: `MainWindowController.shared` 单例必须是 `ObservableObject` 且 `hasWindow` 是 `@Published`。任务 A reality check spike — 如果 `hasWindow` 不是 @Published, 加上去(任务 A.8 包含此 check)。
+**A.4.1 必改 MainWindowController.swift conform ObservableObject (codex plan P0 修)**:
+
+修改 `Glance/MainWindow/MainWindowController.swift`:
+
+```swift
+// 既有声明类似: @MainActor final class MainWindowController { ... }
+// 改成 conform ObservableObject:
+@MainActor final class MainWindowController: ObservableObject {
+    static let shared = MainWindowController()
+
+    // 既有 hasWindow 改成 @Published 让 commands view .disabled/.if 重渲染:
+    @Published private(set) var hasWindow: Bool = false
+
+    // 既有 show()/close() 等方法在切换 NSWindow 时已经设 hasWindow, 不动逻辑.
+    // ... 既有 body 不变 ...
+}
+```
+
+**为什么 hasWindow 改 @Published**: 窗口菜单「图库主窗」用 `mainWindowController.hasWindow` 做 `if !... { Button }` 条件渲染 (D-mb-4 hide when hasWindow); 不 @Published 则窗口开关时菜单不刷新, 用户必须重启菜单才看到 reopen 项。
 
 **Note A.4.2**: 任务 A.4 这步先不挂 EditMenu / ViewMenu / ImageMenu 到 GlanceApp.commands, 任务 C/D/E 填充后才挂。
 
@@ -375,19 +398,58 @@ private struct SpikeProbeCommands: View {
 
 修改 `Glance/ContentView.swift`:
 
-加 `@EnvironmentObject var searchOverlayState: SearchOverlayState` + `@EnvironmentObject var inspectorState: InspectorState` (从 AppDelegate 注入)。
+**注入路径 (codex plan P0 修)**: 不用 force unwrap `NSApp.delegate as! AppDelegate` (违反 CLAUDE.md「禁止 force unwrap」全局规则)。改用既有 environmentObject 注入链 mirror M4 模式 — `MainWindowController.swift` 在 `show(...)` 时已经把 4 单例 (bookmarkManager/folderStore/appState/indexStoreHolder) 通过 NSHostingView rootView 的 `.environmentObject()` 注入到 ContentView; 同模式扩展 注入 2 个新单例。
 
-注入路径: GlanceApp.body 不能 .environmentObject 到 Settings scene + .commands, 改用 ContentView 顶层 init 时 AppDelegate.shared 拿 reference。
+**步骤 1**: 修改 `Glance/MainWindow/MainWindowController.swift` 的 `show(...)` 方法, 新增 2 参数:
 
-简化方案: ContentView 直接通过 `NSApp.delegate as? AppDelegate` 拿单例:
+```swift
+// 既有签名:
+// func show(bookmarkManager:, folderStore:, appState:, indexStoreHolder:)
+// 新签名 (加 searchOverlayState + inspectorState):
+func show(
+    bookmarkManager: BookmarkManager,
+    folderStore: FolderStore,
+    appState: AppState,
+    indexStoreHolder: IndexStoreHolder,
+    searchOverlayState: SearchOverlayState,
+    inspectorState: InspectorState
+) {
+    // ... 既有逻辑 ...
+    // rootView 注入链加 2 个新 environmentObject:
+    let rootView = ContentView()
+        .environmentObject(bookmarkManager)
+        .environmentObject(folderStore)
+        .environmentObject(appState)
+        .environmentObject(indexStoreHolder)
+        .environmentObject(searchOverlayState)
+        .environmentObject(inspectorState)
+    // ...
+}
+```
+
+**步骤 2**: AppDelegate.showMainWindow 调用更新 (`Glance/GlanceApp.swift`):
+
+```swift
+private func showMainWindow() {
+    MainWindowController.shared.show(
+        bookmarkManager: bookmarkManager,
+        folderStore: folderStore,
+        appState: appState,
+        indexStoreHolder: indexStoreHolder,
+        searchOverlayState: searchOverlayState,
+        inspectorState: inspectorState
+    )
+}
+```
+
+**步骤 3**: 修改 `Glance/ContentView.swift` 加 2 个 @EnvironmentObject 声明:
 
 ```swift
 struct ContentView: View {
-    // ... 既有 @StateObject / @State 全保留 ...
+    // ... 既有 @EnvironmentObject / @StateObject / @State 全保留 ...
 
-    private var appDelegate: AppDelegate { NSApp.delegate as! AppDelegate }
-    private var searchOverlayState: SearchOverlayState { appDelegate.searchOverlayState }
-    private var inspectorState: InspectorState { appDelegate.inspectorState }
+    @EnvironmentObject var searchOverlayState: SearchOverlayState
+    @EnvironmentObject var inspectorState: InspectorState
 
     var body: some View {
         // ... 既有 body 内容不变 ...
@@ -396,13 +458,13 @@ struct ContentView: View {
             openSearch()
         }
         .onChange(of: showInspector) { _, newValue in
-            // ContentView showInspector 改 → InspectorState.isShown 同步.
+            // ContentView showInspector 改 → InspectorState.isShown 同步; guard 避免循环.
             if inspectorState.isShown != newValue {
                 inspectorState.isShown = newValue
             }
         }
         .onChange(of: inspectorState.isShown) { _, newValue in
-            // InspectorState.isShown 改(菜单栏触发) → showInspector 同步.
+            // InspectorState.isShown 改(菜单栏触发) → showInspector 同步; guard 避免循环.
             if showInspector != newValue {
                 showInspector = newValue
             }
@@ -411,6 +473,8 @@ struct ContentView: View {
     }
 }
 ```
+
+**为什么不用 NSApp.delegate force unwrap**: CLAUDE.md 全局禁 force unwrap; environmentObject 注入链是项目现有标准 (mirror M4 任务 2 收尾 step A.5 BookmarkMigrationCoordinator 模式); 跨 scope (Scene-level vs window-level) 通过 NSHostingView 注入路径稳定。
 
 - [ ] **A.7: QuickViewerOverlay.swift 加 onAppear 注册 / onDisappear 清空 closure registry**
 
@@ -460,6 +524,27 @@ struct ContentView: View {
 }
 ```
 
+**A.7.1 registry 清理时机覆盖范围 (codex plan P1 修)**:
+
+`.onDisappear` 是 SwiftUI 主路径, 覆盖正常关 QV (ESC / Space / 关闭按钮) 场景。还有 3 个边缘路径需要 controller 主动调 `clearCommandHandlers()`:
+
+| 边缘路径 | 代码触发点 | 是否已覆盖 |
+|---|---|---|
+| `MainQuickViewerWindowController.close(reason:)` 主动关 | controller `close()` 路径末尾 | 任务 A.7.1 step 1 显式加 `clearCommandHandlers()` 兜底 |
+| controller `windowWillClose` notification | controller 自身 NSWindowDelegate | 同上, 已有 lifecycle hook 加 `clearCommandHandlers()` |
+| app `applicationWillTerminate` 异常退出 | AppDelegate.applicationWillTerminate | 不需手动清, 进程退出 registry 自然释放 |
+
+**任务 A.7.1 step 1**: 修改 `MainQuickViewerWindowController.swift` `close(...)` 方法或 `windowWillClose` handler 末尾加:
+
+```swift
+// close() 或 windowWillClose 路径末尾, 在 isPresenting = false 之后:
+clearCommandHandlers()
+```
+
+**任务 A.7.1 step 2**: registry 持有的闭包 strong-capture viewModel, 但 viewModel 是 Overlay 的 `@StateObject` (Overlay 是 owner), Overlay disappear 触发 onDisappear → clearCommandHandlers → registry 释放闭包 → viewModel 引用计数减 → 同步 SwiftUI 释放 viewModel。无循环引用 (controller → 闭包 → viewModel, viewModel 不持 controller 反向)。
+
+**Note**: registry 清理不是「即时释放保证」, 但延迟时长 ≤ Overlay disappear 后下一帧 (SwiftUI lifecycle 标准, 用户感知不到)。
+
 - [ ] **A.8: 跑 spike — `make build` + 真机肉眼验证 spike probe button**
 
 跑 `make build`:
@@ -470,10 +555,6 @@ make build 2>&1 | tail -30
 
 期望: BUILD SUCCEEDED, 0 errors, 0 code warnings。
 
-如果 build 失败 — 看 codex 反馈最常见根因:
-- `MainWindowController` / `MainQuickViewerWindowController` 不是 `ObservableObject` — 需要补 conformance(`hasWindow` / `isPresenting` 加 `@Published`)
-- `ObjectIdentifier(self)` 在 `@MainActor` extension 内不可用 — 改用 `String(describing: type(of: self))` key
-
 军哥本机肉眼验证 (PENDING 1 项, 任务 A.8 收尾时收集):
 - 启动 app → 窗口菜单顶部出现「[SPIKE] 旋转左 (L) — 仅 spike 用」菜单项 → **点击灰显**(disabled, 因为快速看图器不在场)
 - 双击任一图进快速看图器 → 菜单项**变 enable** → 点击 = 快速看图器内图旋转 90°
@@ -481,9 +562,93 @@ make build 2>&1 | tail -30
 
 验证通过 → R-mb-1 / R-mb-11 / R-mb-14 全过 → 任务 B-E 继续
 
-验证失败:
-- 菜单项 .disabled binding 不响应 → 升级 AppDelegate 持 MenuBarState ObservableObject 中转(plan 不展开, 失败时再 design 补丁)
-- closure 调用 crash → 检查 viewModel weak/strong 捕获 + Overlay onDisappear 清空时序
+**A.8 失败 fallback 步骤明确 (codex plan P1 修)**:
+
+如 spike 失败 (菜单项 .disabled binding 不随 isPresenting 切换), 按下面步骤升级:
+
+**Fallback 步骤 1 — 新建 `Glance/MenuBar/MenuBarState.swift`**:
+
+```swift
+//
+//  MenuBarState.swift
+//  Glance
+//
+//  Fallback — 若 SwiftUI commands view 直接观察 controller.shared @ObservedObject 不响应,
+//  改用 AppDelegate 持 MenuBarState ObservableObject 作中转层.
+//
+
+import SwiftUI
+import Combine
+
+@MainActor
+final class MenuBarState: ObservableObject {
+    @Published var isQuickViewerPresenting: Bool = false
+    @Published var hasCurrentImage: Bool = false
+    @Published var hasMainWindow: Bool = false
+
+    private var cancellables = Set<AnyCancellable>()
+
+    func bind(
+        qvController: MainQuickViewerWindowController,
+        mainController: MainWindowController
+    ) {
+        qvController.$isPresenting
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.isQuickViewerPresenting = $0 }
+            .store(in: &cancellables)
+        qvController.$commandHandlers
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.hasCurrentImage = qvController.hasCurrentImage }
+            .store(in: &cancellables)
+        mainController.$hasWindow
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.hasMainWindow = $0 }
+            .store(in: &cancellables)
+    }
+}
+```
+
+**Fallback 步骤 2 — AppDelegate 持单例 + bind 调用**:
+
+```swift
+// AppDelegate 加:
+let menuBarState = MenuBarState()
+
+// applicationDidFinishLaunching 内调:
+menuBarState.bind(
+    qvController: MainQuickViewerWindowController.shared,
+    mainController: MainWindowController.shared
+)
+```
+
+**Fallback 步骤 3 — 各 commands view 改用 menuBarState**:
+
+```swift
+// 例 ImageMenuCommands 改:
+struct ImageMenuCommands: View {
+    @ObservedObject var menuBarState: MenuBarState
+    let onCommand: (QuickViewerCommand) -> Void
+
+    var body: some View {
+        Button("旋转左  (L)") { onCommand(.rotateLeft) }
+            .disabled(!menuBarState.isQuickViewerPresenting)
+        // ... 其它项 ...
+    }
+}
+```
+
+**Fallback 步骤 4 — GlanceApp 注入 menuBarState + onCommand closure**:
+
+```swift
+CommandMenu("图像") {
+    ImageMenuCommands(
+        menuBarState: appDelegate.menuBarState,
+        onCommand: { MainQuickViewerWindowController.shared.performCommand($0) }
+    )
+}
+```
+
+后续任务 C/D/E 全部按 fallback 同模式: 各 commands view 直接 @ObservedObject menuBarState, 不再持 qvController 引用。
 
 - [ ] **A.9: commit 任务 A 框架(不 push, 等任务 B 一起)**
 
@@ -1044,7 +1209,17 @@ git push 2>&1 | tail -3
 
 期望: 14 passed, 0 failed。
 
-- [ ] **F.6: commit + push**
+- [ ] **F.6: CLAUDE.md 关键架构决策段补行 (codex plan P1 修)**
+
+按 CLAUDE.md「文档同步强制规则」表的「架构或交互逻辑变化」类型, 必须更新「关键架构决策」段 (项目走 `specs/Roadmap.md` 「关键架构决策」段, 无独立 docs/adr/)。
+
+修改 `specs/Roadmap.md` 在「关键架构决策」段尾追加:
+
+```markdown
+- **D-mb-9 (2026-06-18)**: 菜单栏增补 第一批采用 trigger event + closure registry 双 facade 模式 — SearchOverlayState 只持 `@Published triggerToken UUID` (ContentView 仍是 search overlay sole state owner); MainQuickViewerWindowController 加 `commandHandlers` registry + Overlay onAppear 注册/onDisappear 清空 (不动 viewModel ownership)。**核心权衡**: 不全提升 state 到全局层 (避 V2 M3 chips / M4 五态互斥大面积重构), 仅暴露 trigger + closure 桥接面给菜单栏。**Why 这是关键决策**: 后续菜单/工具栏入口扩展都应沿此模式, 不开新桥接路径; 第二批 design v3 全屏菜单 + 共享快捷键路由方向决策若选方向 X (Commands 接管), 需要重新评估此模式扩展性。
+```
+
+- [ ] **F.7: commit + push**
 
 ```bash
 git add specs/Roadmap.md CLAUDE.md specs/PENDING-USER-ACTIONS.md
@@ -1054,6 +1229,7 @@ docs(菜单栏增补): 第一批 ship 文档同步 + PENDING 20 项军哥本机�
 
 任务 A+B+C+D+E 共 6 commit ship 完, 任务 F 收尾文档同步:
 - Roadmap.md Bug Fix 段加 row (16 项菜单 + 方向 Y 零 .keyboardShortcut + closure registry)
+- Roadmap.md 关键架构决策段加 D-mb-9 行 (trigger event + closure registry 双 facade 模式)
 - CLAUDE.md 文件结构加 Glance/MenuBar/3 新文件 + Glance/QuickViewer/+Commands.swift extension
 - PENDING-USER-ACTIONS.md 加菜单栏 section 20 项军哥本机肉眼验
 
@@ -1064,7 +1240,7 @@ EOF
 git push 2>&1 | tail -3
 ```
 
-- [ ] **F.7: 一段话汇报军哥**
+- [ ] **F.8: 一段话汇报军哥**
 
 例:
 > **BUILD SUCCEEDED — 0 errors, 0 code warnings** (版本 `<commit>-d.<MMDD-HHMM>`, HEAD = `<sha>`)
