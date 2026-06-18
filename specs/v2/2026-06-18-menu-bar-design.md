@@ -1,4 +1,4 @@
-# Glance V2 macOS 菜单栏增补 — Design (v2 reshape)
+# Glance V2 macOS 菜单栏增补 — Design (v2.1: 收紧边界)
 
 > **文件**: `specs/v2/2026-06-18-menu-bar-design.md`
 > **作者**: 主 agent (`superpowers:brainstorming` skill) + 孙红军 (decision authority) + codex (read-only review)
@@ -27,6 +27,22 @@
 | P2-3 SwiftUI commands hot reload 易误判 | Section 6 | **v2**: §10 实施清单加一条 |
 
 **军哥拍板**: 方向 Y (codex P0-3 修法选项中军哥拍最保守路径) + 拆两批 (codex P1-3 推荐)。
+
+---
+
+## §0.1 v2 → v2.1 变更 (codex v2 复审 APPROVE-WITH-FIXES 消化)
+
+codex v2 复审 verdict: **APPROVE-WITH-FIXES** (0 P0, 3 P1, 2 P2)。总评:「v2 已从『不可落地』变为『可实施但需收紧边界』，P0 全清。建议在进 writing-plans 前把 D-mb-9 的 VM ownership / bridge 策略补进 design」。
+
+v2.1 inline 修法:
+
+| codex v2 反馈 | v2.1 修法 |
+|---|---|
+| P1-1 D-mb-9.1 SearchOverlayState 边界过于乐观 (ContentView.openSearch 涉及 6 state + Task.yield) | D-mb-9.1 改 **trigger event 模式**: SearchOverlayState 只持 `@Published var triggerToken: UUID`, ContentView 仍是 sole state owner, 通过 `.onReceive(searchOverlayState.$triggerToken.dropFirst())` 调原 openSearch(); 边界硬约束「不提升 6 state」明示 |
+| P1-2 D-mb-9.2 facade 11 项难度不均 (旋转/缩放依赖 Overlay 私有 VM, controller 不持 VM) | D-mb-9.2 改 **closure registry 模式**: controller 持 `[QuickViewerCommand: () -> Void]` 注册表, Overlay onAppear 注册自己的 action closure (复用现有 action 函数实现, 不动 VM ownership), controller facade `performCommand(.rotateLeft)` lookup 调用; spike 范围从 copyImage 升级到 rotateLeft (VM 依赖项) |
+| P1-3 D-mb-3 / D-mb-7 UX 取舍说明不足 (主窗按 ⌘C 无反应不是「可接受」要明示) | D-mb-3 加「用户感知 4 场景表」明示主窗按 ⌘C 无反应是「**已知设计选择, 非 bug**」+ 心智模型「双击进 QV → ⌘C 复制」+ 「发现性 trade-off (方向 Y vs 方向 X 升级路径)」 |
+| P2-1 §7 reality check 缺 .keyboardShortcut grep + commandGroup placement 真实 build/run 验证 | §7 加 2 条 spike (rg 零结果 + 真实 build/run 验证 NSMenu 渲染) |
+| P2-2 §5 任务 A vertical slice 不符 (前置 spike, 无用户感知) | §5 标 「任务 A ⚠️ 前置 spike, 不单独 ship」 + 「跟任务 B 合并提交」, 任务 B 起独立 ship 满足 vertical slice |
 
 ---
 
@@ -120,11 +136,17 @@ QV 当前 `.onKeyPress` 共享快捷键完整分布 (现状, v2 不动):
 - 菜单作鼠标用户备用入口 + 快捷键发现性载体, 不当 hot key 总闸
 - **改动最小**: 只动 `GlanceApp.swift` 加 .commands, 不动 QV 一行
 
-**用户感知**:
-- ⌘C 在 QV 内: 通过 .onKeyPress 复制 ✓ (现状)
-- ⌘C 在主窗: 系统默认 NSMenu「编辑→复制」(空 action) 或不响应 (主窗本来就没复制图概念, 可接受)
-- 菜单点「复制图片  (⌘C)」: 鼠标用户照点 (调 QV facade 触发 — QV 必须 isPresenting)
-- 用户看菜单文本里的 (⌘C) hint: 学到 QV 内可用此快捷键, 自然形成认知
+**用户感知 (codex v2 P1-3 UX 取舍明示)**:
+
+| 场景 | 行为 | 设计明示理由 |
+|---|---|---|
+| 快速看图器内按 ⌘C | 复制当前图 ✓ (现状) | 通过 QV `.onKeyPress(c)` handler 内 `.command` 分支检查 |
+| 主窗状态按 ⌘C | 无反应 (系统默认 NSMenu「编辑→复制」⌘C 是空 stub) | **已知设计选择, 非 bug**: 主窗 grid 选中 cell 的复制图功能第一批不做 (scope 控制); 用户「想复制图」的心智模型: 先双击进 QV 看图 → ⌘C 复制 |
+| 菜单点「复制图片  (⌘C)」(快速看图器在场) | 调 facade `performCommand(.copyImage)` → 复制 ✓ | 鼠标用户从菜单触发 |
+| 菜单点「复制图片  (⌘C)」(主窗状态) | 菜单项 disable 灰显, 点击无反应 | `!MainQuickViewerWindowController.shared.isPresenting` → .disabled(true) |
+| 用户首次看菜单 (⌘C) hint | 学到「QV 内可用 ⌘C」(发现性提升) — 但也可能误以为是全局菜单 keyEquivalent | **已知发现性 trade-off**: 此项目优先方向 Y (零破坏现状), 第二批 design v3 可选升级到方向 X (Commands 统一接管, 真菜单 keyEquivalent) |
+
+**核心 UX 边界**: 第一批方向 Y 是「**菜单作为可发现入口 + 不强制改变现有快捷键流向**」的妥协。用户长期适应后第二批可基于反馈升级方向 X。
 
 **关联**: D-mb-4 / D-mb-7 / D-mb-9
 
@@ -265,50 +287,144 @@ QV 当前 `.onKeyPress` 共享快捷键完整分布 (现状, v2 不动):
 
 **决策**: 第一批新建 2 个公开 facade, 把 Commands 调用的私有 API 暴露:
 
-#### 9.1 ContentView 入口暴露
+#### 9.1 ContentView 入口暴露 — **trigger event 模式** (codex v2 P1-1 修)
 
-`ContentView.swift` 当前 `openSearch()` 是 `private func`。Commands 调不到。
-
-**修法选项 (军哥拍 / plan 阶段定)**:
-- (a) 把 `openSearch` 改 `internal` (默认 access level), Commands 内 view 通过 @EnvironmentObject 或 closure 持 ContentView 引用调用
-- (b) 把 `openSearch` 的核心逻辑提取到 AppDelegate / 独立 SearchOverlayState (ObservableObject), Commands 直接调
-- (c) GlanceApp.body 持 closure 引用 ContentView 的 openSearch (init-time 注册到 AppDelegate)
-
-**推荐**: **(b) 提取到 AppDelegate** — 跟现有架构对齐 (AppDelegate 已持 4 单例), Commands 直接通过 `AppDelegate.shared.searchOverlayState.open()` 触发。Inspector 状态 (`showInspector`) 同步提升, 不再是 ContentView @State。
-
-#### 9.2 MainQuickViewerWindowController 入口暴露
-
-QV controller 当前 `viewerAppState` 是 `private let`, 共享动作函数 (`viewModel.rotateLeft` / `copyImageToPasteboard` 等) 在 QuickViewerOverlay 内, 不暴露给外部。
-
-**修法**: MainQuickViewerWindowController 加 **action facade methods**:
+`ContentView.swift` 当前 `private func openSearch()` 涉及 **6 个 @State 字段联动 + 1 个 Task.yield 焦点时序**:
 
 ```swift
-@MainActor extension MainQuickViewerWindowController {
-    // 旋转/翻转
-    func performRotateLeft() { /* 调当前 QV viewModel.rotateLeft() */ }
-    func performRotateRight() { ... }
-    func performToggleFlipH() { ... }
-    func performToggleFlipV() { ... }
-    // 复制
-    func performCopyImage() { ... }
-    func performCopyPath() { ... }
-    // 显示
-    func performRevealInFinder() { ... }
-    // 删除
-    func performTrashCurrent() async { ... }  // 走 QuickViewerTrashCoordinator
-    // 缩放
-    func performResetToFit() { ... }
-    func performResetToOneToOne() { ... }
-    func performZoomIn() { ... }
-    func performZoomOut() { ... }
+// ContentView.openSearch() 真实细节 (ContentView.swift:894)
+private func openSearch() {
+    folderStore.selectedImageIndex = nil                                    // 1 清在途 preview
+    showSearchOverlay = true                                                // 2 overlay 状态
+    showDuplicateOverview = false                                           // 3 清重复清理总览
+    currentEphemeral = .search(query: "", images: [], urls: [])             // 4 ephemeral 初始化
+    searchFilterState = SearchFilterState()                                 // 5 D27 chip 状态
+    Task { @MainActor in
+        await Task.yield()                                                  // 6 焦点延迟一拍 (codex review Q1)
+        focusTarget = .search                                               // 7 (= state 5b) 焦点目标
+    }
 }
 ```
 
-每个 method 内部:
-1. `guard isPresenting else { return }` (兜底)
-2. 调对应 QuickViewerViewModel / 内部 helper 函数 (复用现有 QuickViewerOverlay 已有的 action 函数实现)
+这 6 state 都是 `ContentView` 私有 @State, 不是简单 `open()` 函数。**不要完整提升 state ownership** (会引发 V2 M3 chips / M4 五态互斥 / Slice M ephemeral 大面积重构)。
 
-**Note**: facade methods 复用 QuickViewerOverlay 已有 action (`copyImageToPasteboard` / `copyCurrentPath` / `revealInFinder` / `handleTrashCurrent`) 的实现, 把核心逻辑下沉到 controller 或 ViewModel, Overlay 改成调 facade。这样 contextMenu / 「更多」menu / 工具栏菜单 / app 菜单栏 4 个入口都调同一 facade, 单点维护。
+**v2 修法 (定稿, 不再 plan 阶段选)**: **trigger event 模式 — SearchOverlayState 只持 trigger event, ContentView 仍是 sole state owner**:
+
+```swift
+// 新建 Glance/MenuBar/SearchOverlayState.swift
+@MainActor final class SearchOverlayState: ObservableObject {
+    @Published private(set) var triggerToken: UUID = UUID()
+    func requestOpen() { triggerToken = UUID() }
+}
+
+// AppDelegate 持单例: let searchOverlayState = SearchOverlayState()
+
+// Commands 内 view: Button { appDelegate.searchOverlayState.requestOpen() } label: { ... }
+
+// ContentView body 末尾加 listener (不动现有 6 state 字段, 仅加 onChange):
+.onReceive(searchOverlayState.$triggerToken.dropFirst()) { _ in openSearch() }
+```
+
+**边界约束 (plan 阶段硬约束)**:
+- ❌ 禁止把 `showSearchOverlay` / `currentEphemeral` / `searchFilterState` / `focusTarget` 等 6 state 提升出 ContentView
+- ❌ 禁止把 `openSearch()` 函数内 6 state 联动逻辑拆到 SearchOverlayState
+- ✅ ContentView body 末尾既有 `.onKeyPress(.init("f"))` 路径**不动**, 主窗 ⌘F 仍走原逻辑
+- ✅ 新加 `.onReceive(searchOverlayState.$triggerToken.dropFirst())` 一行 + dropFirst 跳过初始 token
+- ✅ 菜单点击 + 主窗 ⌘F 双入口都通过 `openSearch()` 函数处理 (单点维护)
+
+**InspectorState (D-mb-8 信息切换动态文案)**: 同模式 — `InspectorState` 只持 `@Published var isShown: Bool`, ContentView 双向 sync (`onChange` 写 InspectorState; InspectorState onChange 写 ContentView showInspector @State)。Commands 内 view 读 `appDelegate.inspectorState.isShown` 决定文案。
+
+为啥 InspectorState 双向 sync (区别于 SearchOverlayState 单向 trigger):
+- 信息切换是双态 (开/关), 菜单需要读当前态决定文案; Search 是单向触发 (打开后由 ESC 关, 菜单不需要"关闭搜索"项)
+- 双向 sync 风险: 死循环。约束: onChange 内 guard 当前值跟入参不等才写 (避免循环)
+
+#### 9.2 MainQuickViewerWindowController 入口暴露 — **closure registry 模式** (codex v2 P1-2 修)
+
+**问题**: controller 不持 QuickViewerViewModel (QV onAppear 时 Overlay 自己 init VM)。直接 facade methods 实现需要把 VM 提升到 controller, 影响 Overlay 现有 ownership (codex 警告: 旋转/翻转/缩放依赖 Overlay 私有 viewModel, 提升 VM ownership 是大改)。
+
+**v2 修法 (定稿)**: **closure registry 模式 — controller 持 `[Command: () -> Void]` registry, Overlay 注册自己的 action closure, controller 调时 lookup**:
+
+```swift
+// MainQuickViewerWindowController 加
+enum QuickViewerCommand {
+    case rotateLeft, rotateRight
+    case toggleFlipH, toggleFlipV
+    case copyImage, copyPath
+    case revealInFinder
+    case trashCurrent  // async, 单独 handler signature
+    case resetToFit, resetToOneToOne
+    case zoomIn, zoomOut
+}
+
+// controller 单例新增 (mirror 现有 isPresenting @Published 模式):
+@Published private(set) var registeredCommandHandlers: [QuickViewerCommand: () -> Void] = [:]
+@Published private(set) var registeredTrashHandler: (() async -> Void)? = nil
+@Published private(set) var hasCurrentImage: Bool = false  // VM.currentNSImage != nil 同步
+
+func registerCommandHandlers(
+    handlers: [QuickViewerCommand: () -> Void],
+    trash: @escaping () async -> Void,
+    hasImage: () -> Bool
+) {
+    registeredCommandHandlers = handlers
+    registeredTrashHandler = trash
+    hasCurrentImage = hasImage()
+}
+
+func clearCommandHandlers() {
+    registeredCommandHandlers = [:]
+    registeredTrashHandler = nil
+    hasCurrentImage = false
+}
+
+// facade perform* methods (调时 lookup, 失败兜底):
+func performCommand(_ cmd: QuickViewerCommand) {
+    guard isPresenting, let handler = registeredCommandHandlers[cmd] else { return }
+    handler()
+}
+
+func performTrash() async {
+    guard isPresenting, let trashHandler = registeredTrashHandler else { return }
+    await trashHandler()
+}
+```
+
+```swift
+// QuickViewerOverlay onAppear 注册 (复用现有 action 函数实现, 不动 VM ownership):
+.onAppear {
+    MainQuickViewerWindowController.shared.registerCommandHandlers(
+        handlers: [
+            .rotateLeft: { viewModel.rotateLeft() },
+            .rotateRight: { viewModel.rotateRight() },
+            .toggleFlipH: { viewModel.toggleFlipH() },
+            .toggleFlipV: { viewModel.toggleFlipV() },
+            .copyImage: { copyImageToPasteboard() },
+            .copyPath: { copyCurrentPath() },
+            .revealInFinder: { revealInFinder() },
+            .resetToFit: { viewModel.resetToFit() },
+            .resetToOneToOne: { viewModel.resetToOneToOne() },
+            .zoomIn: { viewModel.zoomIn() },
+            .zoomOut: { viewModel.zoomOut() }
+        ],
+        trash: { await handleTrashCurrent() },
+        hasImage: { viewModel.currentNSImage != nil }
+    )
+}
+.onDisappear {
+    MainQuickViewerWindowController.shared.clearCommandHandlers()
+}
+```
+
+**为什么 closure registry 优于 VM 提升**:
+- ✅ 不动 Overlay 现有 VM ownership, 不破现有 contextMenu / 工具栏「更多」menu / 快捷键 4 入口
+- ✅ Overlay 持闭包 + VM, controller 持注册表 + isPresenting, 单一职责清晰
+- ✅ controller 单例下游 (Commands 菜单 view) 只看到 `performCommand(.rotateLeft)` 简洁 API, 不需要知道 VM 存在
+- ✅ Overlay 自然完成 lifecycle (onAppear 注册 / onDisappear 清空), 不需手动管同步
+- ❌ 一个 indirection 层 (closure 调用而非直接方法), 但性能不敏感 (用户点击毫秒级)
+
+**Note**: facade 接入后 contextMenu / 工具栏「更多」menu / Overlay 内既有 action 函数实现**全部保留**, 现有路径不动 — 这是 facade 设计本意 (新增菜单栏第 4 入口, 不重做前 3 入口)。
+
+**spike 范围调整 (codex v2 P1-2)**: plan 任务 A 第二步**不能只 spike copyImage** (太薄), 必须 spike 一个 VM 依赖项 (例 `rotateLeft`) 验证 closure 内捕获 viewModel 是否随 QV NSWindow / VM lifecycle 正确 dispose。
 
 #### 9.3 FolderStore 入口
 
@@ -420,14 +536,14 @@ Apple 菜单
 
 **预估第一批任务节奏 (vertical slice 拆分)**:
 
-1. **任务 A**: spike + facade 框架 — SearchOverlayState / InspectorState ObservableObject + AppDelegate 持单例 + 验证 SwiftUI commands 内 @ObservedObject 触发 .disabled (P1-1 risk)
-2. **任务 B**: 文件菜单「添加文件夹根…」 + 窗口菜单「图库主窗」(最简单, 单独动作)
+1. **任务 A (⚠️ 前置 spike, 不单独 ship — codex v2 P2-2 标注)**: spike + facade 框架 — SearchOverlayState / InspectorState ObservableObject + AppDelegate 持单例 + 验证 SwiftUI commands 内 @ObservedObject 触发 .disabled (R-mb-1 / R-mb-11) + closure registry 抽 1 个 VM 依赖项 (rotateLeft, R-mb-14) 验证 4 入口共存。任务 A **不独立 ship** (无用户感知, 仅技术验证), 跟任务 B 合并提交。spike 失败 → 升级到 AppDelegate 持 MenuBarState 中转方案 → 不阻塞后续。
+2. **任务 B**: 文件菜单「添加文件夹根…」 + 窗口菜单「图库主窗」(最简单, 单独动作) — 跟任务 A spike 一起作为第一个**用户可感知 ship 点**
 3. **任务 C**: 编辑菜单 3 项 (查找 / 复制图 / 复制路径) — 需 QV facade 部分
 4. **任务 D**: 图像菜单 6 项 (旋转 / 翻转 / Finder / 废纸篓)
 5. **任务 E**: 显示菜单 5 项 (信息切换 + 缩放系列) — 信息切换需 InspectorState 完成接线
 6. **任务 F**: 任务收尾 (verify / 文档同步 / PENDING / commit / push)
 
-每任务都满足 vertical slice 三条 (端到端可跑 / 用户可感知 / 独立可 ship)。
+任务 B-F 都满足 vertical slice 三条 (端到端可跑 / 用户可感知 / 独立可 ship)。任务 A 是前置 spike (codex v2 标注), 跟任务 B 合并 ship 满足 vertical slice。
 
 ---
 
@@ -464,10 +580,12 @@ writing-plans skill 实施前必须 grep 实际代码确认 (v1 Section 6 + code
 - [x] QV `.onKeyPress` 共享快捷键分布 (⌘ 组合在 handler 内 modifier 分支检查) ← **§1 已确认 ✓**
 - [x] `CommandGroupPlacement` `.newItem` / `.pasteboard` / `.sidebar` / `.windowList` 在 macOS 14 SDK 存在 ← **codex OK 段已确认 ✓**
 - [ ] **新**: plan 任务 A spike 验证 — SwiftUI commands 内 view 用 @ObservedObject 观察 controller.shared 单例 `.isPresenting` 是否触发 .disabled 重渲染 (R-mb-1 / R-mb-11)
-- [ ] **新**: plan 任务 A spike 验证 — facade extension 抽 1 个 action (例 copyImageToPasteboard) 后, contextMenu / 工具栏「更多」menu 是否仍正常工作 (R-mb-14)
+- [ ] **新 (codex v2 P1-2 升级)**: plan 任务 A spike 验证 — closure registry 模式抽 1 个 **VM 依赖** action (例 `rotateLeft` 而非 copyImageToPasteboard), 验证 closure 捕获 viewModel 跟 QV NSWindow / VM lifecycle 正确 dispose, contextMenu / 工具栏「更多」menu / 既有 .onKeyPress 4 入口同时使用时一致 (R-mb-14)
 - [ ] **新**: plan 阶段确认 — `CommandGroup(after: .sidebar)` 在 macOS 14 显示菜单是否生成自定义菜单顶部追加而不替换系统 sidebar 子菜单
 - [ ] **新**: plan 阶段确认 — `CommandMenu("图像")` 是否能在显示和窗口菜单之间插入 (macOS 14 顶级菜单排序行为)
 - [ ] **新**: AppDelegate 是否需要新建 `SearchOverlayState` / `InspectorState` 单例, 还是可以直接在 GlanceApp.body 用 `@StateObject` 持 (Scene-level @StateObject 是否生效)
+- [ ] **新 (codex v2 P2-1)**: plan 收尾时 `rg "\.keyboardShortcut" Glance/MenuBar/` (新建目录) 应零结果, 确认第一批菜单零挂载 keyboardShortcut (方向 Y 守约)
+- [ ] **新 (codex v2 P2-1)**: 真实 build + run 验证 `CommandGroup(after: .sidebar)` / `(after: .windowList)` 实际菜单落点 (不只靠 grep, 实际 NSMenu 渲染顺序跟 SwiftUI 文档可能有差异)
 
 ---
 
