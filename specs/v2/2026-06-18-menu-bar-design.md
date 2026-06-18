@@ -1,424 +1,558 @@
-# Glance V2 macOS 菜单栏增补 — Design
+# Glance V2 macOS 菜单栏增补 — Design (v2 reshape)
 
 > **文件**: `specs/v2/2026-06-18-menu-bar-design.md`
-> **作者**: 主 agent (`superpowers:brainstorming` skill) + 孙红军 (decision authority)
-> **状态**: draft → codex review → 军哥拍板 → 走 `superpowers:writing-plans` → 实施
+> **作者**: 主 agent (`superpowers:brainstorming` skill) + 孙红军 (decision authority) + codex (read-only review)
+> **状态**: v2 draft → codex 复审 → 军哥拍板 → 走 `superpowers:writing-plans` → 实施
 > **类型**: 独立子系统 (非里程碑, 不塞 M 序号)
 > **关联**: 紧跟「主窗 detail 工具栏查找按钮 followup」(commit `2db5372`) 之后, 同一议题二阶段
-> **关联术语字典**: `CONTEXT.md` A 段 (英文术语标 ✅) / C 段 (中英文边界) / D 段 (三层方法论)
+> **关联术语字典**: `CONTEXT.md` A 段 / C 段 / D 段
 
 ---
 
-## 0. 概述
+## 0. 版本变更说明 (v1 → v2 reshape)
+
+**v1 commit `5441f57`** 被 codex review 给 **RESHAPE** verdict (非 APPROVE-WITH-FIXES), 3 个 P0 + 4 个 P1 + 3 个 P2:
+
+| codex 问题 | 命中点 | v2 修法 |
+|---|---|---|
+| P0-1 ⌃⌘F 没有 SwiftUI CommandGroupPlacement.fullscreen slot 可替换 | D-mb-2 全屏快捷键 | **v2**: 第一批不加全屏菜单项; 全屏 ownership 留第二批 design 决定 |
+| P0-2 design 引用多处假符号 (`isShowing`/`viewerAppState`/`openSearch`/`addBookmark`) | D-mb-4 / D-mb-6 / D-mb-8 | **v2**: 全用真实符号 (`isPresenting` / 暴露 facade / `FolderStore.addFolder()`); 新增 D-mb-9 facade pattern 段 |
+| P0-3 ⌘ 组合两边都挂 = 菜单先 catch QV 永不 fire (NSMenu.performKeyEquivalent 优先于 first responder) | D-mb-3 keyboardShortcut 策略 | **v2 = 方向 Y**: 菜单**不挂任何 keyboardShortcut**, 全靠点击 + 菜单文本字符串显示快捷键 hint (例 `「复制图片  (⌘C)」`), 所有 ⌘ 组合在 QV `.onKeyPress` 现状不变 |
+| P1-1 SwiftUI Commands @ObservedObject 行为未验证 | D-mb-4 disable 状态机 | **v2**: 改用 AppDelegate 持的 ObservableObject + Commands 内 view 显式 @ObservedObject; plan 阶段 spike 验证 |
+| P1-2 双窗口全屏 OR 状态太粗 (漏过渡态) | D-mb-8 全屏文案 | **v2**: 第一批不加全屏菜单项, 此条暂搁置 |
+| P1-3 scope 偏大需拆 | D-mb-5 范围 | **v2**: 拆两批 — 第一批 16 项无争议菜单, 第二批全屏 + 共享快捷键路由 (单独 design v3) |
+| P1-4 Section 6 reality check 清单不够 | Section 6 | **v2**: 已通过 reality check (本 design 列入 §1 真实 API 表) |
+| P2-1 a11y 手拼字符串 VoiceOver 当标题正文读 | D-mb-7 hint 风格 | **v2**: 接受 trade-off — VoiceOver 读出快捷键字串 (例「复制图片 Command C」) 比无 hint 强; 项目优先级 a11y 排后 |
+| P2-2 i18n 应明说先只做 zh-Hans | 跨决策 | **v2**: §11 加明说: 全 hardcoded zh-Hans, 后续 en locale 时单独 design |
+| P2-3 SwiftUI commands hot reload 易误判 | Section 6 | **v2**: §10 实施清单加一条 |
+
+**军哥拍板**: 方向 Y (codex P0-3 修法选项中军哥拍最保守路径) + 拆两批 (codex P1-3 推荐)。
+
+---
+
+## 1. 真实 API 表 (reality check 通过项, 从 v1 fix 来)
+
+> codex P0-2 + 主 agent reality check (commit `5441f57` 后 grep) 共同确认:
+
+| design v1 引用 (假) | 真实 API | 来源文件 |
+|---|---|---|
+| ~~`MainQuickViewerWindowController.shared.isShowing`~~ | `MainQuickViewerWindowController.shared.isPresenting` (`@Published private(set) var isPresenting: Bool`) | `Glance/QuickViewer/MainQuickViewerWindowController.swift:47` |
+| ~~`MainQuickViewerWindowController.shared.viewerAppState` 直接读~~ | `viewerAppState` 是 `private let`, 外部不可访问。需暴露 facade (D-mb-9) | 同上 :55 |
+| ~~`ContentView.openSearch()`~~ | `private func openSearch()`, 外部不可调用。需暴露 facade | `Glance/ContentView.swift:894` |
+| ~~`bookmarkManager.addBookmark(for:)`~~ | `BookmarkManager.saveBookmark(for:) throws` (底层); UI 入口走 `FolderStore.addFolder()` (无参版已封装 NSOpenPanel + autoSelect) | `Glance/BookmarkManager.swift:44` / `Glance/FolderBrowser/FolderStore.swift:149` |
+| `MainWindowController.shared.hasWindow` | 真实存在 ✓ (codex OK) | `Glance/MainWindow/MainWindowController.swift` |
+| `AppState.isFullScreen` + `toggleFullScreen()` | 真实存在 ✓ (codex OK) | `Glance/FullScreen/AppState.swift` |
+| CommandGroupPlacement `.newItem`/`.pasteboard`/`.sidebar`/`.windowList` | 真实存在 ✓ (codex OK, macOS 14 SwiftUI SDK) | SwiftUI standard |
+
+QV 当前 `.onKeyPress` 共享快捷键完整分布 (现状, v2 不动):
+- `.escape` / `.space` — 关 QV
+- `.leftArrow` / `.rightArrow` — 切图
+- `0` / `=` / `-` — handler 内部 `event.modifiers.contains(.command)` 分支检查 (⌘0 / ⌘= / ⌘-)
+- `f` — handler 内 `.command` 分支调 onCommandF; 否则全屏 `toggleFullScreen()`
+- `l` — 旋转左
+- `r` — handler 内 `.command + .shift` 分支调 Finder; 否则旋转右
+- `c` — handler 内 `.command` 分支调复制图; `.command + .option` 分支调复制路径
+- `.delete` / `.deleteForward` — 移废纸篓
+
+**关键事实**: 这些 ⌘ 组合都不是 SwiftUI `.keyboardShortcut`, 是 `.onKeyPress` handler 内手动检查 modifier。菜单不挂 keyboardShortcut → 菜单不抢 QV `.onKeyPress` → 现状零破坏。
+
+---
+
+## 2. 概述 (v2)
 
 为 Glance 主窗 macOS 菜单栏增补常用动作入口。
 
-**当前现状**: `GlanceApp.swift` 只挂了一个 `CommandGroup(replacing: .appInfo) { AboutMenuButton() }` 把「关于一眼」塞 Apple 菜单下, 其它系统默认菜单 (文件 / 编辑 / 显示 / 窗口 / 帮助) 全为空壳, app 自定义的 12 项快捷键全部未在菜单栏暴露。
+**当前现状**: `GlanceApp.swift` 只挂了一个 `CommandGroup(replacing: .appInfo) { AboutMenuButton() }` 把「关于一眼」塞 Apple 菜单下, 其它系统默认菜单 (文件 / 编辑 / 显示 / 窗口 / 帮助) 全为空壳, app 自定义快捷键全部未在菜单栏暴露。
 
-**本子系统目标**: 把这 12 项快捷键 + 2 个新动作 (添加文件夹根 / reopen 图库主窗) 按 macOS 标准范式分类挂到菜单栏, 让鼠标用户和不熟键盘的新用户能从菜单发现 + 触发, 同时不破坏快速看图器内现有 `.onKeyPress` 直接接管行为。
+**v2 目标 (第一批)**: 把 16 项**无争议菜单项**挂菜单栏, **不挂任何 keyboardShortcut**, 仅鼠标点击 + 菜单文本字符串显示快捷键 hint。所有现有 QV `.onKeyPress` 路径零改动。
 
-**非目标 (避 scope 蠕变)**:
-
-- ❌ 不为主窗增添新动作 (复制 grid 选中 cell 的图 / 主窗直接旋转 等) — 单独 design
-- ❌ 不重写快速看图器内已有 `.onKeyPress` 实现, 现有裸 F / L / R / Delete / 方向键全部保留
-- ❌ 不引入新的工具栏改动 (主窗 detail 工具栏查找按钮已在 commit `2db5372` ship)
-- ❌ 不做菜单项国际化 (中文菜单文本 hardcoded, 跟项目其它 UI 一致)
-
----
-
-## 1. app 当前 12 项快捷键完整清单 (现状, 不变更)
-
-| 快捷键 | 行为 | 现状生效域 |
-|---|---|---|
-| ⌘F | 打开查找 overlay | 主窗 + 快速看图器 (QV 内分支 `onCommandF`) |
-| ⌘I | 切 Inspector | 主窗 toolbar button (现有) |
-| F | 切全屏 | 仅快速看图器内 |
-| L / R | 旋转左/右 | 仅快速看图器内 |
-| ⌘C | 复制图片 | 仅快速看图器内 |
-| ⌘⌥C | 复制路径 | 仅快速看图器内 |
-| ⌘⇧R | 在 Finder 中显示 | 仅快速看图器内 |
-| Delete / ⌘⌫ | 移到废纸篓 | 仅快速看图器内 |
-| ⌘0 / 0 | 适合窗口 / 1:1 实际大小 | 仅快速看图器内 |
-| ⌘= / ⌘- | 放大 / 缩小 | 仅快速看图器内 |
-| ← / → | 切图 | 仅快速看图器内 |
-| ESC / Space | 关快速看图器 | 仅快速看图器内 |
+**v2 非目标 (避 scope 蠕变, 第一批不做)**:
+- ❌ 全屏菜单项 (D-mb-2 fullscreen ownership 留第二批 design v3)
+- ❌ 共享快捷键升级到方向 X (Commands 接管 — 留 design v3)
+- ❌ 重写 QV 共享快捷键路径
+- ❌ 给主窗加新动作 (复制 grid 选中 cell / 主窗直接旋转 等)
+- ❌ 菜单项国际化 (中文菜单文本 hardcoded zh-Hans)
 
 ---
 
-## 2. 决策段
+## 3. 决策段 (v2)
 
-### D-mb-1 菜单分类范式 = 标准三菜单 (编辑 / 显示 / 图像)
+### D-mb-1 菜单分类范式 = 标准三菜单 (编辑 / 显示 / 图像) [军哥拍板, 不变]
 
-**决策**: 把 12 项快捷键 + 2 个新动作分到三个菜单, **不全堆「编辑」一个菜单**。
+**决策**: 把第一批 16 项菜单项分到三个菜单 (+ 文件 + 窗口 共 5 顶级), **不全堆「编辑」一个菜单**。
 
-**军哥原话**: 「编辑菜单把我们常用的一些快捷键例如 F 是全屏这些加进去」。brainstorming 拍板按 macOS 标准范式分类, 非字面理解原话。
-
-**菜单分类规则**:
+军哥原话「编辑菜单加 F 全屏」是概括说法, 标准 macOS 范式按语义分类:
 - **编辑** (Edit) — 数据操作: 查找 / 复制图 / 复制路径
-- **显示** (View) — 视图状态: 全屏 / 信息切换 / 缩放系列
+- **显示** (View) — 视图状态: 信息切换 / 缩放系列 (全屏第二批)
 - **图像** (Image) — 当前图操作: 旋转 / 翻转 / 在 Finder 中显示 / 移到废纸篓
 
-**为什么不堆「编辑」**: macOS 用户根深蒂固在「显示」菜单找全屏 / 缩放, 在「图像」菜单找旋转 / 翻转 (mirror Preview.app / Photos.app 范式)。全堆「编辑」语义混乱, 菜单长度也失控 (15 项一长条)。
-
-**Tradeoff 已知**: 三菜单负担略高于一菜单, 但 V3 / 未来扩展时有处安放, 长期一致性优于短期发现性。
-
-**关联**: D-mb-2 / D-mb-4 / D-mb-5
+**关联**: D-mb-5 / D-mb-10
 
 ---
 
-### D-mb-2 全屏快捷键策略 = 双轨
+### D-mb-2 全屏菜单项 = **第一批不加**, 留第二批 design v3 [v2 简化]
 
-**决策**: 菜单栏「进入全屏」keyEquivalent = `⌘^F` (macOS 标准), 快速看图器内裸 `F` 保留不变。
+**决策**: 第一批菜单栏**不加任何全屏菜单项**。全屏交回 macOS 系统注入 (窗口菜单系统默认有「全屏切换」, 快捷键 ⌃⌘F 系统自带)。
 
-**背景**: 现状快速看图器内 `.onKeyPress(.init("f"))` 切全屏。macOS 系统标准全屏快捷键是 `⌘^F` (Cmd+Ctrl+F)。
+**v1 → v2 变更**: v1 设计在显示菜单加「进入全屏 ⌘^F」+ 双轨 (菜单 ⌘^F + QV 裸 F)。codex P0-1 指出 SwiftUI `CommandGroupPlacement` 在 macOS 14 SDK **没有 `.fullscreen` slot 可替换**, 自挂 ⌃⌘F 会跟系统注入冲突。v2 接受 codex 修法: 全屏交回系统。
 
-**双轨理由**:
-- 菜单栏挂 `⌘^F` → macOS 范式用户查菜单时一眼看到熟悉快捷键
-- 快速看图器内裸 `F` 保留 → 军哥本人现有肌肉记忆不破坏, 单键比 ⌘^F 快
-- 主窗按 `⌘^F` 也响应 → 主窗自己也能进系统全屏 (macOS 标准 NSWindow 全屏)
-- 主窗**不响应**裸 `F` → 避免 TextField 输入时撞键风险
+**第二批 design v3 要回答**:
+- 是否需要在菜单栏显式露出「进入全屏」入口 (鼠标用户从菜单点)?
+- QV 内裸 F 是否保留?
+- 主窗 ⌃⌘F 系统全屏跟 QV 内裸 F 的双窗口语义是否需要统一?
+- 这些决策牵涉双窗口全屏状态机 (codex P1-2 漏过渡态), 单独 design 处理。
 
-**实现路径**:
-- 菜单项 `Button { toggleFullScreen() } .keyboardShortcut("f", modifiers: [.command, .control])` 全局生效
-- 快速看图器内 `.onKeyPress(.init("f"))` 不动, 因 first responder 优先级会先 catch (QV NSHostingView 是 key window first responder)
-- 实际两套独立 hot path, 不互相干扰
-
-**Tradeoff 已知**: 一致性洁癖角度不 pure, 但兼顾军哥习惯 + macOS 范式是最实用解。
-
-**关联**: D-mb-3 (keyboardShortcut 策略整体)
+**关联**: D-mb-10 (拆批边界)
 
 ---
 
-### D-mb-3 keyboardShortcut 挂载策略 = 保守 (⌘ 组合挂全局, 裸字母不挂菜单)
+### D-mb-3 keyboardShortcut 策略 = **方向 Y** (菜单全不挂, 文本字符串 hint) [军哥拍板]
 
-**决策**: 菜单项的 `.keyboardShortcut` 挂载分两类:
+**决策**: 第一批菜单项的 `.keyboardShortcut` 挂载策略:
 
-| 类型 | 例 | 是否挂 menu keyboardShortcut | 响应路径 |
-|---|---|---|---|
-| ⌘ 组合 (单/多修饰键) | ⌘F, ⌘^F, ⌘I, ⌘C, ⌘⌥C, ⌘⇧R, ⌘0, ⌘=, ⌘-, ⌘O | **挂** 全局 keyboardShortcut | 主窗状态时 SwiftUI commands 接 → 调 action; 快速看图器在场时 QV `.onKeyPress` 优先 (first responder 优于 menu equivalent in SwiftUI/AppKit) |
-| 裸字母 / Delete / 方向键 | F, L, R, 0 (不带 ⌘), Delete, ←, → | **不挂** keyboardShortcut, **菜单文本手工拼快捷键 hint** (例「旋转左 (L)」) | 仅快速看图器 `.onKeyPress` 接 (现状不变); 鼠标点菜单触发 action |
+- ❌ **菜单项不挂任何 `.keyboardShortcut`** (无论 ⌘ 组合还是裸字母)
+- ✅ **菜单文本里手工拼快捷键 hint 字符串** (例 `「复制图片  (⌘C)」` / `「旋转左  (L)」` / `「移到废纸篓  (⌫)」`)
+- ✅ **所有快捷键响应路径不变** — QV 内的 ⌘ 组合 / 裸字母全部通过 QV `.onKeyPress` handler (现状); 主窗 ⌘F 通过 ContentView body 末尾 `.onKeyPress` (现状); 主窗 ⌘I 通过 toolbar button `.keyboardShortcut` (现状)
 
-**为什么裸字母不挂菜单**:
-1. **撞键风险**: macOS NSMenu 的 keyEquivalent 在 NSWindow.sendEvent 早期 dispatch, **先于** first responder keyDown。SwiftUI Commands 的全局 keyboardShortcut 行为类似。挂裸字母会撞 TextField 输入 (虽然 NSText.performKeyEquivalent 一般 return NO, 但 SwiftUI NSHostingView 行为不可 100% 保证)
-2. **状态隔离**: 裸字母的语义只在快速看图器内有意义 (旋转 / 删除 / 全屏)。主窗状态下挂全局没意义反而易撞
-3. **现状保留**: 快速看图器内裸字母通过 `.onKeyPress` 直接接管的实现已 stable, 不引入新依赖
+**为什么方向 Y (codex P0-3 修法)**:
+- ⌘ 组合两边挂 = 菜单先 catch QV `.onKeyPress` 永不 fire (NSMenu.performKeyEquivalent 在 AppKit dispatch 路径优先于 first responder)
+- QV 内现有 `.onKeyPress` modifier 分支 (例 `c` 内分支 .command + .option) 实现 stable, 不破坏
+- 菜单作鼠标用户备用入口 + 快捷键发现性载体, 不当 hot key 总闸
+- **改动最小**: 只动 `GlanceApp.swift` 加 .commands, 不动 QV 一行
 
-**Tradeoff 已知**: 用户在菜单看到「旋转左 (L)」可能期望 app 全局按 L 都能旋转, 实际只在快速看图器内响应。需要用户理解「快捷键 hint = 快速看图器内可用」, 但这是 Glance 的合理产品模型 (旋转/翻转只在看图器内有视觉)。菜单项 disable 状态时快捷键 hint 视觉灰显, 也是合理的 visual cue。
+**用户感知**:
+- ⌘C 在 QV 内: 通过 .onKeyPress 复制 ✓ (现状)
+- ⌘C 在主窗: 系统默认 NSMenu「编辑→复制」(空 action) 或不响应 (主窗本来就没复制图概念, 可接受)
+- 菜单点「复制图片  (⌘C)」: 鼠标用户照点 (调 QV facade 触发 — QV 必须 isPresenting)
+- 用户看菜单文本里的 (⌘C) hint: 学到 QV 内可用此快捷键, 自然形成认知
 
-**关联**: D-mb-4 (disable 状态机)
+**关联**: D-mb-4 / D-mb-7 / D-mb-9
 
 ---
 
-### D-mb-4 菜单项 disable 策略 = 简单 binding (不建大状态机)
+### D-mb-4 菜单项 disable 策略 = 简单 binding (用真实符号) [P0-2 修]
 
-**决策**: 菜单项的 `.disabled()` 绑两个简单源, **不新建专职 ObservableObject 状态机**:
+**决策**: 菜单项的 `.disabled()` 绑两个真实源:
 
-| 菜单项 | disable 条件 |
+| 菜单项 | disable 条件 (用真实符号) |
 |---|---|
-| 查找 ⌘F | 永远 enable (主窗 openSearch / QV onCommandF 都能响应) |
-| 全屏 ⌘^F | 永远 enable (主窗 / QV 都可全屏) |
-| 显示/隐藏信息 ⌘I | `folderStore.selectedImageIndex == nil` (复用现有主窗 toolbar 按钮逻辑) |
-| 旋转左 / 旋转右 / 水平翻转 / 垂直翻转 | `!MainQuickViewerWindowController.shared.isShowing` (QV 不活就 disable) |
-| 适合窗口 ⌘0 / 实际大小 / 放大 ⌘= / 缩小 ⌘- | 同上 (QV 不活就 disable) |
-| 复制图片 ⌘C / 复制路径 ⌘⌥C / 在 Finder 中显示 ⌘⇧R | 同上 (QV 不活就 disable) |
-| 移到废纸篓 ⌫ | 同上 + 当前根 schemaVersion >= 2 (V1 老 bookmark 不让删, mirror 快速看图器内 handleTrashCurrent guard) |
-| 添加文件夹根 ⌘O | 永远 enable (调 NSOpenPanel) |
-| 图库主窗 (窗口菜单) | `!MainWindowController.shared.hasWindow` (主窗在就隐藏菜单项, 不在就 enable; mirror AppDelegate.applicationShouldHandleReopen 逻辑) |
+| 查找…  (⌘F) | 永远 enable (调 facade openSearch 即可, 主窗状态有效) |
+| 显示/隐藏信息  (⌘I) | `folderStore.selectedImageIndex == nil` (复用 ContentView toolbar 按钮逻辑) |
+| 旋转左 / 旋转右 / 水平翻转 / 垂直翻转 | `!MainQuickViewerWindowController.shared.isPresenting` ← **真实符号 (非 isShowing)** |
+| 适合窗口 / 实际大小 / 放大 / 缩小 | 同上 (`!isPresenting`) |
+| 复制图片 / 复制路径 / 在 Finder 中显示 | 同上 |
+| 移到废纸篓 | `!isPresenting` (V1 老 bookmark 拦截由 QV facade trash 函数内部 schema gate, 菜单不二次检查) |
+| 添加文件夹根… | 永远 enable (调 facade addFolder 即可) |
+| 图库主窗 (窗口菜单) | hide when `MainWindowController.shared.hasWindow == true`; 永远不 disable (要么显, 要么隐) |
 
 **为什么不建专职状态机**:
-- 候选状态机方案 (新建 `MenuBarState: ObservableObject` 持 `isQuickViewerActive` / `hasCurrentImage` / `canDelete` 多 flag): 需要 ContentView / MainQuickViewerWindowController / QuickViewerViewModel 三处写状态, **耦合面广** + drift 风险
-- 简单 binding: `MainQuickViewerWindowController.shared.isShowing` 现有单例直接读, `folderStore.selectedImageIndex` 现有 @Published 直接读
-- 项目复杂度优先级: 菜单栏 disable 是低风险特性, 不值得为它建一套独立状态层
+- v1 提议 `MenuBarState: ObservableObject` 多 flag (codex P1-1 警告未验证): v2 沿用简单方案, 接受未来若需要再升级 (YAGNI)
+- 简单 binding: `MainQuickViewerWindowController.shared` 是 ObservableObject 单例, Commands 内 view `@ObservedObject` 直接观察 `.isPresenting` @Published
 
-**实现要点**: `MainQuickViewerWindowController.shared` 当前是否暴露 `@Published var isShowing`? 待 plan 阶段 reality check (本 design 不假设, 列入「实施前确认项」)。
+**实施前 spike (P1-1 风险缓解)**: plan 阶段 任务 A 先 spike 验证 SwiftUI .commands 内 view 用 @ObservedObject 观察 controller.shared 单例时, .disabled binding 是否随 publisher 更新。reality check 是 plan 第一步, 失败则升级到 AppDelegate 持的 MenuBarState ObservableObject 中转层。
 
-**Tradeoff 已知**: 简单 binding 跨 controller 耦合, 但 controller 已是单例; 等需求增长再升级到状态机。
-
-**关联**: D-mb-3 / D-mb-7
+**关联**: D-mb-3 / D-mb-9
 
 ---
 
-### D-mb-5 范围 = 保守起步 (一次性挂全 17 个菜单项)
+### D-mb-5 第一批范围 = 16 项无争议菜单 [军哥拍板, 拆两批]
 
-**决策**: 一次性把全部菜单项挂上, **不分批挂**。
+**决策**: 第一批挂 16 项菜单, 第二批留 1+ 项 (见 D-mb-10):
 
-**菜单项总数 = 17 项, 分布**:
-- 现有快捷键里**适合挂菜单的 13 项**: ⌘F (查找) / ⌘I (信息) / ⌘^F (全屏, 菜单挂 ⌘^F 而非 QV 裸 F, 见 D-mb-2) / L (旋转左) / R (旋转右) / ⌘C (复制图) / ⌘⌥C (复制路径) / ⌘⇧R (Finder 显示) / ⌘⌫ (移废纸篓, 不挂裸 ⌫ 见 D-mb-3) / ⌘0 (适合窗口) / 0 (实际大小, 不挂 keyboardShortcut 见 D-mb-3) / ⌘= (放大) / ⌘- (缩小)
-- 现有快捷键里**不挂菜单的 4 项**: ← / → (切图, 是 QV 内导航不进菜单) / ESC / Space (关 QV, 现状保留)
-- **新增动作 (无现有快捷键, 仅 contextMenu) 2 项**: 水平翻转 / 垂直翻转
-- **全新动作 + 新快捷键 2 项**: 添加文件夹根 ⌘O / 图库主窗 (无快捷键)
+**第一批菜单项总数 = 16 项**:
+- 编辑菜单: 查找… (1) + 复制图片 (1) + 复制路径 (1) = **3 项**
+- 显示菜单: 信息切换 (1) + 适合窗口 (1) + 实际大小 (1) + 放大 (1) + 缩小 (1) = **5 项**
+- 图像菜单: 旋转左 (1) + 旋转右 (1) + 水平翻转 (1) + 垂直翻转 (1) + 在 Finder 中显示 (1) + 移到废纸篓 (1) = **6 项**
+- 文件菜单: 添加文件夹根… (1) = **1 项**
+- 窗口菜单: 图库主窗 (1) = **1 项**
 
-**为什么一次到位**:
-- 菜单栏挂载是结构性改动, 分批挂会出现「菜单缺项 → 后续补」的中间态, 用户感知差
-- 12 项全挂的改动量集中在 `GlanceApp.swift` 一个文件 (SwiftUI `.commands` ViewBuilder), 不外溢
-- disable 策略 (D-mb-4) 已经覆盖「主窗状态下大部分动作 disable」, 一次挂全也不会噪音
+**为什么拆两批 (codex P1-3 推荐)**:
+- 第一批 = 16 项**全方向 Y**, 零快捷键冲突, scope 集中 (单文件 `GlanceApp.swift` + facade 暴露 + 状态 spike)
+- 第二批 = 全屏 + 共享快捷键路由 (有争议, 需新 brainstorming 单独 design v3)
+- 分批 ship 让用户先用上 80% 价值, 第二批等深思熟虑
 
-**新增 2 项动作**:
-
-1. **添加文件夹根 ⌘O** (文件菜单)
-   - mirror 主窗侧边栏现有「+」按钮 + Finder 拖拽路径, 第三个入口
-   - 调 `NSOpenPanel` 选目录 → `bookmarkManager.addBookmark(for:)` → `folderStore.loadSavedFolders()` (mirror 既有 addFolders 函数路径)
-   - 用 `⌘O` 是 macOS 标准「打开」快捷键, 符合用户期望
-2. **图库主窗 (窗口菜单)**
-   - 关窗驻留模式 (D-OW15) 下用户关了主窗想召回时通过菜单 reopen
-   - 调 `MainWindowController.shared.show(...)` (mirror `AppDelegate.applicationShouldHandleReopen` 路径)
-   - 主窗已在场时菜单项隐藏 (`!hasWindow` 判断)
-
-**Tradeoff 已知**: 一次挂 14 项 (12 + 2) 改动比分批大, 但 SwiftUI `.commands` 是声明式集中改动, 风险低于分布式改动。
-
-**关联**: D-mb-1 / D-mb-4
+**关联**: D-mb-10
 
 ---
 
-### D-mb-6 实施途径 = SwiftUI `.commands` CommandGroup
+### D-mb-6 实施途径 = SwiftUI `.commands` CommandGroup + ViewModel facade [P0-2 修]
 
-**决策**: 通过 SwiftUI `Scene.commands(...)` + `CommandGroup(...)` / `CommandMenu(...)` 挂菜单, **不自建 NSMenu**。
+**决策**: 沿用 SwiftUI `Scene.commands(...)` + `CommandGroup(...)` / `CommandMenu(...)` 范式 (mirror `AboutMenuButton`)。新增 **action facade 层** 暴露 ContentView / MainQuickViewerWindowController / QuickViewerViewModel 等私有 API 给 commands 调用。
 
 **Mirror 现状**: `GlanceApp.swift` 现有 `.commands { CommandGroup(replacing: .appInfo) { AboutMenuButton() } }` 范式。本子系统继续沿用。
 
-**CommandGroup 选用**:
+**CommandGroup 选用** (v1 + P1 调整):
 
 | 菜单 | API | 备注 |
 |---|---|---|
-| 文件 (File) | `CommandGroup(after: .newItem) { ... }` | 在系统「新建」附近插入「添加文件夹根 ⌘O」 |
-| 编辑 (Edit) | `CommandGroup(after: .pasteboard) { ... }` 或 `CommandGroup(replacing: .textEditing)` | 查找 / 复制图 / 复制路径 (paste board 段附近) |
-| 显示 (View) | `CommandMenu("显示") { ... }` 或 `CommandGroup(replacing: .sidebar) { ... }` | 全屏 / 信息切换 / 缩放系列 |
-| 图像 (Image) | `CommandMenu("图像") { ... }` | 全新顶级菜单 (macOS 默认无), 旋转 / 翻转 / Finder / 废纸篓 |
-| 窗口 (Window) | `CommandGroup(after: .windowList) { ... }` | 「图库主窗」reopen 入口 (在系统窗口列表之后) |
+| 文件 (File) | `CommandGroup(after: .newItem) { ... }` | 在系统「新建」附近插入「添加文件夹根…」 |
+| 编辑 (Edit) | `CommandGroup(after: .pasteboard) { ... }` | 查找 / 复制图 / 复制路径 (paste board 段附近) |
+| 显示 (View) | `CommandGroup(after: .sidebar) { ... }` 或 `CommandMenu("显示") { ... }` | 信息切换 / 缩放系列 (`replacing: .sidebar` 会改 sidebar 菜单内容, 改用 `after`) |
+| 图像 (Image) | `CommandMenu("图像") { ... }` | 全新顶级菜单, 旋转 / 翻转 / Finder / 废纸篓 |
+| 窗口 (Window) | `CommandGroup(after: .windowList) { ... }` | 「图库主窗」reopen 入口 |
 
 **Commands 内 View 状态观察**:
 - `CommandGroup` / `CommandMenu` 接受任意 `View` 作为 content
-- 自定义 struct 形态 view (持 `@ObservedObject` 引用 `MainQuickViewerWindowController.shared` 等单例) 可在 commands 内 instantiate
-- 不需要 `.environmentObject()` 路径 (Scene-level 注入复杂, 单例 + observed object 更简单)
+- 把 commands 内容拆成独立 struct view (持 `@ObservedObject` 引用 `MainQuickViewerWindowController.shared` 等单例)
+- AppDelegate 已持单例 (`folderStore` / `appState` / `bookmarkManager` / `indexStoreHolder` 等), 在 GlanceApp.body 把 AppDelegate 引用通过 init 传入 commands view
 
-**为什么不自建 NSMenu**:
-- 自建需要 `NSApp.mainMenu = ...` + 自己管 NSMenuItem 生命周期 + dynamic enable/disable 写 `NSMenuItemValidation`
-- 跟项目现有 SwiftUI 架构断裂, 维护成本高
-- SwiftUI `.commands` 范式已经够用, 复杂度 fit 项目规模
+**P1-1 风险**: 单例 @ObservedObject 在 SwiftUI commands 内未验证, plan 阶段任务 A spike 第一步。
 
-**Tradeoff 已知**: SwiftUI Commands 在 macOS 14 部分 API 有限制 (例如不能动态修改菜单结构, 但本子系统是静态结构, 不受影响)。disabled state 动态绑定通过 view 内 @ObservedObject 实现可行。
-
-**关联**: D-mb-4 (状态观察机制)
+**关联**: D-mb-4 / D-mb-9
 
 ---
 
-### D-mb-7 菜单文本快捷键 hint 风格 = 手工拼字符串
+### D-mb-7 菜单文本快捷键 hint 风格 = **所有项手工拼字符串** [P0-3 + P2-1 修]
 
-**决策**: 不挂 keyboardShortcut 的菜单项, **菜单文本内手工拼快捷键 hint**, 风格 mirror 项目现有工具栏 tooltip。
+**决策**: 第一批菜单项**全部**用手工拼字符串显示快捷键 hint, **不依赖 SwiftUI 自动渲染** (因 D-mb-3 不挂任何 keyboardShortcut):
 
 **风格规范**:
-- 旋转左: `「旋转左 (L)」`
-- 旋转右: `「旋转右 (R)」`
-- 水平翻转: `「水平翻转」` (无快捷键, 无 hint)
-- 垂直翻转: `「垂直翻转」` (无快捷键, 无 hint)
-- 移到废纸篓: `「移到废纸篓 (⌫)」` (Delete 用 ⌫ 符号, mirror contextMenu)
-- 适合窗口 (无 ⌘): `「适合窗口 (⌘0)」` (此项挂 keyboardShortcut, hint 是 SwiftUI 自动渲染, 但 Label 文本也含 ⌘0 字样保持视觉一致)
+- 有快捷键: 「<动作>  (<快捷键>)」 — 例 `「查找…  (⌘F)」` / `「复制图片  (⌘C)」` / `「旋转左  (L)」` / `「移到废纸篓  (⌫)」` (两个空格分隔动作和 hint 块)
+- 无快捷键: 「<动作>」 — 例 `「水平翻转」` / `「图库主窗」` / `「添加文件夹根…」`
 
-**为什么不依赖 SwiftUI Label 自动渲染**:
-- 挂 `.keyboardShortcut` 的菜单项 SwiftUI 自动右侧渲染快捷键 hint (✓)
-- 不挂 keyboardShortcut 的菜单项 SwiftUI 不渲染 hint, 需要手工拼到 Label 文本
-- 项目现有工具栏 tooltip 风格 (`「适合 (⌘0)」`) 已先例, 一致性高
+**Symbol 规范**:
+- ⌘ Command / ⌃ Control / ⌥ Option / ⇧ Shift — Unicode 标准符号 (mirror QV contextMenu 已用)
+- ⌫ Delete (向左 backspace 符号)
+- L / R / 0 / = / − 裸字母直接显示
+
+**为什么手工拼**:
+- D-mb-3 不挂 keyboardShortcut → SwiftUI 不会自动渲染 hint → 必须手工拼到 Label 文本
+- 项目现有工具栏 tooltip 风格 (`「适合 (⌘0)」` 工具栏) 已先例, 一致性高
+- mirror QV `contextMenu` 「复制图片 (⌘C)」「移到废纸篓 (⌫)」 等已落地风格
+
+**a11y trade-off (codex P2-1)**:
+- VoiceOver 会把字符串当标题正文读出: 例「复制图片 Command C」(读出 ⌘ 符号语义为 "Command")
+- 比无 hint 强 (用户至少知道快捷键存在); 项目 a11y 排后, 接受
+- 第二批 design v3 (方向 X 升级时) 用 SwiftUI 自动 hint 渲染才能根治 a11y
 
 **关联**: D-mb-3
 
 ---
 
-### D-mb-8 动态文案策略 = 切换状态项有, 其余不切
+### D-mb-8 动态文案策略 = 第一批仅信息切换, 全屏第二批 [v1 简化]
 
-**决策**: 菜单项的文案动态切换仅限两项, 其它静态:
+**决策**: 第一批菜单项动态文案仅限**一项** (信息切换), 全屏第二批 design v3 处理:
 
 | 菜单项 | 静态文案 | 动态文案 |
 |---|---|---|
-| 全屏 | — | 主窗/QV 全屏中: 「退出全屏 (⌘^F)」; 否则: 「进入全屏 (⌘^F)」 |
-| 信息 (Inspector) | — | Inspector 展开: 「隐藏信息 (⌘I)」; 否则: 「显示信息 (⌘I)」 |
-| 旋转左 | 「旋转左 (L)」 | — (无状态切换) |
-| 旋转右 | 「旋转右 (R)」 | — |
-| 水平翻转 | 「水平翻转」 | — |
-| 垂直翻转 | 「垂直翻转」 | — |
-| 复制图片 | 「复制图片」(系统 ⌘C 自动 hint) | — |
-| 复制路径 | 「复制路径」(系统 ⌘⌥C 自动 hint) | — |
-| 在 Finder 中显示 | 「在 Finder 中显示」(系统 ⌘⇧R 自动 hint) | — |
-| 移到废纸篓 | 「移到废纸篓 (⌫)」 | — |
-| 适合窗口 | 「适合窗口」(系统 ⌘0 自动 hint) | — |
-| 实际大小 | 「实际大小 (0)」 | — (不挂 keyboardShortcut, 手工 hint) |
-| 放大 / 缩小 | 「放大」/「缩小」(系统 ⌘= / ⌘- 自动 hint) | — |
-| 查找 | 「查找…」(系统 ⌘F 自动 hint) | — |
-| 添加文件夹根 | 「添加文件夹根…」(系统 ⌘O 自动 hint) | — |
-| 图库主窗 (窗口菜单) | 「图库主窗」 | — |
+| 显示信息 / 隐藏信息 | — | `showInspector == true` 时: `「隐藏信息  (⌘I)」`; 否则: `「显示信息  (⌘I)」` |
+| 旋转左 | `「旋转左  (L)」` | — |
+| 旋转右 | `「旋转右  (R)」` | — |
+| 水平翻转 | `「水平翻转」` | — |
+| 垂直翻转 | `「垂直翻转」` | — |
+| 复制图片 | `「复制图片  (⌘C)」` | — |
+| 复制路径 | `「复制路径  (⌘⌥C)」` | — |
+| 在 Finder 中显示 | `「在 Finder 中显示  (⌘⇧R)」` | — |
+| 移到废纸篓 | `「移到废纸篓  (⌫)」` | — |
+| 适合窗口 | `「适合窗口  (⌘0)」` | — |
+| 实际大小 | `「实际大小  (0)」` | — |
+| 放大 | `「放大  (⌘=)」` | — |
+| 缩小 | `「缩小  (⌘−)」` | — |
+| 查找… | `「查找…  (⌘F)」` | — |
+| 添加文件夹根… | `「添加文件夹根…」` | — |
+| 图库主窗 | `「图库主窗」` | — |
 
-**为什么动态文案只限 2 项**:
-- 全屏 / Inspector 是双态可切换 (UI 状态机), 动态文案给用户当前态反馈
+**信息状态源**: `showInspector` 是 ContentView 的 `@State`。Commands 内 view 需要观察该状态 — 通过 facade 暴露 (D-mb-9) 把 `showInspector` 提升到 AppState 或独立 InspectorState ObservableObject, 让 ContentView 和 commands view 共享。
+
+**为什么动态文案只限 1 项**:
+- 信息切换是双态可切换, 动态文案给用户当前态反馈
 - 其它项是单向触发 (旋转/复制/删除 都是 one-shot), 无对应反向操作, 不需要动态文案
-- 减少 SwiftUI Commands ViewBuilder 内的 @ObservedObject 数量 (复杂度可控)
-
-**全屏状态源 (双窗口处理)**:
-项目有两个独立全屏状态: 主窗 `AppDelegate.appState.isFullScreen` 和快速看图器 `MainQuickViewerWindowController.shared.viewerAppState.isFullScreen`。菜单文案规则:
-
-```
-isAnyFullScreen = appState.isFullScreen || viewerAppState.isFullScreen
-菜单文案 = isAnyFullScreen ? "退出全屏 (⌘^F)" : "进入全屏 (⌘^F)"
-```
-
-action 调用: 看当前 key window 是谁:
-- 主窗是 key → 调 `appState.toggleFullScreen()` (走主窗 NSWindow 系统全屏)
-- 快速看图器是 key → 调 `viewerAppState.toggleFullScreen()` (走 QV 4 态状态机, 见 `MainQuickViewerWindowController` Slice2 设计)
-- 都不是 key (理论上不应该, 但兜底) → no-op
-
-**Tradeoff 已知**: 「移到废纸篓」无「从废纸篓还原」反向项 — 因 QV 内单张撤销已经在右下角 toast (`TrashUndoBanner` 模式), 主窗 banner 也有, 菜单栏不重复。
-
-**关联**: D-mb-4
+- 全屏切换涉及双窗口状态机, 留第二批 design v3 一并处理 (P1-2 风险)
 
 ---
 
-## 3. 完整菜单结构 (最终方案)
+### D-mb-9 公开 Facade Pattern [新增, P0-2 修]
+
+**决策**: 第一批新建 2 个公开 facade, 把 Commands 调用的私有 API 暴露:
+
+#### 9.1 ContentView 入口暴露
+
+`ContentView.swift` 当前 `openSearch()` 是 `private func`。Commands 调不到。
+
+**修法选项 (军哥拍 / plan 阶段定)**:
+- (a) 把 `openSearch` 改 `internal` (默认 access level), Commands 内 view 通过 @EnvironmentObject 或 closure 持 ContentView 引用调用
+- (b) 把 `openSearch` 的核心逻辑提取到 AppDelegate / 独立 SearchOverlayState (ObservableObject), Commands 直接调
+- (c) GlanceApp.body 持 closure 引用 ContentView 的 openSearch (init-time 注册到 AppDelegate)
+
+**推荐**: **(b) 提取到 AppDelegate** — 跟现有架构对齐 (AppDelegate 已持 4 单例), Commands 直接通过 `AppDelegate.shared.searchOverlayState.open()` 触发。Inspector 状态 (`showInspector`) 同步提升, 不再是 ContentView @State。
+
+#### 9.2 MainQuickViewerWindowController 入口暴露
+
+QV controller 当前 `viewerAppState` 是 `private let`, 共享动作函数 (`viewModel.rotateLeft` / `copyImageToPasteboard` 等) 在 QuickViewerOverlay 内, 不暴露给外部。
+
+**修法**: MainQuickViewerWindowController 加 **action facade methods**:
+
+```swift
+@MainActor extension MainQuickViewerWindowController {
+    // 旋转/翻转
+    func performRotateLeft() { /* 调当前 QV viewModel.rotateLeft() */ }
+    func performRotateRight() { ... }
+    func performToggleFlipH() { ... }
+    func performToggleFlipV() { ... }
+    // 复制
+    func performCopyImage() { ... }
+    func performCopyPath() { ... }
+    // 显示
+    func performRevealInFinder() { ... }
+    // 删除
+    func performTrashCurrent() async { ... }  // 走 QuickViewerTrashCoordinator
+    // 缩放
+    func performResetToFit() { ... }
+    func performResetToOneToOne() { ... }
+    func performZoomIn() { ... }
+    func performZoomOut() { ... }
+}
+```
+
+每个 method 内部:
+1. `guard isPresenting else { return }` (兜底)
+2. 调对应 QuickViewerViewModel / 内部 helper 函数 (复用现有 QuickViewerOverlay 已有的 action 函数实现)
+
+**Note**: facade methods 复用 QuickViewerOverlay 已有 action (`copyImageToPasteboard` / `copyCurrentPath` / `revealInFinder` / `handleTrashCurrent`) 的实现, 把核心逻辑下沉到 controller 或 ViewModel, Overlay 改成调 facade。这样 contextMenu / 「更多」menu / 工具栏菜单 / app 菜单栏 4 个入口都调同一 facade, 单点维护。
+
+#### 9.3 FolderStore 入口
+
+**复用现有 `FolderStore.addFolder()` (无参版, 已封装 NSOpenPanel + saveBookmark + 树加载 + autoSelect)** — codex OK 段确认。Commands 直接调 `appDelegate.folderStore.addFolder()`, 不重拼 NSOpenPanel 流程。
+
+#### 9.4 MainWindowController 入口
+
+`MainWindowController.shared.show(bookmarkManager:folderStore:appState:indexStoreHolder:)` 已 internal, Commands 内 view 通过 AppDelegate 拿 4 单例 reference 调用 (mirror AppDelegate.showMainWindow)。
+
+`MainWindowController.shared.hasWindow` 用作 `.disabled` binding / 菜单项 hide 条件。
+
+**关联**: D-mb-4 / D-mb-6
+
+---
+
+### D-mb-10 第一批 / 第二批边界 [新增, P1-3 拆批]
+
+**决策**: 本 design 仅覆盖第一批 (16 项无争议菜单)。第二批写入独立 design v3 (issue 时间: 第一批 ship 后, 用户实际反馈 + 全屏方向决策时机)。
+
+**第一批 (本 design)**:
+- ✅ 16 项菜单 (文件 1 / 编辑 3 / 显示 5 / 图像 6 / 窗口 1)
+- ✅ 公开 Facade Pattern (D-mb-9)
+- ✅ 简单 binding disable (D-mb-4)
+- ✅ 信息切换动态文案 (D-mb-8)
+
+**第二批 (design v3 待写)**:
+- 全屏菜单项 (D-mb-2)
+- 共享快捷键路由方向决策: 永久方向 Y vs 升级方向 X
+- 全屏双窗口状态机 (codex P1-2)
+- ⌘W 关 QV 菜单项 (开放问题)
+
+第二批触发条件: 第一批 ship 后用户真机用 1-2 周, 反馈「菜单挂了但快捷键还是要去 QV 里用」是否影响体验。
+
+---
+
+## 4. 第一批完整菜单结构 (最终方案 v2)
 
 ```
 Apple 菜单
-├ 关于一眼                       (现有)
+├ 关于一眼                           (现有)
 ├ ─────
-└ 退出一眼                ⌘Q     (系统默认)
+└ 退出一眼                ⌘Q         (系统默认)
 
 文件 (File)
-├ 添加文件夹根…           ⌘O     ← 新增 (D-mb-5)
+├ (系统默认无新增, .newItem 空)
+├ 添加文件夹根…                       ← 第一批新增 [永远 enable]
 ├ ─────
-└ 关闭                    ⌘W     (系统默认)
+└ 关闭                    ⌘W         (系统默认)
 
 编辑 (Edit)
 ├ (系统默认: 撤销 / 重做 / 剪切 / 复制 / 粘贴) [置顶, 系统注入]
 ├ ─────
-├ 查找…                   ⌘F     ← 新增 (D-mb-1)
+├ 查找…  (⌘F)                        ← 第一批新增 [永远 enable]
 ├ ─────
-├ 复制图片                ⌘C     ← 新增 [disable: !QV.isShowing]
-└ 复制路径                ⌘⌥C    ← 新增 [disable: !QV.isShowing]
+├ 复制图片  (⌘C)                     ← 第一批新增 [disable: !isPresenting]
+└ 复制路径  (⌘⌥C)                    ← 第一批新增 [disable: !isPresenting]
 
 显示 (View)
-├ 显示信息 / 隐藏信息     ⌘I     ← 新增 (动态文案 D-mb-8) [disable: !folderStore.selectedImageIndex]
+├ 显示信息 / 隐藏信息  (⌘I)           ← 第一批新增 (动态文案 D-mb-8) [disable: !folderStore.selectedImageIndex]
 ├ ─────
-├ 适合窗口                ⌘0     ← 新增 [disable: !QV.isShowing]
-├ 实际大小 (0)                   ← 新增 (D-mb-7 手工 hint) [disable: !QV.isShowing]
-├ 放大                    ⌘=     ← 新增 [disable: !QV.isShowing]
-├ 缩小                    ⌘-     ← 新增 [disable: !QV.isShowing]
-├ ─────
-└ 进入全屏 / 退出全屏     ⌘^F    ← 新增 (动态文案 D-mb-2 D-mb-8)
+├ 适合窗口  (⌘0)                     ← 第一批新增 [disable: !isPresenting]
+├ 实际大小  (0)                      ← 第一批新增 [disable: !isPresenting]
+├ 放大  (⌘=)                        ← 第一批新增 [disable: !isPresenting]
+└ 缩小  (⌘−)                        ← 第一批新增 [disable: !isPresenting]
+[全屏菜单项第二批 design v3 处理, 第一批不加]
 
 图像 (Image) ← 全新顶级菜单 (D-mb-1)
-├ 旋转左 (L)                     ← 新增 (D-mb-7 手工 hint) [disable: !QV.isShowing]
-├ 旋转右 (R)                     ← 新增 [disable: !QV.isShowing]
+├ 旋转左  (L)                        ← 第一批新增 [disable: !isPresenting]
+├ 旋转右  (R)                        ← 第一批新增 [disable: !isPresenting]
 ├ ─────
-├ 水平翻转                       ← 新增 [disable: !QV.isShowing]
-├ 垂直翻转                       ← 新增 [disable: !QV.isShowing]
+├ 水平翻转                            ← 第一批新增 [disable: !isPresenting]
+├ 垂直翻转                            ← 第一批新增 [disable: !isPresenting]
 ├ ─────
-├ 在 Finder 中显示       ⌘⇧R    ← 新增 [disable: !QV.isShowing]
+├ 在 Finder 中显示  (⌘⇧R)            ← 第一批新增 [disable: !isPresenting]
 ├ ─────
-└ 移到废纸篓 (⌫)                 ← 新增 (D-mb-7 手工 hint) [disable: !QV.isShowing OR schemaVersion<2]
+└ 移到废纸篓  (⌫)                    ← 第一批新增 [disable: !isPresenting]
 
 窗口 (Window)
 ├ (系统默认: 最小化 / 缩放 / 全屏切换) [置顶, 系统注入]
 ├ ─────
-└ 图库主窗                       ← 新增 (D-mb-5) [hide when MainWindowController.shared.hasWindow]
+└ 图库主窗                            ← 第一批新增 [hide when hasWindow]
 
 帮助 (Help)
 └ (系统默认, 无新增)
 ```
 
-**菜单分隔符使用规则**: 仅在语义不同的子组之间用分隔符 (如「全屏」与「缩放系列」之间), 同组之间 (如旋转左/右) 不分隔。
+**菜单分隔符规则**: 仅在语义不同的子组之间用分隔符 (例「查找」与「复制」之间), 同组之间 (旋转左/右) 不分隔。
 
 ---
 
-## 4. 实施任务概览 (高层, 不替 plan)
+## 5. 实施任务概览 (高层, 不替 plan)
 
-> 详细 task 拆分留给 `superpowers:writing-plans` skill。下面是高层 task 框架, 用于 codex review 时讨论实施可行性。
+> 详细 task 拆分留给 `superpowers:writing-plans` skill。下面是高层框架, codex 复审用。
 
-预估改动文件:
+**预估改动文件**:
 
 | 文件 | 改动 |
 |---|---|
-| `Glance/GlanceApp.swift` | 主体改动: `.commands` ViewBuilder 内挂 5 个菜单 CommandGroup/CommandMenu, 每个内含 N 个 Button + .keyboardShortcut + .disabled binding。预计 +150 行 |
-| `Glance/QuickViewer/MainQuickViewerWindowController.swift` | 加 `@Published var isShowing: Bool` (如未暴露), 在 show()/close() 中切换。预计 +5 行 |
-| `Glance/MainWindow/MainWindowController.swift` | 已有 `hasWindow` (CLAUDE.md 描述确认), 可直接用。无改动 |
-| 新建 `Glance/MenuBar/MenuBarCommands.swift` (可选) | 把 GlanceApp.body.commands 内 5 个 CommandGroup 拆出来到独立文件 (提升可读性, 单文件 200 行内) |
-| 新建 `Glance/MenuBar/MenuBarActions.swift` (可选) | 集中菜单 action 函数 (调 MainQVController / openSearch / addFolder 等)。预计 +60 行 |
-| `Glance/DesignSystem.swift` | 不改动 (菜单无视觉常量) |
+| `Glance/MenuBar/SearchOverlayState.swift` (新建) | 抽出 search overlay 状态机 (D-mb-9.1 (b) 修法), 替换 ContentView `@State` 私有持有 |
+| `Glance/MenuBar/InspectorState.swift` (新建, 可选) | 抽出 inspector showInspector 状态 (D-mb-8 + D-mb-9.1) |
+| `Glance/QuickViewer/MainQuickViewerWindowController+Actions.swift` (新建) | facade extension (D-mb-9.2), 11 个 perform* methods |
+| `Glance/GlanceApp.swift` | 主改动: AppDelegate 加 SearchOverlayState / InspectorState 单例; `.commands` ViewBuilder 内挂 5 个菜单 CommandGroup/CommandMenu, 每个内含 N 个 Button + .disabled binding。预计 +200 行 |
+| `Glance/MenuBar/MenuBarCommands.swift` (新建, 可选) | 把 GlanceApp.body.commands 内 5 个 CommandGroup 拆出来独立文件 (单文件 < 250 行) |
+| `Glance/ContentView.swift` | 修改: `openSearch` 改走 SearchOverlayState; `showInspector` 改走 InspectorState; `openSearch` 函数访问级别确认; toolbar 既有 ⌘I 按钮可改走 InspectorState binding |
+| `Glance/QuickViewer/QuickViewerOverlay.swift` | 局部改: 现有 action 函数 (`copyImageToPasteboard` / `copyCurrentPath` / `revealInFinder` / `handleTrashCurrent`) 抽出核心逻辑到 facade extension, Overlay 改调 facade。预计 ±30 行 |
+| `Glance/MainWindow/MainWindowController.swift` | 不改动 (已有 hasWindow, codex OK) |
+| `Glance/QuickViewer/MainQuickViewerWindowController.swift` | 不改动主体 (isPresenting 已 @Published) |
 | `specs/Roadmap.md` / `CLAUDE.md` / `specs/PENDING-USER-ACTIONS.md` | 文档同步 (任务收尾) |
 
-预估任务节奏:
+**预估第一批任务节奏 (vertical slice 拆分)**:
 
-1. **任务 A**: 状态暴露 (`MainQuickViewerWindowController.isShowing` @Published) + 单元 reality check (action 函数现有 API)
-2. **任务 B**: 文件菜单「添加文件夹根 ⌘O」+ 编辑菜单 (查找 / 复制图 / 复制路径)
-3. **任务 C**: 显示菜单 (信息切换 / 缩放系列 / 全屏)
-4. **任务 D**: 图像菜单 (旋转 / 翻转 / Finder / 废纸篓)
-5. **任务 E**: 窗口菜单 (图库主窗 reopen)
+1. **任务 A**: spike + facade 框架 — SearchOverlayState / InspectorState ObservableObject + AppDelegate 持单例 + 验证 SwiftUI commands 内 @ObservedObject 触发 .disabled (P1-1 risk)
+2. **任务 B**: 文件菜单「添加文件夹根…」 + 窗口菜单「图库主窗」(最简单, 单独动作)
+3. **任务 C**: 编辑菜单 3 项 (查找 / 复制图 / 复制路径) — 需 QV facade 部分
+4. **任务 D**: 图像菜单 6 项 (旋转 / 翻转 / Finder / 废纸篓)
+5. **任务 E**: 显示菜单 5 项 (信息切换 + 缩放系列) — 信息切换需 InspectorState 完成接线
 6. **任务 F**: 任务收尾 (verify / 文档同步 / PENDING / commit / push)
 
 每任务都满足 vertical slice 三条 (端到端可跑 / 用户可感知 / 独立可 ship)。
 
 ---
 
-## 5. 风险表 (R-mb-*)
+## 6. 风险表 (R-mb-* v2)
 
-| ID | 风险描述 | 缓解 |
+| ID | 风险描述 | v2 缓解 |
 |---|---|---|
-| R-mb-1 | SwiftUI `.commands` 内 View 用 `@ObservedObject` 观察 `MainQuickViewerWindowController.shared.isShowing` 时, SwiftUI 不一定接收变更通知 (Scene-level state 不像 View-level 一致) | plan 阶段 spike 验证: 写 minimal 测试 commands 内 button .disabled() binding 是否随 publisher 更新 |
-| R-mb-2 | macOS 系统注入的「文件→关闭」「编辑→剪切/复制/粘贴」「窗口→全屏」等默认菜单项可能跟自定义项冲突 | 用 `CommandGroup(after: ...)` / `CommandGroup(replacing: ...)` 显式定位, 不混入系统组 |
-| R-mb-3 | NSMenu 的 `⌘C` keyEquivalent 跟系统「复制」冲突, 用户在主窗 grid 选中 cell 按 ⌘C 期望「复制 grid 选中」 (虽然现在不支持), 菜单挂 `⌘C` 到「复制图片」可能拦截 | 「复制图片」menu item disable when !QV.isShowing → ⌘C 不被菜单接 → 系统「复制」默认 fall back; QV 内 ⌘C 由 QV `.onKeyPress` 接 (现状) |
-| R-mb-4 | `⌘^F` 全屏快捷键跟 macOS 系统全屏 (绿色 traffic light) 是否冲突 | macOS 系统全屏的 menu equivalent 默认是 `⌃⌘F`, 跟我们挂的 `⌘^F` 是同一个键, **会冲突**。需要 plan 阶段确认: (a) 用 `CommandGroup(replacing: .toolbar)` 替换系统 toolbar 组 (但 toolbar 不是全屏); (b) 用 `CommandGroup(replacing: .fullscreen)` 如果 macOS 14 暴露此 API; (c) 落到 `CommandMenu("显示")` 独立挂, 让两套 ⌘^F 都响应 (都是切全屏, 不冲突仅重复) |
-| R-mb-5 | `.environmentObject()` 路径在 Scene + Commands 跨 boundary 是否正常工作 | 避免依赖 environment, 改用 `MainQuickViewerWindowController.shared` 单例直接持; 这是项目现有范式 |
-| R-mb-6 | 菜单项 disable state 因 `@Published var isShowing` 状态更新延迟一帧, 用户能看到「短暂可点 → 立刻 disable」闪烁 | 一帧延迟在 macOS 菜单语境下肉眼不可感; 真有问题 plan 阶段加 `objectWillChange.send()` 显式触发 |
-| R-mb-7 | 「图库主窗」reopen 时 BookmarkManager / FolderStore / IndexStoreHolder 实例是否一致 | AppDelegate 持单例, 调 `MainWindowController.shared.show(bookmarkManager: appDelegate.bookmarkManager, ...)`, 跟现有 `showMainWindow` 路径一致 |
-| R-mb-8 | NSOpenPanel 在 `.commands` 内 Button action 中调用, AppKit 模态窗是否影响菜单生命周期 | NSOpenPanel.runModal 是 modal session, 不影响菜单。mirror 现有 `BookmarkMigrationCoordinator.pickRoots` 路径 |
-| R-mb-9 | 「移到废纸篓 ⌫」menu item keyEquivalent 用裸 `⌫` 还是 ⌘⌫? 现状 QV 内两个都触发 | 菜单挂 keyboardShortcut 仅 `⌘⌫` (⌘ 组合, 全局安全), 裸 `⌫` 仅在 QV 内 `.onKeyPress(.delete)` 接 (mirror D-mb-3 规则: 裸字母不挂菜单) |
-| R-mb-10 | 「适合窗口 ⌘0」与 SwiftUI 系统默认菜单「Actual Size ⌘0」冲突 (Preview.app 默认 ⌘0 是 1:1, ⌘+ 是 fit window? 或反过来) | 跟项目现有约定一致: ⌘0 = 适合窗口, 裸 0 = 实际大小 1:1 (D-mb-7); 跟 macOS 系统 toolbar 命令组冲突时显式 CommandGroup(after: ...) |
+| R-mb-1 (修) | SwiftUI `.commands` 内 View 用 @ObservedObject 观察 ObservableObject 单例时 .disabled binding 是否随 publisher 更新 | plan 任务 A 第一步 spike 验证; 失败则升级 AppDelegate 持 MenuBarState ObservableObject 中转 |
+| R-mb-2 | 系统注入的「编辑→剪切/复制/粘贴」「窗口→全屏」可能跟自定义项冲突 | 用 `CommandGroup(after: ...)` 显式定位, 不混入系统组 |
+| R-mb-3 (修) | ⌘C 等 keyEquivalent 跟系统冲突 | **v2 = 方向 Y 全 解决**: 菜单不挂任何 keyboardShortcut, 系统「编辑→复制」⌘C 不受影响; QV 内 ⌘C 由 QV `.onKeyPress` 现状接 |
+| ~~R-mb-4 (删)~~ | ~~⌘^F 全屏 keyEquivalent 系统冲突~~ | **v2**: 第一批不加全屏菜单项, 风险消除; 第二批 design v3 重新评估 |
+| R-mb-5 (修) | `.environmentObject` 跨 Scene + Commands 边界 | v2: 不依赖 environment, 改用 AppDelegate 持单例 + closure init 注入 commands view (D-mb-9.1 (b)) |
+| R-mb-6 | 菜单项 disable 延迟一帧 | 一帧延迟肉眼不可感; spike 验证 |
+| R-mb-7 | 「图库主窗」reopen 时 4 单例一致性 | AppDelegate 持单例, 直接拿 reference (mirror `showMainWindow`) |
+| R-mb-8 | NSOpenPanel 在 commands action 中调用模态问题 | NSOpenPanel.runModal 是 modal session, 不影响菜单 (mirror `BookmarkMigrationCoordinator.pickRoots`); 复用 `FolderStore.addFolder()` 已封装 (codex OK 确认) |
+| R-mb-9 (修) | 移废纸篓键位 | **v2**: 不挂 keyEquivalent, 菜单文本「(⌫)」hint; ⌫ 在 QV 内 .onKeyPress(.delete) 现状接 |
+| R-mb-10 (修) | ⌘0 / 0 系统冲突 | **v2**: 不挂 keyEquivalent, 文本「(⌘0)」/「(0)」hint; ⌘0/0 在 QV 内现状接 |
+| R-mb-11 (新, P1-1) | facade 单例 + Commands view 观察方案未验证 | plan 任务 A spike 第一步, 失败升级 |
+| R-mb-12 (新, P2-3) | SwiftUI .commands 改完后菜单结构开发期 hot reload 可能不刷新 | 实施 checklist 加一条: 改完菜单结构必须重启 app 验证, 不信 Xcode preview hot reload |
+| R-mb-13 (新, D-mb-9.1) | SearchOverlayState 抽出可能影响 ContentView 既有 ⌘F 路径 | 任务 A 抽出时保留 ContentView body 末尾 `.onKeyPress(.init("f"))` 现状作 fallback; SearchOverlayState 是状态机, ContentView 仍持有触发器 |
+| R-mb-14 (新, D-mb-9.2) | facade 抽出 QV action 时, Overlay 与 facade 调用顺序 / argument 边界 | plan 任务 A spike 第二步 — 抽 1 个 action (例 copyImageToPasteboard) 验证 contextMenu / 工具栏「更多」menu 都还能正常工作 |
 
 ---
 
-## 6. 实施前确认项 (Plan 阶段 Reality Check)
+## 7. 实施前确认项 (Plan 阶段 Reality Check, v2 补全)
 
-writing-plans skill 实施前必须 grep 实际代码确认 (避免「写 implementation plan 引用已有代码前必须 Read 实际文件」教训):
+writing-plans skill 实施前必须 grep 实际代码确认 (v1 Section 6 + codex P1-4 补全):
 
-- [ ] `MainQuickViewerWindowController.shared.isShowing` 是否已暴露为 `@Published`, 若否需补
-- [ ] `MainWindowController.shared.hasWindow` 实际签名 (Bool / @Published Bool / async)
-- [ ] `bookmarkManager.addBookmark(for:)` 实际签名 (sync / async / throws)
-- [ ] `folderStore.loadSavedFolders()` 实际签名 (是否需要 await)
-- [ ] `openSearch()` 函数是否已经在 ContentView 暴露 internal / private (commands 内能否直接调)
-- [ ] R-mb-4: macOS 14 SwiftUI 是否有 `CommandGroup(replacing: .fullscreen)` (或等价)
-- [ ] AppDelegate 持的 `appState` 是否能被 GlanceApp.body 直接持 reference (initializer 注入)
-- [ ] 项目部署目标 macOS 14 下 `CommandGroup` 所有用到的 placement (`.newItem`, `.pasteboard`, `.sidebar`, `.windowList`) 是否都可用
-
----
-
-## 7. 开放问题 (留给 codex review / 军哥)
-
-1. **菜单顶级名称中文化**: macOS 标准的 File/Edit/View/Window/Help 在 zh-Hans locale 自动渲染为「文件/编辑/显示/窗口/帮助」(系统注入)。新建 `CommandMenu("图像")` 是自定义顶级, 必须用中文 hardcoded。需要英文 locale 时该如何? 当前项目只 zh-Hans + en 两个 locale, 但 InfoPlist.strings 已经做了 app 名 i18n。菜单 i18n 是否需要这次做?
-   - **当前提议**: 不做 i18n, 全 hardcoded 中文。理由: 减少复杂度, 单语用户为主。
-2. **「关闭」菜单项的语义**: 主窗 ⌘W = 关图库主窗 (走 D-OW15 关窗驻留); 快速看图器 ⌘W (现状无) = 关 QV? 还是 ESC/Space 已经够用不需要菜单?
-   - **当前提议**: 不加 ⌘W 关 QV, 保留 ESC/Space + 红色 traffic light close
-3. **菜单顺序**: 文件 / 编辑 / 显示 / 图像 / 窗口 — 「图像」插在「显示」和「窗口」之间是 macOS Photos.app 范式。是否符合军哥审美?
-4. **「适合窗口 ⌘0」与「实际大小 0」** menu 行同时存在, 但裸 `0` 不挂 keyboardShortcut (D-mb-3 规则), 菜单显示「实际大小 (0)」手工 hint 是否怪? 用户从菜单点能用, 但快捷键提示是「0」(无修饰) 不像标准 menu equivalent 风格
-   - **当前提议**: 接受怪感, 保持现状 QV 内裸 0 = 1:1; 替代方案是把裸 0 也升级为 ⌘^0 或 ⌘0 后改 fit window 用别的键
-5. **菜单挂载后, 快速看图器内裸字母按键事件流是否会变?** 现状裸字母通过 `.onKeyPress` 在 QV NSHostingView focused 时接管, 菜单挂载 `⌘ 组合` keyboardShortcut 应不影响裸字母; 但需要 plan 阶段 reality check 一遍 SwiftUI Commands 全 key down 流向
+- [x] `MainQuickViewerWindowController.shared.isPresenting` `@Published private(set) var` ← **§1 已确认 ✓**
+- [x] `MainWindowController.shared.hasWindow` ← **codex OK 段已确认 ✓**
+- [x] `BookmarkManager.saveBookmark(for:) throws` (底层) + `FolderStore.addFolder()` UI 入口 ← **§1 已确认 ✓**
+- [x] `ContentView.openSearch()` 是 `private func` ← **§1 已确认 ✓ → 必须暴露 D-mb-9.1**
+- [x] `viewerAppState` 是 `private let` ← **§1 已确认 ✓ → 必须 facade D-mb-9.2**
+- [x] QV `.onKeyPress` 共享快捷键分布 (⌘ 组合在 handler 内 modifier 分支检查) ← **§1 已确认 ✓**
+- [x] `CommandGroupPlacement` `.newItem` / `.pasteboard` / `.sidebar` / `.windowList` 在 macOS 14 SDK 存在 ← **codex OK 段已确认 ✓**
+- [ ] **新**: plan 任务 A spike 验证 — SwiftUI commands 内 view 用 @ObservedObject 观察 controller.shared 单例 `.isPresenting` 是否触发 .disabled 重渲染 (R-mb-1 / R-mb-11)
+- [ ] **新**: plan 任务 A spike 验证 — facade extension 抽 1 个 action (例 copyImageToPasteboard) 后, contextMenu / 工具栏「更多」menu 是否仍正常工作 (R-mb-14)
+- [ ] **新**: plan 阶段确认 — `CommandGroup(after: .sidebar)` 在 macOS 14 显示菜单是否生成自定义菜单顶部追加而不替换系统 sidebar 子菜单
+- [ ] **新**: plan 阶段确认 — `CommandMenu("图像")` 是否能在显示和窗口菜单之间插入 (macOS 14 顶级菜单排序行为)
+- [ ] **新**: AppDelegate 是否需要新建 `SearchOverlayState` / `InspectorState` 单例, 还是可以直接在 GlanceApp.body 用 `@StateObject` 持 (Scene-level @StateObject 是否生效)
 
 ---
 
-## 8. 实施完成后 PENDING 真机肉眼验项预估
+## 8. 开放问题 (留给 codex 复审 / 军哥)
+
+1. **D-mb-9.1 修法选择**: ContentView.openSearch 暴露走 (a) internal / (b) AppDelegate 单例 / (c) closure 注入? v2 推荐 (b), 军哥 codex 复审时可 challenge
+2. **D-mb-9.2 facade 实现位置**: extension MainQuickViewerWindowController vs 独立 QuickViewerActions struct? v2 推荐 extension (mirror Swift 标准)
+3. **D-mb-7 a11y 字符串**: VoiceOver 读「Command C」体验是否完全可接受, 还是 plan 阶段考虑 SwiftUI .accessibilityLabel 覆盖?
+4. **D-mb-10 第二批触发**: 用户反馈周期 1-2 周 vs 第一批 ship 后立即评估? 项目优先级 (V2.3 release / M5 找相似清理 等) 是否优先于第二批菜单?
+5. **菜单顺序**: 文件 / 编辑 / 显示 / 图像 / 窗口 — 「图像」插在显示和窗口之间是 Photos.app 范式。如军哥审美偏好「编辑/显示/工具/图像/窗口」或其它顺序, 现在改还来得及
+
+---
+
+## 9. 第一批完成后 PENDING 真机肉眼验项预估
 
 > 详细 list 留给实施任务收尾时写 PENDING-USER-ACTIONS.md。预估覆盖范围:
 
-- 5 菜单可见性 + 项数量对照
-- 14 项菜单可点击执行 (12 已有快捷键 + 2 新增)
-- ⌘ 组合快捷键全局触发 (主窗状态 + QV 状态)
-- 裸字母仅 QV 内响应 (现状不变, 回归测试)
-- 动态文案切换 (全屏 / 信息) 真机看
-- disable state 正确 (主窗状态下大部分图像菜单灰)
-- NSOpenPanel 打开/取消行为
-- 「图库主窗」reopen 关窗驻留场景
+**菜单可见性 (5 顶级 + 16 项)**:
+- 5 顶级菜单 (文件 / 编辑 / 显示 / 图像 / 窗口) 都有自定义项
+- 16 项菜单项可见, 文本 hint 字符串风格一致
 
-预估 ~25 项, 跟既有快速看图器增强 19 项 + 更多菜单 4 项 + 查找按钮 4 项 合并验。
+**点击行为 (主窗状态)**:
+- 编辑→查找… 点 = 弹搜索 overlay (跟 ⌘F 一样)
+- 文件→添加文件夹根… 点 = NSOpenPanel (跟侧边栏 + 按钮一样)
+- 窗口→图库主窗 点 = 关窗驻留态下 reopen 主窗
+- 显示→显示信息 点 = 切 Inspector (跟工具栏 ⓘ 一样)
+- 其它菜单项 (复制 / 旋转 / 翻转 / Finder / 废纸篓 / 缩放) 在主窗状态全 disable (灰)
+
+**点击行为 (快速看图器在场)**:
+- 图像→旋转左 点 = QV 内当前图旋转 90° (跟按 L 一样)
+- 图像→水平翻转 点 = QV 内当前图水平翻 (跟 contextMenu 一样)
+- 图像→在 Finder 中显示 点 = 弹 Finder 高亮当前图
+- 图像→移到废纸篓 点 = 走 trash flow (跟按 Delete 一样)
+- 编辑→复制图片 点 = 复制 NSPasteboard
+- 显示→适合窗口 点 = QV resetToFit
+
+**键盘行为回归 (零破坏)**:
+- 按 ⌘F (主窗): 弹搜索 overlay (现状不变)
+- 按 ⌘C (QV 内): 复制图片 (现状不变)
+- 按 L (QV 内): 旋转左 (现状不变)
+- 按 ⌫ (QV 内): 移废纸篓 (现状不变)
+- 按 ⌘C (主窗): 系统默认行为 (不响应或系统「编辑→复制」)
+
+**动态文案 (D-mb-8)**:
+- Inspector 打开/关闭时菜单文案切换「隐藏信息」/「显示信息」
+
+**disable state (D-mb-4)**:
+- 主窗状态下旋转/翻转/复制/Finder/废纸篓/缩放 全部灰
+- 主窗未选图时「显示信息」灰
+- QV 在场 + 当前图加载成功时菜单项全 enable
+- 主窗已显示时窗口→图库主窗 隐藏 (hide, 非 disable)
+
+**a11y**:
+- VoiceOver 读出菜单项文案 + 快捷键 hint (例「复制图片 Command C」)
+
+预估第一批 ~20 项, 跟既有快速看图器增强 19 项 + 更多菜单 4 项 + 查找按钮 4 项 = 总 47 项军哥本机验。
 
 ---
 
-## 9. 关联
+## 10. 实施 checklist (v2 新增, P2-3)
 
-- **前置**: 主窗 detail 工具栏查找按钮 followup (`2db5372`)
+plan 实施时硬约束:
+- [ ] 改完 `.commands` 结构必须**重启 app 验证**, 不信 Xcode preview hot reload (macOS .commands 改动 hot reload 不刷新)
+- [ ] 验证菜单顶级数量 + 菜单项数量 + 分隔符位置 (5 顶级 / 16 项 / 7 个分隔符)
+- [ ] 验证 disable binding 是否实时响应 (打开 QV → 菜单项全 enable / 关 QV → 菜单项全 disable)
+- [ ] 验证 NSOpenPanel 弹出后 app 菜单栏交互正常
+- [ ] 验证 facade 单点 — copy 等动作 4 个入口 (contextMenu / 工具栏「更多」menu / 菜单栏 / 快捷键) 行为一致
+
+---
+
+## 11. i18n (v2 新增, P2-2)
+
+**第一批不做 i18n**: 全部菜单文本 hardcoded zh-Hans。理由:
+- 项目主用户单语 (zh-Hans)
+- 自定义顶级菜单「图像」/「显示」hardcoded 中文 (区别于系统注入的 zh-Hans locale 翻译)
+- 后续若英文 locale 需要, 单独 design (跟 `InfoPlist.strings` 已有 app 名 i18n 模式对齐)
+
+**hint 字符串符号兼容**: ⌘ ⌃ ⌥ ⇧ ⌫ 是 Unicode, 跨 locale 无翻译需求。
+
+---
+
+## 12. 关联
+
+- **前置 v1**: design v1 commit `5441f57` (codex review 后 RESHAPE)
+- **同期**: 主窗 detail 工具栏查找按钮 followup (`2db5372`)
 - **同源**: 快速看图器增强独立子系统 (`8525e18`..`66ab9fa` ship)
-- **下游**: 等本 design + codex review + 军哥拍板后, 调 `superpowers:writing-plans` 产出 implementation plan
+- **下游**: 第一批 design + codex 复审 + 军哥拍板后, 调 `superpowers:writing-plans` 产出 implementation plan; 第一批 ship 后第二批走独立 design v3
 - **术语字典**: 「菜单栏」「快捷键」「工具栏」「快速看图器」「侧边栏」「缩略图」均按 CONTEXT.md 规范使用
