@@ -46,6 +46,32 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
 
     @Published private(set) var isPresenting: Bool = false
 
+    // MARK: - D-mb-9.2 菜单栏 closure registry
+
+    @Published private(set) var commandHandlers: [QuickViewerCommand: () -> Void] = [:]
+    private(set) var trashHandler: (() async -> Void)? = nil
+    private(set) var hasImageProvider: () -> Bool = { false }
+
+    func registerCommandHandlers(
+        handlers: [QuickViewerCommand: () -> Void],
+        trash: @escaping () async -> Void,
+        hasImage: @escaping () -> Bool
+    ) {
+        self.commandHandlers = handlers
+        self.trashHandler = trash
+        self.hasImageProvider = hasImage
+        // commandHandlers 是 @Published 自动 send; trashHandler/hasImageProvider 不是,
+        // 显式 send 确保 hasCurrentImage computed property 的 view binding 同步更新.
+        objectWillChange.send()
+    }
+
+    func clearCommandHandlers() {
+        self.commandHandlers = [:]
+        self.trashHandler = nil
+        self.hasImageProvider = { false }
+        objectWillChange.send()
+    }
+
     private var window: NSWindow?
     /// 用 NSHostingView 当 window.contentView（mirror ExternalViewerWindowController）。**不用**
     /// NSHostingController 当 contentViewController——那样 AppKit 会忽略 contentRect、改用 hosting
@@ -432,5 +458,8 @@ extension MainQuickViewerWindowController: NSWindowDelegate {
         self.presentation = .windowedCover
         self.enteredFromMainFullScreen = false
         removeFrameObservers()
+        // A.7.1 — 兜底清 closure registry：覆盖 Overlay .onDisappear 漏触发的边缘路径
+        //（终结路径、close(force: true)、windowWillClose 直接来源等），防 stale closure 残留.
+        clearCommandHandlers()
     }
 }

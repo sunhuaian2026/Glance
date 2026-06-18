@@ -24,7 +24,24 @@ struct GlanceApp: App {
             CommandGroup(replacing: .appInfo) {
                 AboutMenuButton()
             }
+            // 任务 A.8 spike — 验证 SwiftUI commands 内 @ObservedObject 触发 .disabled
+            // 任务 B/C/D/E 实现真菜单后此 CommandGroup 删除
+            CommandGroup(after: .windowList) {
+                SpikeProbeCommands(qvController: MainQuickViewerWindowController.shared)
+            }
         }
+    }
+}
+
+/// 任务 A.8 spike probe — 验证 commands 内 @ObservedObject 真触发 .disabled.
+private struct SpikeProbeCommands: View {
+    @ObservedObject var qvController: MainQuickViewerWindowController
+
+    var body: some View {
+        Button("[SPIKE] 旋转左 (L) — 仅 spike 用") {
+            qvController.performCommand(.rotateLeft)
+        }
+        .disabled(!qvController.isPresenting)
     }
 }
 
@@ -43,6 +60,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let folderStore: FolderStore
     let appState = AppState()
     let indexStoreHolder = IndexStoreHolder()
+
+    // D-mb-9 新增 2 单例(菜单栏增补 第一批)
+    let searchOverlayState = SearchOverlayState()
+    let inspectorState = InspectorState()
 
     // D-OW14 lifecycle 状态机
     private var hasFinishedLaunching = false
@@ -112,7 +133,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             bookmarkManager: bookmarkManager,
             folderStore: folderStore,
             appState: appState,
-            indexStoreHolder: indexStoreHolder
+            indexStoreHolder: indexStoreHolder,
+            searchOverlayState: searchOverlayState,
+            inspectorState: inspectorState
         )
     }
 }

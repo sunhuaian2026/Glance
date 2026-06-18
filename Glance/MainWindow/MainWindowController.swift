@@ -10,9 +10,10 @@
 
 import AppKit
 import SwiftUI
+import Combine
 
 @MainActor
-final class MainWindowController: NSObject {
+final class MainWindowController: NSObject, ObservableObject {
     static let shared = MainWindowController()
 
     private var window: NSWindow?
@@ -23,7 +24,10 @@ final class MainWindowController: NSObject {
     private var pendingBecomeKeyBlocks: [() -> Void] = []
 
     /// AppDelegate 查"图库主窗是否已建且在场"决定首窗/reopen（D-OW14，禁扫 NSApp.windows）。
-    var hasWindow: Bool { window != nil }
+    /// D-mb-9 / A.4.1：改 @Published 让窗口菜单「图库主窗」reopen 项的 `if !... { Button }` 条件渲染
+    /// 在窗口开/关时刷新（否则用户必须重启菜单才看到 reopen 项）。createWindow 时置 true，
+    /// windowWillClose 时置 false（替代原 computed 形式）。
+    @Published private(set) var hasWindow: Bool = false
 
     private override init() { super.init() }
 
@@ -43,11 +47,14 @@ final class MainWindowController: NSObject {
     }
 
     /// 建/复用图库主窗。注入集由 AppDelegate 传入（ownership 在 AppDelegate，D-OW12）。
+    /// A.6：扩展 searchOverlayState / inspectorState 2 个新单例注入链(D-mb-9.1 双向 sync + trigger event)。
     func show(
         bookmarkManager: BookmarkManager,
         folderStore: FolderStore,
         appState: AppState,
-        indexStoreHolder: IndexStoreHolder
+        indexStoreHolder: IndexStoreHolder,
+        searchOverlayState: SearchOverlayState,
+        inspectorState: InspectorState
     ) {
         self.appState = appState
         if window == nil {
@@ -55,7 +62,9 @@ final class MainWindowController: NSObject {
                 bookmarkManager: bookmarkManager,
                 folderStore: folderStore,
                 appState: appState,
-                indexStoreHolder: indexStoreHolder
+                indexStoreHolder: indexStoreHolder,
+                searchOverlayState: searchOverlayState,
+                inspectorState: inspectorState
             )
             folderStore.loadSavedFolders()  // 原 ContentView .onAppear 的加载迁来（scene 没了，显式调）
         }
@@ -69,7 +78,9 @@ final class MainWindowController: NSObject {
         bookmarkManager: BookmarkManager,
         folderStore: FolderStore,
         appState: AppState,
-        indexStoreHolder: IndexStoreHolder
+        indexStoreHolder: IndexStoreHolder,
+        searchOverlayState: SearchOverlayState,
+        inspectorState: InspectorState
     ) {
         // ContentView 在后续 task 已移除内部 WindowAccessor（delegate 单一归属 D-OW16）；
         // 本 controller 自任 NSWindowDelegate 接管 attach/fullscreen/key/close 驱动 appState。
@@ -78,6 +89,8 @@ final class MainWindowController: NSObject {
             .environmentObject(folderStore)
             .environmentObject(appState)
             .environmentObject(indexStoreHolder)
+            .environmentObject(searchOverlayState)
+            .environmentObject(inspectorState)
         let host = NSHostingView(rootView: AnyView(root))
         host.autoresizingMask = [.width, .height]
         let win = NSWindow(
@@ -95,6 +108,7 @@ final class MainWindowController: NSObject {
         win.center()
         win.delegate = self            // 单一 delegate 归属（D-OW16）
         self.window = win
+        self.hasWindow = true          // A.4.1 @Published：菜单栏「图库主窗」reopen 项随之刷新
         appState.attachWindow(win)     // 主动 attach 播种 window 指针（替代原 WindowAccessor 的 attach）
     }
 }
@@ -134,5 +148,6 @@ extension MainWindowController: NSWindowDelegate {
         appState?.isFullScreen = false
         appState?.detachWindow(win)
         window = nil
+        hasWindow = false              // A.4.1 @Published：菜单栏「图库主窗」reopen 项随之显示
     }
 }

@@ -195,6 +195,24 @@ struct QuickViewerOverlay: View {
                 requestKeyboardFocusIfWindowIsKey()
                 showControlsTemporarily()
                 loadCurrentMetadata()
+                // D-mb-9.2 — 注册 closure registry 给 app 菜单栏调用.
+                MainQuickViewerWindowController.shared.registerCommandHandlers(
+                    handlers: [
+                        .rotateLeft: { viewModel.rotateLeft() },
+                        .rotateRight: { viewModel.rotateRight() },
+                        .toggleFlipH: { viewModel.toggleFlipH() },
+                        .toggleFlipV: { viewModel.toggleFlipV() },
+                        .copyImage: { copyImageToPasteboard() },
+                        .copyPath: { copyCurrentPath() },
+                        .revealInFinder: { revealInFinder() },
+                        .resetToFit: { viewModel.resetToFit() },
+                        .resetToOneToOne: { viewModel.resetToOneToOne() },
+                        .zoomIn: { viewModel.zoomIn() },
+                        .zoomOut: { viewModel.zoomOut() }
+                    ],
+                    trash: { await handleTrashCurrent() },
+                    hasImage: { viewModel.currentNSImage != nil }
+                )
             }
             .onChange(of: geo.size) { _, newSize in
                 viewModel.applyViewportSize(newSize)
@@ -225,6 +243,8 @@ struct QuickViewerOverlay: View {
             hideTask?.cancel()
             appState.showTrafficLights()
             viewModel.clearPrefetchCache()
+            // D-mb-9.2 — 清空 closure registry, 防 stale closure 引用已 disappear 的 viewModel.
+            MainQuickViewerWindowController.shared.clearCommandHandlers()
         }
         .onContinuousHover { phase in
             switch phase {

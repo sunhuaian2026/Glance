@@ -6,6 +6,7 @@
 import SwiftUI
 import SQLite3
 import AppKit
+import Combine
 
 /// 焦点目标 enum（D15 终态：父持有 @FocusState 单仲裁者）。
 /// grid case 由 V1 ImageGridView / V2 SmartFolderGridView 互斥共用（同层 baseGrid 二选一）。
@@ -111,6 +112,10 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var indexStoreHolder: IndexStoreHolder
     @EnvironmentObject var bookmarkManager: BookmarkManager
+    /// D-mb-9.1 — 菜单栏「查找…」trigger token, .onReceive(dropFirst) 调原 openSearch().
+    @EnvironmentObject var searchOverlayState: SearchOverlayState
+    /// D-mb-9.1 — 菜单栏「显示信息/隐藏信息」共享态, .onChange 双向 sync 到 @State showInspector.
+    @EnvironmentObject var inspectorState: InspectorState
     @StateObject private var smartFolderStore = SmartFolderStore.placeholder()
     /// M4 任务 1 — 重复清理总览 model(mirror smartFolderStore placeholder/attach 模式)
     @StateObject private var duplicateOverviewModel = DuplicateOverviewModel.placeholder()
@@ -421,6 +426,22 @@ struct ContentView: View {
         // D15 终态：删除原 ContentView 兜底 ESC 状态机。子 view 各自持 ESC handler
         // （preview / ephemeral），共享 @FocusState 单仲裁者保证焦点可靠，race 消除。
         // D-OW16：WindowAccessor 已移除，NSWindow 挂接改由 MainWindowController 自任 delegate 接管。
+        // D-mb-9.1 — 菜单栏「查找…」trigger event: dropFirst 跳过初始 UUID, 仅响应 requestOpen() 触发的换新.
+        .onReceive(searchOverlayState.$triggerToken.dropFirst()) { _ in
+            openSearch()
+        }
+        // D-mb-9.1 — Inspector 双向 sync: ContentView showInspector 改 → InspectorState.isShown 同步; guard 避免循环.
+        .onChange(of: showInspector) { _, newValue in
+            if inspectorState.isShown != newValue {
+                inspectorState.isShown = newValue
+            }
+        }
+        .onChange(of: inspectorState.isShown) { _, newValue in
+            // InspectorState.isShown 改(菜单栏触发) → showInspector 同步; guard 避免循环.
+            if showInspector != newValue {
+                showInspector = newValue
+            }
+        }
     }
 
     // MARK: - Main Content
