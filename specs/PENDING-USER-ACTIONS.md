@@ -776,4 +776,16 @@ D15 终态落地（共享 `@FocusState focusTarget: AppFocus?` enum）。下列 
 - [ ] (2026-06-18) **改 .commands 必须重启验证 (R-mb-12)**: 真机改菜单结构后 Xcode preview hot reload 不刷新, 必须实际 cmd+Q 重启 app
 - [ ] (2026-06-18) **a11y VoiceOver**: VoiceOver 读菜单项 + 快捷键 hint (例「复制图片 Command C」), 体验可接受 (D-mb-7 trade-off)
 
+---
+
+### V2 快速看图器删图误关窗 bug fix — 4 项全过 ✓(2026-06-18 ship `9d65f65` + 军哥真机验)
+
+> bug fix ship `9d65f65`, 军哥真机肉眼验全过 (1.png 203 张图删 1 张窗口保留 + 2.png 点撤销 toast 切「文件恢复 列表稍后刷新」). 根因: ContentView V1 时代 `.onChange(of: folderStore.images)` 在 QV-toolbar Slice1 迁独立 NSWindow 后变 stale, FSEvents 触发 folderStore.images 减 1 → 误关窗。修法: codex Option 3 加强版 — `MainQuickViewerWindowController` 加 `currentImageURLProvider` closure registry; ContentView .onChange 收紧为「QV 当前看的图不在新列表 / 新列表空」才关窗。
+
+军哥真机肉眼验项 (全过):
+- [x] (2026-06-18 / `9d65f65`) **删 1 张图不再关窗**: 14+ 张图(实测 203 张) 进快速看图器删 1 张 → 自动跳下一张 + 窗口保留 + 右下角弹「已移废纸篓 撤销」toast 5 秒 ✓
+- [x] (2026-06-18 / `9d65f65`) **点撤销文件恢复**: toast 点撤销 → 文件回原位 + toast 切「⚠ 文件恢复，列表稍后刷新」红色 ✓
+- [x] (2026-06-18 / `9d65f65`) **删到最后 1 张关窗 (D40)**: 1 张文件夹删完自动关 ✓
+- [x] (2026-06-18 / `9d65f65`) **排序场景不关窗** (codex 论证行为变更): 在快速看图器内时主窗排序变化, 窗口保持显示 ✓
+
 ⚠️ 第二批 (全屏菜单 + 共享快捷键路由方向决策) 留 design v3, 本次第一批 ship 后用户反馈 1-2 周再决定。
