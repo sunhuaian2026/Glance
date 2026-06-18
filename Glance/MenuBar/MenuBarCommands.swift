@@ -62,7 +62,47 @@ struct ImageMenuCommands: View {
     @ObservedObject var qvController: MainQuickViewerWindowController
 
     var body: some View {
-        EmptyView()  // 任务 D 填充
+        Group {
+            // 旋转
+            Button("旋转左  (L)") {
+                qvController.performCommand(.rotateLeft)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Button("旋转右  (R)") {
+                qvController.performCommand(.rotateRight)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Divider()
+
+            // 翻转 (无快捷键)
+            Button("水平翻转") {
+                qvController.performCommand(.toggleFlipH)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Button("垂直翻转") {
+                qvController.performCommand(.toggleFlipV)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Divider()
+
+            // Finder 显示
+            Button("在 Finder 中显示  (⌘⇧R)") {
+                qvController.performCommand(.revealInFinder)
+            }
+            .disabled(!qvController.isPresenting)
+
+            Divider()
+
+            // 移到废纸篓 (async)
+            Button("移到废纸篓  (⌫)") {
+                Task { await qvController.performTrash() }
+            }
+            .disabled(!qvController.isPresenting)
+        }
     }
 }
 

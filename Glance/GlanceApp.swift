@@ -47,6 +47,10 @@ struct GlanceApp: App {
                     qvController: MainQuickViewerWindowController.shared
                 )
             }
+            // 任务 D — 图像菜单 6 项 (全新顶级菜单)
+            CommandMenu("图像") {
+                ImageMenuCommands(qvController: MainQuickViewerWindowController.shared)
+            }
         }
     }
 }
