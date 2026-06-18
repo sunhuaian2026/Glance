@@ -83,7 +83,8 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     │   ├── QuickViewerViewModel.swift  ← ZoomMode + 缩放/导航逻辑 + deinit 取消在途 imageLoadTask/prefetch（.id 重建 teardown 卫生）
     │   ├── ZoomScrollView.swift        ← NSViewRepresentable（滚轮/双击/拖拽）
     │   ├── QuickViewerOverlay.swift    ← 全窗口覆盖层（TopBar + NavButtons + BottomToolbar + Filmstrip）+ 加载失败 ImageLoadFailedView + Slice 2「浏览所在文件夹」按钮（onBrowseFolder，仅外部打开场景传）+ **2026-06-18 followup**: bottomToolbar 加 `moreActionsMenu`（`ellipsis.circle`「更多」Menu 在「找类似」和「全屏」之间，内容镜像 contextMenu 七项让不右键的用户也能发现旋转/翻转/复制/Finder/废纸篓，contextMenu 保留作右键快捷）
-    │   └── MainQuickViewerWindowController.swift ← QV-toolbar Slice1：主窗 QV 独立无装饰窗单例（mirror ExternalViewer 砍 ViewerSession/scope）+ 专属 viewerAppState + QVDismissalReason enum + show/close + 同框 frame 跟随 + windowWillClose focus 4 步时序（runAfterNextBecomeKey 延迟设 focusTarget + I1 已-key fallback + I2 generation guard）；全屏4态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning + fullScreenAuxiliary 继承主窗全屏 + 首ESC退全屏次ESC关 + 主窗 didExitFullScreen observer + I1/I3/M1 防御）Slice2 已实现；边界硬化 Slice3 TODO
+    │   ├── MainQuickViewerWindowController.swift ← QV-toolbar Slice1：主窗 QV 独立无装饰窗单例（mirror ExternalViewer 砍 ViewerSession/scope）+ 专属 viewerAppState + QVDismissalReason enum + show/close + 同框 frame 跟随 + windowWillClose focus 4 步时序（runAfterNextBecomeKey 延迟设 focusTarget + I1 已-key fallback + I2 generation guard）；全屏4态状态机（windowedCover/qvNativeFullScreen/inheritedMainFullScreen/transitioning + fullScreenAuxiliary 继承主窗全屏 + 首ESC退全屏次ESC关 + 主窗 didExitFullScreen observer + I1/I3/M1 防御）Slice2 已实现；边界硬化 Slice3 TODO。**2026-06-18 菜单栏增补**：主文件加 `commandHandlers: [QuickViewerCommand: () -> Void]` / `trashHandler: (() -> Void)?` / `hasImageProvider: (() -> Bool)?` 3 个 stored properties + `registerCommandHandlers/clearCommandHandlers` methods (Swift extension 不能加 stored properties 故主文件持)
+    │   └── MainQuickViewerWindowController+Commands.swift ← 2026-06-18 菜单栏增补 D-mb-9.2 closure registry 模式; enum QuickViewerCommand + performCommand/performTrash/hasCurrentImage (只读 facade, register/clear methods 在主文件); 不动 viewModel ownership; Overlay onAppear/onDisappear 自管 lifecycle
     ├── Inspector/
     │   ├── ImageInspectorViewModel.swift  ← ImageInfo struct + EXIF 读取
     │   └── ImageInspectorView.swift       ← Form + Section 布局
@@ -94,6 +95,10 @@ ISeeImageViewer/                    ← 磁盘路径未改，repo 内部一切�
     ├── MainWindow/                  ← 方向2 Slice2：图库主窗 + Settings 占位（从 SwiftUI Window scene 收回自建）
     │   ├── MainWindowController.swift     ← @MainActor 单例，自建图库主窗 NSWindow + NSHostingView(ContentView+4注入)，mirror AboutWindowController 骨架 + 自任 NSWindowDelegate 接管 attach/detach/fullscreen/key/close 驱动 appState（D-OW16 单一 delegate 归属，取代删掉的 WindowAccessor）；hasWindow 供 AppDelegate 查首窗/reopen（禁扫 NSApp.windows）；首建时 folderStore.loadSavedFolders()；**QV-toolbar Slice1 加 runAfterNextBecomeKey(_:)**：注册主窗下次 become key 后一次性回调（QV 关闭归还焦点时序地基），I1 fallback 若主窗已是 key 则直接 Task.yield 调度不入队
     │   └── EmptySettingsView.swift        ← Settings scene 占位（App body 移除 Window scene 后需 ≥1 非主窗 scene 挂 .commands；Glance 暂无设置项故最小占位）
+    ├── MenuBar/                  ← 2026-06-18 菜单栏增补 第一批 (D-mb-* 决策, 方向 Y)
+    │   ├── SearchOverlayState.swift          ← trigger event 模式 (@Published triggerToken UUID), ContentView 仍 sole state owner, .onReceive listener 调原 openSearch (D-mb-9.1)
+    │   ├── InspectorState.swift              ← 双向 sync (@Published isShown Bool), ContentView showInspector ⇄ InspectorState (D-mb-9.1)
+    │   └── MenuBarCommands.swift             ← 5 commands view struct (FileMenuCommands / EditMenuCommands / ViewMenuCommands / ImageMenuCommands / WindowMenuCommands), 16 项菜单零 .keyboardShortcut + 文本字符串 hint (D-mb-3 / D-mb-7)
     ├── FullScreen/
     │   └── AppState.swift           ← isFullScreen + isWindowKey + windowIdentity(@Published，换窗换 UUID) + appearanceMode + toggleFullScreen() + attachWindow/detachWindow（isWindowKey 给 QV 焦点 assert）。**方向2 Slice2：WindowAccessor.swift 已删**——图库主窗 NSWindow 挂接改由 MainWindowController 自任 NSWindowDelegate 接管、看图窗由 ExternalViewerWindowController 接管，都直接调 attachWindow/detachWindow，不再走 NSViewRepresentable
     ├── About/

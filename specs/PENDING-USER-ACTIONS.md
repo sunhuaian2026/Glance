@@ -735,3 +735,45 @@ D15 终态落地（共享 `@FocusState focusTarget: AppFocus?` enum）。下列 
 - [x] (2026-05-11 / `<pending QV tooltip fix>` / Slice J) **QV 按钮 disable + hover tooltip "该格式暂不支持类似图查找"** ✓ 2026-05-11（按钮 disable 视觉验证 ✓；hover tooltip 在删 `.allowsHitTesting(false)` 后理论可见，用户未亲测；若回归再 reopen）
 - [⊗] (2026-05-11 / deferred / Slice J · perf) **1 万图典型库索引耗时（M1 mac 实测）**：未实测，deferred — 实际跑大库时回填
 - [⊗] (2026-05-11 / deferred / Slice J · perf) **找类似查询响应耗时（10k 库）**：未实测，deferred — 实际跑大库时回填
+
+---
+
+### V2 菜单栏增补 第一批 — 文件/编辑/显示/图像/窗口 16 项 + 框架(2026-06-18 ship 待真机验)
+
+> 第一批 ship 5 commit `211428e` (A+B 合并) → `88f190f` (B 修补) → `6ae4d96` (C) → `bd4b929` (D) → `b9b8370` (E) + F 文档 commit (待提交)。verify.sh 三段全过(14/14, build 0 error 0 warning), 任务 A+B 合并 3 轮 self-fix (import Combine) / 任务 C/D 0 self-fix / 任务 E 1 self-fix (commit-msg 术语 hook)。design v2.1 commit `a6a216b` → plan v1.1 commit `d789e60` (codex v1 RESHAPE → v2 APPROVE-WITH-FIXES → v2.1 收紧 + plan codex 3 P0 修, 共 3 轮 codex review); 方向 Y 零 .keyboardShortcut, 文本字符串 hint (D-mb-3 / D-mb-7); 第二批全屏 + 共享快捷键路由方向决策 留 design v3。
+
+军哥本机肉眼验项:
+
+**任务 A 框架 spike (1 项)**:
+- [ ] (2026-06-18) **closure registry + commands @ObservedObject disable binding**: 启动 app → 窗口菜单看「图库主窗」disable/enable 随 hasWindow 切换 (此项任务 B 完成时实际等价于 R-mb-1 验证)
+
+**任务 B 文件 + 窗口菜单 (2 项)**:
+- [ ] (2026-06-18) **文件菜单 添加文件夹根…**: 文件菜单看见「添加文件夹根…」→ 点击弹 NSOpenPanel → 选目录 → 侧边栏出现新文件夹根
+- [ ] (2026-06-18) **窗口菜单 图库主窗 reopen**: ⌘W 关主窗驻留 → 窗口菜单看「图库主窗」(主窗在时此项 hide) → 点击 reopen 主窗 + 数据状态恢复
+
+**任务 C 编辑菜单 (4 项)**:
+- [ ] (2026-06-18) **编辑菜单 3 项可见**: 编辑菜单看「查找…  (⌘F)」/「复制图片  (⌘C)」/「复制路径  (⌘⌥C)」(快捷键 hint 字符串拼在文本里)
+- [ ] (2026-06-18) **主窗状态 复制项 disable**: 主窗状态下复制图/复制路径 灰显; 查找永远 enable
+- [ ] (2026-06-18) **快速看图器在场 复制项 enable**: 双击进快速看图器 → 编辑菜单复制图/复制路径 enable → 点击 = 复制到 NSPasteboard (Slack/Finder/备忘录粘贴有图)
+- [ ] (2026-06-18) **查找菜单 = ⌘F 等效**: 点编辑菜单查找… = 主窗弹 search overlay (跟按 ⌘F 一样); 按 ⌘F 仍弹 (现状不变, 不双触发)
+
+**任务 D 图像菜单 (5 项)**:
+- [ ] (2026-06-18) **图像菜单 6 项可见**: 顶部菜单栏出现「图像」顶级菜单 (位置 = 显示和窗口之间, R-mb-16 验证)
+- [ ] (2026-06-18) **主窗状态 6 项全 disable**: 主窗状态下旋转/翻转/Finder/废纸篓 全灰
+- [ ] (2026-06-18) **快速看图器在场 6 项全 enable**: 双击进快速看图器 → 6 项全 enable
+- [ ] (2026-06-18) **菜单各项执行**: 点旋转左 = 图旋转 90° (跟 L 一样); 点 Finder = 弹 Finder 反白; 点移到废纸篓 = 走 trash flow + 弹撤销 toast
+- [ ] (2026-06-18) **快捷键 hint 字符串**: 菜单文本里看到「(L)」/「(R)」/「(⌘⇧R)」/「(⌫)」字符串
+
+**任务 E 显示菜单 (4 项)**:
+- [ ] (2026-06-18) **显示菜单 5 项可见**: 显示菜单看「显示信息  (⌘I)」+ 缩放 4 项 (适合/1:1/放大/缩小, R-mb-15 验证位置 = sidebar 系统子菜单之后)
+- [ ] (2026-06-18) **主窗未选图 信息项 disable**: 主窗状态下未选图时显示信息 灰
+- [ ] (2026-06-18) **Inspector 切换动态文案**: 双击进快速看图器 + 切 Inspector → 显示菜单文案切「显示信息 / 隐藏信息」(D-mb-8 动态)
+- [ ] (2026-06-18) **缩放系列 disable + enable**: 主窗状态缩放 4 项 全 disable; 快速看图器在场全 enable; 点适合窗口 = QV 适合 (跟按 ⌘0 一样)
+
+**通用 (4 项)**:
+- [ ] (2026-06-18) **菜单结构 5 顶级 + 16 项**: 5 顶级菜单 (文件/编辑/显示/图像/窗口) + 16 项菜单, 数量对照表正确
+- [ ] (2026-06-18) **零键盘干扰**: app 内按 L 仍只在快速看图器内旋转, 主窗按 L 无反应 (现状不变); 按 ⌘C 仍只在快速看图器内复制图, 主窗按 ⌘C 无反应 (D-mb-3 方向 Y 已知设计选择)
+- [ ] (2026-06-18) **改 .commands 必须重启验证 (R-mb-12)**: 真机改菜单结构后 Xcode preview hot reload 不刷新, 必须实际 cmd+Q 重启 app
+- [ ] (2026-06-18) **a11y VoiceOver**: VoiceOver 读菜单项 + 快捷键 hint (例「复制图片 Command C」), 体验可接受 (D-mb-7 trade-off)
+
+⚠️ 第二批 (全屏菜单 + 共享快捷键路由方向决策) 留 design v3, 本次第一批 ship 后用户反馈 1-2 周再决定。
