@@ -24,24 +24,23 @@ struct GlanceApp: App {
             CommandGroup(replacing: .appInfo) {
                 AboutMenuButton()
             }
-            // 任务 A.8 spike — 验证 SwiftUI commands 内 @ObservedObject 触发 .disabled
-            // 任务 B/C/D/E 实现真菜单后此 CommandGroup 删除
+            // 任务 B — 文件菜单「添加文件夹根…」
+            CommandGroup(after: .newItem) {
+                FileMenuCommands(folderStore: appDelegate.folderStore)
+            }
+            // 任务 B — 窗口菜单「图库主窗」reopen (hide when hasWindow)
             CommandGroup(after: .windowList) {
-                SpikeProbeCommands(qvController: MainQuickViewerWindowController.shared)
+                WindowMenuCommands(
+                    bookmarkManager: appDelegate.bookmarkManager,
+                    folderStore: appDelegate.folderStore,
+                    appState: appDelegate.appState,
+                    indexStoreHolder: appDelegate.indexStoreHolder,
+                    searchOverlayState: appDelegate.searchOverlayState,
+                    inspectorState: appDelegate.inspectorState,
+                    mainWindowController: MainWindowController.shared
+                )
             }
         }
-    }
-}
-
-/// 任务 A.8 spike probe — 验证 commands 内 @ObservedObject 真触发 .disabled.
-private struct SpikeProbeCommands: View {
-    @ObservedObject var qvController: MainQuickViewerWindowController
-
-    var body: some View {
-        Button("[SPIKE] 旋转左 (L) — 仅 spike 用") {
-            qvController.performCommand(.rotateLeft)
-        }
-        .disabled(!qvController.isPresenting)
     }
 }
 
