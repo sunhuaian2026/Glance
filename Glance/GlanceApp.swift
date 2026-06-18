@@ -40,6 +40,13 @@ struct GlanceApp: App {
                     mainWindowController: MainWindowController.shared
                 )
             }
+            // 任务 C — 编辑菜单 3 项 (查找 / 复制图 / 复制路径)
+            CommandGroup(after: .pasteboard) {
+                EditMenuCommands(
+                    searchOverlayState: appDelegate.searchOverlayState,
+                    qvController: MainQuickViewerWindowController.shared
+                )
+            }
         }
     }
 }

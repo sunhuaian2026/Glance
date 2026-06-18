@@ -25,7 +25,24 @@ struct EditMenuCommands: View {
     @ObservedObject var qvController: MainQuickViewerWindowController
 
     var body: some View {
-        EmptyView()  // 任务 C 填充
+        Group {
+            // D-mb-3 / D-mb-7 — 手工拼快捷键 hint, 零 .keyboardShortcut (方向 Y)
+            Button("查找…  (⌘F)") {
+                searchOverlayState.requestOpen()
+            }
+
+            Divider()
+
+            Button("复制图片  (⌘C)") {
+                qvController.performCommand(.copyImage)
+            }
+            .disabled(!qvController.hasCurrentImage)
+
+            Button("复制路径  (⌘⌥C)") {
+                qvController.performCommand(.copyPath)
+            }
+            .disabled(!qvController.isPresenting)
+        }
     }
 }
 
