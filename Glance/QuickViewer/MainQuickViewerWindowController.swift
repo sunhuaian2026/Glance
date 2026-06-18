@@ -51,17 +51,22 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
     @Published private(set) var commandHandlers: [QuickViewerCommand: () -> Void] = [:]
     private(set) var trashHandler: (() async -> Void)? = nil
     private(set) var hasImageProvider: () -> Bool = { false }
+    /// 删除 QV 误关 bug 修(codex Option 3 加强版): ContentView .onChange(of: folderStore.images)
+    /// 判断 QV 当前看的图是否仍在新列表里, 不在才关 QV; Overlay onAppear 注册 viewModel 当前 URL provider.
+    private(set) var currentImageURLProvider: () -> URL? = { nil }
 
     func registerCommandHandlers(
         handlers: [QuickViewerCommand: () -> Void],
         trash: @escaping () async -> Void,
-        hasImage: @escaping () -> Bool
+        hasImage: @escaping () -> Bool,
+        currentImageURL: @escaping () -> URL?
     ) {
         self.commandHandlers = handlers
         self.trashHandler = trash
         self.hasImageProvider = hasImage
-        // commandHandlers 是 @Published 自动 send; trashHandler/hasImageProvider 不是,
-        // 显式 send 确保 hasCurrentImage computed property 的 view binding 同步更新.
+        self.currentImageURLProvider = currentImageURL
+        // commandHandlers 是 @Published 自动 send; trashHandler/hasImageProvider/currentImageURLProvider 不是,
+        // 显式 send 确保 hasCurrentImage / currentImageURL computed property 的 view binding 同步更新.
         objectWillChange.send()
     }
 
@@ -69,6 +74,7 @@ final class MainQuickViewerWindowController: NSObject, ObservableObject {
         self.commandHandlers = [:]
         self.trashHandler = nil
         self.hasImageProvider = { false }
+        self.currentImageURLProvider = { nil }
         objectWillChange.send()
     }
 

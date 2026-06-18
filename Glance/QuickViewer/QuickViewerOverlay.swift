@@ -211,7 +211,8 @@ struct QuickViewerOverlay: View {
                         .zoomOut: { viewModel.zoomOut() }
                     ],
                     trash: { await handleTrashCurrent() },
-                    hasImage: { viewModel.currentNSImage != nil }
+                    hasImage: { viewModel.currentNSImage != nil },
+                    currentImageURL: { viewModel.images[safe: viewModel.currentIndex] }
                 )
             }
             .onChange(of: geo.size) { _, newSize in

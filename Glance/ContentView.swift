@@ -333,10 +333,23 @@ struct ContentView: View {
                 }
             }
         }
-        // 排序导致 images 数组变化时，关闭 QuickViewer 防止旧索引错位
-        .onChange(of: folderStore.images) { _, _ in
+        // codex Option 3 加强版修 — QV 误关 bug: 之前的"任意 images 变化就关 QV"是 V1 排序时代
+        // 设的(QV-toolbar Slice1 已迁独立 NSWindow + viewModel 持自己 images snapshot), FSEvents
+        // 检测到删图 → folderStore.images 变化 → 误关 QV(撤销 toast 跟着销毁)。修法: 仅当 QV 当前
+        // 看的图不在新 images 列表里(切文件夹 / 外部删 QV 当前图 / 全清) 才关 QV; 排序 / 单张删除
+        // 其它图 / FSEvents 增删其它图 等场景 QV 当前图仍在新列表, 保持 QV 不动。
+        .onChange(of: folderStore.images) { _, newImages in
             if qvController.isPresenting {
-                qvController.close(reason: .normal)
+                if let qvURL = qvController.currentImageURL {
+                    if !newImages.contains(qvURL) {
+                        qvController.close(reason: .normal)
+                    }
+                    // else: 当前 QV 图仍在新列表, 保持 QV (修 14 张删 1 张误关 bug)
+                } else {
+                    // currentImageURL nil = QV isPresenting=true 但 Overlay closure registry
+                    // 还没注册到 / 已 clearCommandHandlers; 防御性关 QV 兜底.
+                    qvController.close(reason: .normal)
+                }
             }
             previewVM.clearCache()
         }

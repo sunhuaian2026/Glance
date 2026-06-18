@@ -35,4 +35,11 @@ extension MainQuickViewerWindowController {
         guard isPresenting else { return false }
         return hasImageProvider()
     }
+
+    /// 删除 QV 误关 bug 修 — ContentView .onChange(of: folderStore.images) 判断当前 QV 看的图
+    /// 是否仍在新 images 列表(codex Option 3 加强版). nil = QV 不在场 / closure registry 未注册.
+    var currentImageURL: URL? {
+        guard isPresenting else { return nil }
+        return currentImageURLProvider()
+    }
 }
