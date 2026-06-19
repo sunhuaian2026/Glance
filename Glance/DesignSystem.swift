@@ -321,6 +321,103 @@ enum DS {
         static let bannerVerticalPadding: CGFloat = 12
         /// banner 中按钮间距
         static let bannerButtonSpacing: CGFloat = 12
+
+        // MARK: - 重复清理 V2 重设计 — 新增常量 (任务 AB)
+
+        // 顶栏
+        static let topBarHeight: CGFloat = 56
+        static let topBarTrashIconSize: CGFloat = 26
+        static let topBarTrashIconCornerRadius: CGFloat = 7
+        static let topBarTitleFont: Font = .system(size: 16, weight: .bold)
+
+        // 汇总条
+        static let summaryCardCornerRadius: CGFloat = 14
+        static let summaryCardPaddingH: CGFloat = 20
+        static let summaryCardPaddingV: CGFloat = 16
+        static let summaryDividerWidth: CGFloat = 1
+        static let summaryDividerHeight: CGFloat = 48
+        static let summaryBigNumberFont: Font = .system(size: 23, weight: .heavy)
+        static let summaryLabelFont: Font = .system(size: 11.5, weight: .regular)
+        static let summarySubFont: Font = .system(size: 12.5, weight: .medium)
+        static let summaryBadgeIconSize: CGFloat = 30
+        static let summaryBadgeIconCornerRadius: CGFloat = 8
+        static let summaryReviewButtonHeight: CGFloat = 36
+
+        // 工具条
+        static let toolbarHeight: CGFloat = 48
+        static let filterPillCornerRadius: CGFloat = 20
+        static let filterPillPaddingH: CGFloat = 13
+        static let filterPillPaddingV: CGFloat = 6
+        static let filterPillFont: Font = .system(size: 12.5, weight: .semibold)
+        static let filterPillCountFont: Font = .system(size: 11, weight: .bold)
+        static let sortSegmentHeight: CGFloat = 32
+        static let sortSegmentWidth: CGFloat = 180
+        static let searchBoxWidth: CGFloat = 190
+        static let searchBoxCornerRadius: CGFloat = 8
+
+        // 列表行 (单行卡片)
+        static let rowHeight: CGFloat = 60
+        static let rowCornerRadius: CGFloat = 11
+        static let rowPaddingH: CGFloat = 14
+        static let rowPaddingV: CGFloat = 10
+        static let rowGap: CGFloat = 13
+        static let rowSkippedOpacity: Double = 0.55
+        static let rowTitleFont: Font = .system(size: 13.5, weight: .semibold)
+        static let rowSubFont: Font = .system(size: 11)
+        static let stackedThumbnailWidth: CGFloat = 52
+        static let stackedThumbnailHeight: CGFloat = 40
+        static let stackedThumbnailFrontWidth: CGFloat = 48
+        static let stackedThumbnailFrontHeight: CGFloat = 36
+        static let stackedThumbnailFrontCornerRadius: CGFloat = 6
+        static let badgeCornerRadius: CGFloat = 20
+        static let badgePaddingH: CGFloat = 9
+        static let badgePaddingV: CGFloat = 3
+        static let badgeFont: Font = .system(size: 11, weight: .semibold)
+        static let skipButtonHeight: CGFloat = 24
+        static let chevronSize: CGFloat = 24
+        static let chevronAnimationDuration: Double = 0.18
+
+        // 展开区 (90×66 缩略图横排)
+        static let expandedAreaPaddingH: CGFloat = 14
+        static let expandedAreaPaddingV: CGFloat = 12
+        static let expandedAreaGap: CGFloat = 11
+        static let expandedThumbnailWidth: CGFloat = 90
+        static let expandedThumbnailHeight: CGFloat = 66
+        static let expandedThumbnailCornerRadius: CGFloat = 8
+        static let expandedThumbnailMaxPixel: Int = 180
+        static let expandedKeepBorderWidth: CGFloat = 2
+        static let expandedKeepBadgeOffset: CGFloat = 4
+        static let expandedTrashOverlayOpacity: Double = 0.42
+        static let expandedTrashIconSize: CGFloat = 18
+        static let expandedNonKeepOpacity: Double = 0.55
+        static let expandedFilenameFont: Font = .system(size: 10.5)
+
+        // 浮层 (任务 D 用, 本任务先占位常量)
+        static let focusOverlayBackgroundOpacity: Double = 0.4
+        static let focusDialogWidth: CGFloat = 780
+        static let focusDialogCornerRadius: CGFloat = 18
+        static let focusDialogPaddingH: CGFloat = 22
+        static let focusDialogPaddingV: CGFloat = 22
+        static let focusHeaderPaddingV: CGFloat = 16
+        static let focusHeaderCloseSize: CGFloat = 28
+        static let focusHeaderCloseCornerRadius: CGFloat = 7
+        static let focusLargeImageWidth: CGFloat = 300
+        static let focusLargeImageHeight: CGFloat = 214
+        static let focusLargeImageCornerRadius: CGFloat = 12
+        static let focusLargeImageMaxPixel: Int = 600
+        static let focusKeepBorderWidth: CGFloat = 3
+        static let focusFooterPaddingV: CGFloat = 14
+        static let focusOverlayInTransitionDuration: Double = 0.18
+        static let focusOverlayOutTransitionDuration: Double = 0.15
+
+        // 配色 (v2 SHA256 invariant 後無 ★ 推薦角標, 但仍保留 warnBg/warn 給「待確認」徽章 + reviewBg/review 給「已確認」徽章)
+        static let warnColor: SwiftUI.Color = .yellow
+        static let warnBgColor: SwiftUI.Color = .yellow.opacity(0.16)
+        static let reviewedColor: SwiftUI.Color = .green
+        static let reviewedBgColor: SwiftUI.Color = .green.opacity(0.16)
+        static let dangerColor: SwiftUI.Color = .red
+        static let dangerBgColor: SwiftUI.Color = .red.opacity(0.18)
+        static let dangerForegroundColor: SwiftUI.Color = SwiftUI.Color(red: 1.0, green: 0.42, blue: 0.38)
     }
 
     // MARK: - M4 任务 2 — V1→V2 bookmark 升级引导 UI 常量

@@ -44,6 +44,23 @@ struct DuplicateGroupMember: Identifiable, Equatable {
     let isCanonical: Bool
 }
 
+// MARK: - V2 helpers (任务 AB)
+
+extension DuplicateGroup {
+    /// 该组所有成员 (canonical + duplicates) 统一数组,D1 per-item 选择遍历用
+    nonisolated var allMembers: [DuplicateGroupMember] {
+        [canonical] + duplicates
+    }
+
+    /// 推荐保留张 — DedupPass canonical (= earliest birth_time + 最小 id tie-breaker;
+    /// **不是体积最大** — D-dedup-14 SHA256 invariant 同组成员 fileSize 完全相等);
+    /// model.userKeepId 无手选时回退到这个。
+    nonisolated var recommendedKeepId: Int64 { canonical.id }
+
+    /// 副本数 (= total members - 1)
+    nonisolated var duplicateCount: Int { duplicates.count }
+}
+
 /// IndexStore.fetchDuplicateGroups 聚合查询返回行（每组一行：sha256 + 成员数 + reclaimable）。
 /// Model 拿这行后调 fetchDuplicateGroupMembers 拉成员明细组装成 DuplicateGroup。
 struct DuplicateGroupRow {

@@ -377,6 +377,7 @@ struct ContentView: View {
                     Task { await smartFolderStore.select(nil) }
                 }
                 showDuplicateOverview = false  // M4
+                duplicateOverviewModel.closeFocusReview()  // V2 AB.4 五态互斥 closeFocusReview 兜底
             }
         }
         .onChange(of: smartFolderStore.selected) { _, newSF in
@@ -387,6 +388,7 @@ struct ContentView: View {
                     folderStore.selectedImageIndex = nil
                 }
                 showDuplicateOverview = false  // M4
+                duplicateOverviewModel.closeFocusReview()  // V2 AB.4 五态互斥 closeFocusReview 兜底
             }
         }
         .onChange(of: showDuplicateOverview) { _, newValue in
@@ -411,13 +413,54 @@ struct ContentView: View {
         }
         // M4 任务 2 — 撤销 banner 接线 (D33 跨视图持久).
         // codex P2(深比 BLOB): 比 id (UUID) 不比整 outcome; 同 id 不触发动画.
-        // M4 任务 2 收尾 — D5-bm-ui prune selectedSha256s (步骤 A.5).
-        // 重扫完总览 reload 后, 把不在新 groups 里的 sha256 从勾选集合移除.
+        // V2 重设计 (任务 AB) — prune 块全量扩展 (design v2 §3 codex P1 修复).
+        // 重扫完总览 reload 后, 把不在新 groups 里的临时态 entry 全部 prune.
         .onChange(of: duplicateOverviewModel.groups) { _, newGroups in
             let validSha256s = Set(newGroups.map { $0.id })
-            let pruned = duplicateOverviewModel.selectedSha256s.intersection(validSha256s)
-            if pruned.count != duplicateOverviewModel.selectedSha256s.count {
-                duplicateOverviewModel.replaceSelectedSha256s(pruned)
+
+            // prune skippedGroupIds (原 selectedSha256s, AB.2 改名后)
+            let prunedSkipped = duplicateOverviewModel.skippedGroupIds.intersection(validSha256s)
+            if prunedSkipped.count != duplicateOverviewModel.skippedGroupIds.count {
+                duplicateOverviewModel.replaceSkippedGroupIds(prunedSkipped)
+            }
+
+            // prune userKeepIdByGroup — (groupId 仍在 validSha256s ∧ memberId 仍在 group.allMembers) 才保留
+            let keepDict = duplicateOverviewModel.userKeepIdByGroup
+            var prunedKeepIds: [String: Int64] = [:]
+            for (groupId, memberId) in keepDict {
+                guard validSha256s.contains(groupId),
+                      let group = newGroups.first(where: { $0.id == groupId }),
+                      group.allMembers.contains(where: { $0.id == memberId })
+                else { continue }
+                prunedKeepIds[groupId] = memberId
+            }
+            if prunedKeepIds.count != keepDict.count {
+                // userKeepIdByGroup private(set): 通过 setUserKeep 逐条重建
+                // 先清再重设 (prune 场景 entry 数量少, 可接受)
+                for groupId in keepDict.keys where prunedKeepIds[groupId] == nil {
+                    _ = groupId  // entry 已 prune, 不调 setUserKeep
+                }
+                // 把保留的 entry 写回: 已有 setUserKeep 会 unskip, 但 prune 场景 group 还在
+                // 不改 skip 状态; 直接构造新 dict 需要内部访问; 改用 replaceUserKeepIds (新增 API)
+                duplicateOverviewModel.replaceUserKeepIds(prunedKeepIds)
+            }
+
+            // prune reviewedGroupIds / expandedGroupIds — 组不在新 groups 就移除
+            let prunedReviewed = duplicateOverviewModel.reviewedGroupIds.intersection(validSha256s)
+            if prunedReviewed.count != duplicateOverviewModel.reviewedGroupIds.count {
+                duplicateOverviewModel.replaceReviewedGroupIds(prunedReviewed)
+            }
+            let prunedExpanded = duplicateOverviewModel.expandedGroupIds.intersection(validSha256s)
+            if prunedExpanded.count != duplicateOverviewModel.expandedGroupIds.count {
+                duplicateOverviewModel.replaceExpandedGroupIds(prunedExpanded)
+            }
+
+            // 浮层 stale: focusReviewOpen 时, queue 内的 groupId 若已不在新 groups 里则推进 / 关
+            if duplicateOverviewModel.focusReviewOpen {
+                let validQueue = duplicateOverviewModel.focusReviewQueue.filter { validSha256s.contains($0) }
+                if validQueue.isEmpty {
+                    duplicateOverviewModel.closeFocusReview()
+                }
             }
         }
         .onChange(of: duplicateOverviewModel.lastTrashOutcome?.id) { _, _ in
@@ -468,8 +511,8 @@ struct ContentView: View {
     private var mainContent: some View {
         ZStack(alignment: .top) {
             if showDuplicateOverview {
-                // M4 任务 1 — 重复清理总览(五态互斥最优先分支)
-                DuplicateOverviewView()
+                // V2 重设计 (任务 AB) — 新 DedupCleanupV2View 替代旧 DuplicateOverviewView
+                DedupCleanupV2View()
             } else if let req = currentEphemeral {
                 EphemeralResultView(
                     title: req.title,
@@ -933,6 +976,7 @@ struct ContentView: View {
         folderStore.selectedImageIndex = nil
         showSearchOverlay = true
         showDuplicateOverview = false  // M4：开搜索 overlay 时清重复清理总览态
+        duplicateOverviewModel.closeFocusReview()  // V2 AB.4 五态互斥 closeFocusReview 兜底
         // 初始化空 query 的 ephemeral 让 EphemeralResultView 显示 hint 空态文案
         currentEphemeral = .search(query: "", images: [], urls: [])
         searchFilterState = SearchFilterState()   // D27：进入即空白
