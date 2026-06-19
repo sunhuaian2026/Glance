@@ -251,7 +251,12 @@ final class DuplicateOverviewModel: ObservableObject {
               focusReviewIndex < focusReviewQueue.count else { return }
         let groupId = focusReviewQueue[focusReviewIndex]
         markReviewed(groupId: groupId)
-        focusReviewNext()
+        // 末尾组直接关浮层; 否则推进到下一组
+        if focusReviewIndex >= focusReviewQueue.count - 1 {
+            closeFocusReview()
+        } else {
+            focusReviewNext()
+        }
     }
 
     func focusReviewSkip() {

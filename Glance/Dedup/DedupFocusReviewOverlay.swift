@@ -229,7 +229,7 @@ private struct FocusReviewMemberCell: View {
                         if !isKeep {
                             // 待删暗罩
                             RoundedRectangle(cornerRadius: DS.Dedup.focusLargeImageCornerRadius)
-                                .fill(SwiftUI.Color(red: 10/255, green: 10/255, blue: 12/255).opacity(0.4))
+                                .fill(DS.Dedup.focusTrashOverlayColor.opacity(DS.Dedup.focusTrashOverlayOpacity))
                         }
                     }
                     .opacity(isKeep ? 1.0 : DS.Dedup.expandedNonKeepOpacity)

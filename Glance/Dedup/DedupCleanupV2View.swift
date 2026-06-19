@@ -153,7 +153,7 @@ struct DedupCleanupV2View: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Dedup.summaryBadgeIconCornerRadius))
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(count) 组")
-                    .font(.body.weight(.semibold))
+                    .font(DS.Dedup.summaryBadgeCountFont)
                 Text(label)
                     .font(DS.Dedup.summaryLabelFont)
                     .foregroundStyle(.secondary)

@@ -408,7 +408,11 @@ enum DS {
         static let focusKeepBorderWidth: CGFloat = 3
         static let focusFooterPaddingV: CGFloat = 14
         static let focusOverlayInTransitionDuration: Double = 0.18
-        static let focusOverlayOutTransitionDuration: Double = 0.15
+        // v2 final review fix: 浮层副本暗罩配色 (Important #2)
+        static let focusTrashOverlayColor: SwiftUI.Color = SwiftUI.Color(red: 10/255, green: 10/255, blue: 12/255)
+        static let focusTrashOverlayOpacity: Double = 0.4
+        // v2 final review fix: 汇总条徽标数字字体 (Minor #6)
+        static let summaryBadgeCountFont: Font = .body.weight(.semibold)
 
         // 配色 (v2 SHA256 invariant 後無 ★ 推薦角標, 但仍保留 warnBg/warn 給「待確認」徽章 + reviewBg/review 給「已確認」徽章)
         static let warnColor: SwiftUI.Color = .yellow

@@ -440,13 +440,6 @@ struct ContentView: View {
                 prunedKeepIds[groupId] = memberId
             }
             if prunedKeepIds.count != keepDict.count {
-                // userKeepIdByGroup private(set): 通过 setUserKeep 逐条重建
-                // 先清再重设 (prune 场景 entry 数量少, 可接受)
-                for groupId in keepDict.keys where prunedKeepIds[groupId] == nil {
-                    _ = groupId  // entry 已 prune, 不调 setUserKeep
-                }
-                // 把保留的 entry 写回: 已有 setUserKeep 会 unskip, 但 prune 场景 group 还在
-                // 不改 skip 状态; 直接构造新 dict 需要内部访问; 改用 replaceUserKeepIds (新增 API)
                 duplicateOverviewModel.replaceUserKeepIds(prunedKeepIds)
             }
 
