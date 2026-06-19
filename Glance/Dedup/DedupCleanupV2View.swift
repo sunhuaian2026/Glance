@@ -255,6 +255,8 @@ struct DedupCleanupV2View: View {
                         keepId: model.userKeepId(for: group),
                         isSkipped: model.isSkipped(groupId: group.id),
                         isExpanded: model.isExpanded(groupId: group.id),
+                        isNeedsReview: model.needsReview(group: group),
+                        isReviewed: model.isReviewed(groupId: group.id),
                         onToggleSkip: { model.toggleSkip(groupId: group.id) },
                         onToggleExpand: { model.toggleExpand(groupId: group.id) },
                         onSetKeep: { memberId in model.setUserKeep(groupId: group.id, memberId: memberId) }
@@ -329,6 +331,8 @@ private struct DedupGroupRow: View {
     let keepId: Int64
     let isSkipped: Bool
     let isExpanded: Bool
+    let isNeedsReview: Bool
+    let isReviewed: Bool
     let onToggleSkip: () -> Void
     let onToggleExpand: () -> Void
     let onSetKeep: (Int64) -> Void
@@ -365,6 +369,7 @@ private struct DedupGroupRow: View {
                     .font(DS.Dedup.rowTitleFont)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                statusBadge
                 let keepMember = group.allMembers.first(where: { $0.id == keepId }) ?? group.canonical
                 Text("保留 \(keepMember.relativePath)")
                     .font(DS.Dedup.rowSubFont)
@@ -421,6 +426,27 @@ private struct DedupGroupRow: View {
         .padding(.vertical, DS.Dedup.rowPaddingV)
         .frame(minHeight: DS.Dedup.rowHeight)
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        if isNeedsReview && !isReviewed {
+            Text("待确认")
+                .font(DS.Dedup.badgeFont)
+                .padding(.horizontal, DS.Dedup.badgePaddingH)
+                .padding(.vertical, DS.Dedup.badgePaddingV)
+                .background(DS.Dedup.warnBgColor)
+                .foregroundStyle(DS.Dedup.warnColor)
+                .clipShape(Capsule())
+        } else if isReviewed {
+            Text("已确认")
+                .font(DS.Dedup.badgeFont)
+                .padding(.horizontal, DS.Dedup.badgePaddingH)
+                .padding(.vertical, DS.Dedup.badgePaddingV)
+                .background(DS.Dedup.reviewedBgColor)
+                .foregroundStyle(DS.Dedup.reviewedColor)
+                .clipShape(Capsule())
+        }
     }
 
     private var expandedArea: some View {

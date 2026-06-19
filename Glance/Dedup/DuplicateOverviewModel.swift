@@ -262,12 +262,12 @@ final class DuplicateOverviewModel: ObservableObject {
         focusReviewNext()
     }
 
-    // MARK: - needsReview 算法 (任务 C 实装真值; 暂返回 false)
+    // MARK: - needsReview 算法 (design v2 §5.1, D3)
 
-    /// design v2 §5 — D3 = duplicateCount >= 3. 任务 C 实装真值后 filter/autoCount/reviewCount 自动变化.
+    /// design v2 §5.1 needsReview 算法 (v2 codex P0 修, SHA256 invariant)
+    /// 阈值: duplicateCount >= 3 (组共 ≥ 4 张, 用户值得手动审一遍挑保留 path/folder)
     func needsReview(group: DuplicateGroup) -> Bool {
-        // 任务 C 实装: group.duplicateCount >= 3
-        return false
+        return group.duplicateCount >= 3
     }
 
     // MARK: - V2 filteredSortedGroups (design v2 §2.1)
@@ -283,7 +283,7 @@ final class DuplicateOverviewModel: ObservableObject {
         case .needsReview:
             result = result.filter { needsReview(group: $0) && !isReviewed(groupId: $0.id) }
         case .auto:
-            result = result.filter { !needsReview(group: $0) }
+            result = result.filter { !needsReview(group: $0) || isReviewed(groupId: $0.id) }
         }
 
         // search
@@ -313,9 +313,9 @@ final class DuplicateOverviewModel: ObservableObject {
         groups.filter { needsReview(group: $0) && !isReviewed(groupId: $0.id) }.count
     }
 
-    /// 已自动处理组数 (!needsReview). 任务 C 实装真值.
+    /// 已自动处理组数 (!needsReview || isReviewed). 任务 C 实装真值.
     var autoCount: Int {
-        groups.filter { !needsReview(group: $0) }.count
+        groups.filter { !needsReview(group: $0) || isReviewed(groupId: $0.id) }.count
     }
 
     /// 废纸篓按钮是否可用 (design v2 §2.1).
