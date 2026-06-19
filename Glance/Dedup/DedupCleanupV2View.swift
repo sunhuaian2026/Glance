@@ -175,8 +175,13 @@ struct DedupCleanupV2View: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(DS.Dedup.warnColor)
-        .disabled(model.reviewCount == 0)
-        .opacity(model.reviewCount == 0 ? 0.5 : 1.0)
+        .disabled(model.reviewCount == 0 || isTrashingNow)
+        .opacity((model.reviewCount == 0 || isTrashingNow) ? 0.5 : 1.0)
+    }
+
+    private var isTrashingNow: Bool {
+        if case .trashing = model.trashState { return true }
+        return false
     }
 
     // MARK: - 工具条 (AB.7)

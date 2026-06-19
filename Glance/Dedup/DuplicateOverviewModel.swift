@@ -262,6 +262,31 @@ final class DuplicateOverviewModel: ObservableObject {
         focusReviewNext()
     }
 
+    /// 任务 E — reload stale 处理: groups 重算后, queue 过滤失效组并推进 / 关浮层.
+    /// ContentView .onChange(of: model.groups) 内调; newGroups 作参数避免再读 self.groups (prune 顺序安全).
+    func recomputeFocusReviewAfterReload(newGroups: [DuplicateGroup]) {
+        guard focusReviewOpen else { return }
+        let validSha256s = Set(newGroups.map { $0.id })
+        let validQueue = focusReviewQueue.filter { id in
+            guard validSha256s.contains(id) else { return false }
+            guard let group = newGroups.first(where: { $0.id == id }) else { return false }
+            return needsReview(group: group) && !isReviewed(groupId: id) && !isSkipped(groupId: id)
+        }
+        if validQueue.isEmpty {
+            closeFocusReview()
+            return
+        }
+        // 当前组若已不在新 queue → 推进到第一个仍有效的
+        let currentId: String? = focusReviewIndex < focusReviewQueue.count
+            ? focusReviewQueue[focusReviewIndex] : nil
+        let newIndex: Int = {
+            if let cid = currentId, let idx = validQueue.firstIndex(of: cid) { return idx }
+            return 0
+        }()
+        focusReviewQueue = validQueue
+        focusReviewIndex = newIndex
+    }
+
     // MARK: - needsReview 算法 (design v2 §5.1, D3)
 
     /// design v2 §5.1 needsReview 算法 (v2 codex P0 修, SHA256 invariant)

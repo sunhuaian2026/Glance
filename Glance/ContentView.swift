@@ -460,12 +460,9 @@ struct ContentView: View {
                 duplicateOverviewModel.replaceExpandedGroupIds(prunedExpanded)
             }
 
-            // 浮层 stale: focusReviewOpen 时, queue 内的 groupId 若已不在新 groups 里则推进 / 关
+            // 浮层 stale: focusReviewOpen 时, queue 重算 + 当前组失效自动推进 / 关 (任务 E).
             if duplicateOverviewModel.focusReviewOpen {
-                let validQueue = duplicateOverviewModel.focusReviewQueue.filter { validSha256s.contains($0) }
-                if validQueue.isEmpty {
-                    duplicateOverviewModel.closeFocusReview()
-                }
+                duplicateOverviewModel.recomputeFocusReviewAfterReload(newGroups: newGroups)
             }
         }
         .onChange(of: duplicateOverviewModel.lastTrashOutcome?.id) { _, _ in
@@ -639,11 +636,18 @@ struct ContentView: View {
                 .zIndex(100)
             }
             // 重复清理 V2 任务 D.2 — 逐组审阅浮层（D6: ZStack overlay + ultraThinMaterial，非 .sheet）.
+            // 任务 E — 进出动画 + trashing 期 disabled + reload stale 推进.
             // zIndex 高于 search overlay (100) → modal 层顺序: QV > dedupOverlay > search > ...
             if duplicateOverviewModel.focusReviewOpen {
+                let isTrashing: Bool = {
+                    if case .trashing = duplicateOverviewModel.trashState { return true }
+                    return false
+                }()
                 DedupFocusReviewOverlay(focusTarget: $focusTarget)
                     .environmentObject(duplicateOverviewModel)
-                    .transition(.opacity)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .allowsHitTesting(!isTrashing)
+                    .opacity(isTrashing ? 0.5 : 1.0)
                     .zIndex(200)
             }
         }
@@ -651,7 +655,7 @@ struct ContentView: View {
         .animation(DS.Anim.fast, value: indexStoreHolder.lastError)
         .animation(DS.Anim.fast, value: indexStoreHolder.featurePrintProgress)
         .animation(DS.Anim.normal, value: showSearchOverlay)
-        .animation(.easeInOut(duration: DS.Dedup.focusOverlayInTransitionDuration), value: duplicateOverviewModel.focusReviewOpen)
+        .animation(.easeOut(duration: DS.Dedup.focusOverlayInTransitionDuration), value: duplicateOverviewModel.focusReviewOpen)
     }
 
     @ViewBuilder
