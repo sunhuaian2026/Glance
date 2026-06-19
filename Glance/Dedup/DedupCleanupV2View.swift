@@ -163,7 +163,7 @@ struct DedupCleanupV2View: View {
 
     private var reviewButton: some View {
         Button {
-            // 任务 D 实装: model.openFocusReview()
+            model.openFocusReview()
         } label: {
             HStack(spacing: DS.Spacing.xs) {
                 Text("逐组审阅")

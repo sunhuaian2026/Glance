@@ -14,7 +14,7 @@ import SwiftUI
 /// 逐组审阅全屏浮层。占满 mainContent ZStack，背景层捕获点击，内层对话框拦截冒泡。
 struct DedupFocusReviewOverlay: View {
     @EnvironmentObject private var model: DuplicateOverviewModel
-    /// D-dedup-15: 父 ContentView 持有的单仲裁焦点，D.3 挂 .focused
+    /// D-dedup-15: 父 ContentView 持有的单仲裁焦点 (D.3 实装)
     @FocusState.Binding var focusTarget: AppFocus?
 
     var body: some View {
@@ -36,6 +36,13 @@ struct DedupFocusReviewOverlay: View {
                 .onTapGesture { }  // consume tap, prevent closing
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // D-dedup-15: 接入既有焦点仲裁链 (mirror SearchOverlayView .focused($focusTarget, .search))
+        .focusable()
+        .focused($focusTarget, equals: .dedupOverlay)
+        .onKeyPress(.leftArrow)  { model.focusReviewPrev();    return .handled }
+        .onKeyPress(.rightArrow) { model.focusReviewNext();    return .handled }
+        .onKeyPress(.return)     { model.focusReviewConfirm(); return .handled }
+        .onKeyPress(.escape)     { model.closeFocusReview();   return .handled }
     }
 
     // MARK: - 对话框卡片
@@ -123,7 +130,7 @@ struct DedupFocusReviewOverlay: View {
                                 member: member,
                                 isKeep: member.id == keepId,
                                 onTap: {
-                                    // D.3 onClick 接 setUserKeep
+                                    model.setUserKeep(groupId: group.id, memberId: member.id)
                                 }
                             )
                         }
@@ -142,7 +149,7 @@ struct DedupFocusReviewOverlay: View {
         HStack(spacing: DS.Spacing.sm) {
             // 上一组
             Button {
-                // D.3 接 model.focusReviewPrev()
+                model.focusReviewPrev()
             } label: {
                 HStack(spacing: DS.Spacing.xs) {
                     Image(systemName: "chevron.left")
@@ -156,7 +163,7 @@ struct DedupFocusReviewOverlay: View {
 
             // 跳过此组
             Button {
-                // D.3 接 model.focusReviewSkip()
+                model.focusReviewSkip()
             } label: {
                 Text("跳过此组")
             }
@@ -164,7 +171,7 @@ struct DedupFocusReviewOverlay: View {
 
             // 确认并继续 / 确认并完成
             Button {
-                // D.3 接 model.focusReviewConfirm()
+                model.focusReviewConfirm()
             } label: {
                 let isLast = model.focusReviewIndex >= model.focusReviewQueue.count - 1
                 HStack(spacing: DS.Spacing.xs) {
