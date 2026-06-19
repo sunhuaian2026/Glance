@@ -112,18 +112,22 @@ struct DedupFocusReviewOverlay: View {
     // MARK: - 主体（大图对比）
 
     private var dialogBody: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 // 提示文字
                 if let group = currentGroup {
-                    Text("保留哪张？点击大图可切换保留张")
+                    Text("保留哪张？点击大图可切换保留张 · 键盘 ← → 切换组 · Enter 确认 · Esc 关闭")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, DS.Dedup.focusDialogPaddingH)
                         .padding(.top, DS.Spacing.sm)
 
-                    // 大图对比 2 列横排
-                    LazyHStack(alignment: .top, spacing: DS.Spacing.md) {
+                    // 大图对比 — 横排自适应 (2 列 flex-wrap)
+                    let columns = [
+                        GridItem(.adaptive(minimum: DS.Dedup.focusLargeImageWidth, maximum: DS.Dedup.focusLargeImageWidth),
+                                 spacing: DS.Spacing.md, alignment: .top)
+                    ]
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: DS.Spacing.md) {
                         ForEach(group.allMembers) { member in
                             let keepId = model.userKeepId(for: group)
                             FocusReviewMemberCell(
@@ -137,10 +141,12 @@ struct DedupFocusReviewOverlay: View {
                     }
                     .padding(.horizontal, DS.Dedup.focusDialogPaddingH)
                     .padding(.bottom, DS.Spacing.md)
+                    .animation(DS.Anim.fast, value: model.userKeepId(for: group))
+                    .animation(DS.Anim.fast, value: model.focusReviewIndex)
                 }
             }
         }
-        .frame(maxHeight: DS.Dedup.focusLargeImageHeight + 80)
+        .frame(maxHeight: DS.Dedup.focusLargeImageHeight + 120)
     }
 
     // MARK: - 底部操作条
