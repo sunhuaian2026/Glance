@@ -638,11 +638,20 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .zIndex(100)
             }
+            // 重复清理 V2 任务 D.2 — 逐组审阅浮层（D6: ZStack overlay + ultraThinMaterial，非 .sheet）.
+            // zIndex 高于 search overlay (100) → modal 层顺序: QV > dedupOverlay > search > ...
+            if duplicateOverviewModel.focusReviewOpen {
+                DedupFocusReviewOverlay(focusTarget: $focusTarget)
+                    .environmentObject(duplicateOverviewModel)
+                    .transition(.opacity)
+                    .zIndex(200)
+            }
         }
         .animation(DS.Anim.fast, value: indexStoreHolder.progress)
         .animation(DS.Anim.fast, value: indexStoreHolder.lastError)
         .animation(DS.Anim.fast, value: indexStoreHolder.featurePrintProgress)
         .animation(DS.Anim.normal, value: showSearchOverlay)
+        .animation(.easeInOut(duration: DS.Dedup.focusOverlayInTransitionDuration), value: duplicateOverviewModel.focusReviewOpen)
     }
 
     @ViewBuilder
