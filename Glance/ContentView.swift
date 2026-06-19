@@ -18,6 +18,9 @@ enum AppFocus: Hashable {
     /// M3 Slice M 加：⌘F 触发的 SearchOverlayView input field 拿焦点时此 case 激活；
     /// modal layer 顺序：QV > search > preview > ephemeral > baseGrid（D16）
     case search
+    /// 重复清理 V2 任务 D 加：逐组审阅浮层打开时激活（D-dedup-15 接入既有仲裁链）。
+    /// modal layer 顺序：QV > dedupOverlay > search > preview > ephemeral > baseGrid
+    case dedupOverlay
 }
 
 // QV 入口来源：用 enum 而非裸 Bool/Optional 让 dismiss 路由按 provenance 走，不依赖
@@ -148,6 +151,8 @@ struct ContentView: View {
     /// duplicateOverviewModel.lastTrashOutcome.id .onChange 触发拷贝 (codex P2(轻量 UUID 比对避深比 BLOB)).
     /// 用户点 banner [×] 或 [撤销] 完成 → onDismiss 清回 nil.
     @State private var trashUndoBanner: TrashOutcomeEvent? = nil
+    /// 重复清理 V2 任务 D.1 — 浮层打开前的焦点快照（关闭时恢复，D-dedup-15 仲裁链）。
+    @State private var previousAppFocus: AppFocus? = nil
     /// banner 30s auto-dismiss timer (cancellable; 进快速看图器 / 切视图不暂停 — D33 简化:
     /// banner 状态保留 30s 内有效, 过期视作用户已忽略)
     @State private var bannerDismissTask: Task<Void, Never>? = nil
@@ -496,6 +501,17 @@ struct ContentView: View {
             // InspectorState.isShown 改(菜单栏触发) → showInspector 同步; guard 避免循环.
             if showInspector != newValue {
                 showInspector = newValue
+            }
+        }
+        // 重复清理 V2 任务 D.1 — 逐组审阅浮层焦点仲裁 (D-dedup-15).
+        // 浮层打开: 记录打开前焦点 → 切到 .dedupOverlay；浮层关闭: 还原之前焦点.
+        .onChange(of: duplicateOverviewModel.focusReviewOpen) { _, isOpen in
+            if isOpen {
+                previousAppFocus = focusTarget
+                focusTarget = .dedupOverlay
+            } else {
+                focusTarget = previousAppFocus ?? .grid
+                previousAppFocus = nil
             }
         }
     }
