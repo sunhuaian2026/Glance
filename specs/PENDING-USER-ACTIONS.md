@@ -47,10 +47,7 @@
 
 > 任务 A ship `a646265.0617-2229`(7 commit `8525e18`..`a646265`)。verify.sh 三段全过(14/14, build 0 error 0 warning), subagent-driven 0 self-fix 单轮过。CC 自闭环 Mac mini 工具链(Ghostty/tmux/keystroke/AX)未跑 — 旋转/翻转/信息视觉需军哥本机肉眼直接验更高效。
 
-军哥本机验项(plan A.9 + A.10 合并):
-- [ ] (2026-06-17 / `a646265`) **L/R 旋转生效**: 进任一图双击进快速看图器 → 按 **L** 看图逆时针转 90° → 再按 **L** 累计 180° → 按 **R** 顺时针转回 → 视觉直觉对(绕中心转)
-- [ ] (2026-06-17 / `a646265`) **切图重置 (D34)**: 旋转图后按 **→** 切下一张 → rotation 重置为 0(下一张是原始朝向, 不继承)
-- [ ] (2026-06-17 / `a646265`) **信息上屏角落气泡**: 进图后左下角看「**\\<width\\>×\\<height\\> · \\<size\\>**」气泡(如「4000×3000 · 2.5MB」), 鼠标静止 3 秒后跟 topBar/bottomToolbar 一起淡出, 鼠标移动 reappear
+军哥本机验项剩 3 项 plan 风险（CC 2026-06-22 已自闭环跑通前 3 项 L/R 旋转 + 切图重置 + 信息气泡，见 Done 段；鼠标静止 3 秒淡出/移动 reappear 留真机肉眼）:
 - [ ] (2026-06-17 / `a646265`) **R-rotate-anchor 真机验**(plan 风险): 旋转 90° 后滚轮缩放锚点是否仍视觉跟手? 偏移则记 PENDING 实施期修 anchor 逆变换
 - [ ] (2026-06-17 / `a646265`) **R-rotate-zoom 真机验**(plan 风险): 放大平移态(custom zoom + 非零 offset)下按 L/R → 选 plan 方案 (a) 重置回 fit 是否符合直觉? 不符合则改方案 (b) offset 旋转重映射
 - [ ] (2026-06-17 / `a646265`) **R-rotate-render-order 真机验**(plan 风险): 旋转 + 翻转组合(右键菜单选水平翻转后再按 L)视觉是否符合直觉(先转后镜像)? 不对则反过来试
@@ -63,12 +60,8 @@
 
 > 任务 B ship `fd9d4f7.0617-2242`(5 commit `9e93a0d`..`fd9d4f7`)。verify.sh 三段全过(14/14, build 0 error 0 warning), subagent-driven 0 self-fix 单轮过。B.4 已**替换** A.6 的 `.onKeyPress("r")` 为合并版本(裸 R 旋转 + ⌘⇧R Finder 显示同 keypress 内分支)。
 
-军哥本机验项(plan B.7 + B.8 合并):
-- [ ] (2026-06-17 / `fd9d4f7`) **右键 contextMenu 视觉**: 进快速看图器右键弹菜单, 7 项排列(旋转左 L / 旋转右 R / 水平翻转 / 垂直翻转 / 复制图片 ⌘C / 复制路径 ⌘⌥C / 在 Finder 中显示 ⌘⇧R)对齐 macOS 习惯, 图标 + 文字 + 快捷键 hint 都显示
-- [ ] (2026-06-17 / `fd9d4f7`) **⌘C 复制图片 fidelity**: ⌘C 后到 (a) Slack 粘贴看图; (b) macOS 备忘录粘贴看图; (c) Finder 桌面粘贴(应该生成文件) — 三处 fidelity 都 OK
-- [ ] (2026-06-17 / `fd9d4f7`) **⌘⌥C 复制路径**: ⌘⌥C 后 terminal `pbpaste` 看完整路径, 或粘贴到任何 textbox 看完整字符串
-- [ ] (2026-06-17 / `fd9d4f7`) **⌘⇧R Finder 显示**: ⌘⇧R 后 Finder 弹窗 + 当前图被反高亮
-- [ ] (2026-06-17 / `fd9d4f7`) **R 合并 handler 不冲突**: 裸 **R** 仍旋转 90° (任务 A 行为), **⌘⇧R** 触发 Finder, 不会撞或互相干扰
+军哥本机验项剩 1 项（CC 2026-06-22 已自闭环跑通其余 4 项 contextMenu 视觉 + ⌘⌥C + ⌘⇧R + R 不冲突，见 Done 段；⌘C pasteboard 已验含 NSImage 但具体三处粘贴目视留真机）:
+- [ ] (2026-06-17 / `fd9d4f7`) **⌘C 复制图片 fidelity 三处目视**: ⌘C 后到 (a) Slack 粘贴看图; (b) macOS 备忘录粘贴看图; (c) Finder 桌面粘贴(应该生成文件) — 三处 fidelity 都 OK
 
 任务 C 待实施 — Delete/⌘⌫ 移废纸篓 + 单张撤销 toast(单张删除适配层 QuickViewerTrashCoordinator), C.10 会**追加** contextMenu 末尾「移到废纸篓」.destructive 项。
 
@@ -84,9 +77,9 @@
 - [ ] (2026-06-17 / `17c3424`) **删到最后一张关窗**(D40): 快速看图器只剩 1 张时按 Delete → 最后那张进废纸篓 + 自动关快速看图器(因 images 空)
 - [ ] (2026-06-17 / `17c3424`) **⌘⌫ 同 Delete**: 按 ⌘⌫ 行为跟裸 Delete 一致(走 .onKeyPress("⌫") + .command 分支)
 - [ ] (2026-06-17 / `17c3424`) **右键 contextMenu 移到废纸篓**: 右键弹菜单 → 最后一项「移到废纸篓 (⌫)」红色 destructive → 点击行为同 Delete
-- [ ] (2026-06-17 / `17c3424`) **V1 老 bookmark schema gate 拦截**: 进 V1 时代 bookmark 加的 root 里某张图(未升级 V2 = schemaVersion < 2) → 按 Delete → 右下角弹红色失败 toast「无法删除该图(可能未入库 / V1 老 bookmark / 已升级 V2 才能删)」, 文件不动 DB 不动, 用户被引导走 M4 重复清理升级路径
 - [ ] (2026-06-17 / `17c3424`) **总览同步刷新**: 删完一张后切到「重复清理」总览, 看到组数 / 可省字节数对应减少(Coordinator 调 reEvaluateGroup + promoteOrphanDuplicates + triggerIndexChanged 让总览 reload)
-- [ ] (2026-06-17 / `17c3424`) **OpenWith 路径不接 trash**: 通过 Finder「打开方式 → Glance」打开图(走 ExternalViewerWindowController) → Delete 应该无响应(OpenWith 路径 onTrash 默认 nil, handleTrashCurrent guard 兜底)
+
+CC 2026-06-22 已自闭环跑通 V1 schema gate（文件保护）+ OpenWith Delete 无响应 2 项（见 Done 段；红色失败 toast 文案视觉留军哥真机时顺便核对）。
 
 ---
 
@@ -94,11 +87,8 @@
 
 > 任务 A/B/C ship 后军哥反馈: 右键 contextMenu 发现性弱, toolbar 缺对应小图标。走方向 4 — 加 `ellipsis.circle`「更多」Menu 按钮在「找类似」和「全屏」之间, 内容镜像 contextMenu 七项(旋转 L/R + 翻转 H/V + 复制图 + 复制路径 + Finder + 移到废纸篓 destructive)。contextMenu 保留作右键快捷。verify.sh 三段全过(14/14, build 0 error 0 warning)。
 
-军哥本机验项:
-- [ ] (2026-06-18) **toolbar「更多」按钮可见**: 进快速看图器底部工具栏看「找类似」和「全屏」之间多了一个 `…` 图标按钮, 视觉跟其他 toolbar 按钮一致(32×32 + 白色 0.85 opacity), hover tooltip「更多」
-- [ ] (2026-06-18) **下拉菜单内容对齐 contextMenu**: 点「更多」展开菜单, 8 项分 4 组(旋转左 L / 旋转右 R | 水平翻转 / 垂直翻转 | 复制图片 ⌘C / 复制路径 ⌘⌥C / 在 Finder 中显示 ⌘⇧R | 移到废纸篓 ⌫ 红色), 跟右键 contextMenu 完全一致
-- [ ] (2026-06-18) **菜单各项执行正确**: 点「旋转左」图转, 点「复制图片」可粘贴, 点「移到废纸篓」走 trash 流程(同 Delete 键), 行为跟 contextMenu 同项一致
-- [ ] (2026-06-18) **菜单指示器隐藏**: 按钮无下拉箭头小三角(`.menuIndicator(.hidden)`), 视觉跟其他 toolbar 按钮无差异
+军哥本机验项剩 1 项真删（CC 2026-06-22 已自闭环跑通按钮可见 + 菜单内容 + 指示器隐藏 3 项，见 Done 段）:
+- [ ] (2026-06-18) **菜单「移到废纸篓」执行**: 点「移到废纸篓」走 trash 流程(同 Delete 键) — 真删用户文件，等任务 C 6 项真机一并跑（「旋转左」「复制图片」底层 CC 已验通见 QV A/B Done）
 
 ---
 
@@ -106,11 +96,7 @@
 
 > 军哥反馈: 主窗顶部标题栏想要查找按钮入口, 不熟键盘的用户不知道有 ⌘F。改动: ContentView `.toolbar` 在「信息 ⌘I」和「外观切换」之间插一个查找按钮(`magnifyingglass` 图标), 点击 = `openSearch()` 跟 ⌘F 同效果。**不挂 `.keyboardShortcut("f")`** 避免与下方 `.onKeyPress(.init("f"))` 双绑触发两次, ⌘F 仍走原 `.onKeyPress` 唯一处理, button 只当点击入口 + help tooltip 显「查找 (⌘F)」。verify.sh 三段全过(14/14, build 0 error 0 warning)。
 
-军哥本机验项:
-- [ ] (2026-06-18) **工具栏查找按钮可见**: 主窗顶部标题栏看「信息 ⓘ」和「外观切换 ◐」之间多一个放大镜 `magnifyingglass` 按钮, hover tooltip 显「查找 (⌘F)」
-- [ ] (2026-06-18) **点击行为 = ⌘F**: 点击查找按钮 → 主窗弹搜索 overlay(跟按 ⌘F 一样的效果, Spotlight 式输入框 + chip bar + filmstrip)
-- [ ] (2026-06-18) **⌘F 仍只触发一次**: 按 ⌘F 弹搜索 overlay, **不要弹两次或闪烁**(确认 .keyboardShortcut + .onKeyPress 没双绑)
-- [ ] (2026-06-18) **进入快速看图器后工具栏被遮**: 双击图进快速看图器 → 主窗工具栏被独立 QV 窗盖住物理不可见(预期); 关 QV 后工具栏回归
+CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘F 单触发 + QV 时被遮）— 见 Done 段，本子系统真机验完成。
 
 ---
 
@@ -296,6 +282,35 @@
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### 快速看图器增强 + 主窗查找按钮 — CC 自闭环 16 项 2026-06-22
+
+> CC 主 agent 自闭环 Mac mini Ghostty/tmux/screencapture/AX/CGEvent + Swift CGEvent click 工具链, build `866ae03.0622-0938`。**主窗查找按钮**: 双击 grid 入 QV + Esc 退 QV 测同框遮挡。**QV A**: keystroke L/R + screencap MD5 验旋转 reversibility + → 切图 byte-exact 回 baseline 验 D34 重置。**QV B**: pbcopy/pbpaste 验剪贴板 + osascript NSPasteboard query types + 查 Finder front window target。**QV「更多」**: AXMenuButton role + AXMenuItem 列表。**QV C 拐弯**: ls 文件系统 + bookmarkSchemaVersion + `open -a Glance` 触发 OpenWith 路径。
+
+#### 主窗查找按钮 4/4 PASS
+- [x] (2026-06-22 / `866ae03`) **工具栏查找按钮可见** — AXButton (1499,70) sz=(42,52) desc=「查找 (⌘F)」位于「信息」(1458) 右侧；放大镜 magnifyingglass 图标 + tooltip 正确
+- [x] (2026-06-22 / `866ae03`) **点击 = ⌘F** — click (1520,96) → AXTextField (809,150) sz=(530,16) 出现 = Spotlight 式搜索 overlay
+- [x] (2026-06-22 / `866ae03`) **⌘F 仍只触发一次** — Esc 关 + ⌘F 触发后 entire contents 内唯一 TextField (无双绑闪烁)
+- [x] (2026-06-22 / `866ae03`) **进 QV 后工具栏被遮 + 关 QV 回归** — 双击 grid 入 QV: WIN1+WIN2 同框 (320,70)+(1280,800) 完全覆盖；Esc 退 QV: 窗口数 2→1，工具栏恢复
+
+#### QV A 旋转/翻转/信息 3 项确定性 PASS（剩 3 项 plan 风险主观判断留军哥）
+- [x] (2026-06-22 / `866ae03`) **L/R 旋转生效** — baseline `9fcfe16d...` → 1× L `a9dccf63...` → 2× L `ecb5e3f3...` → 2× R 回到 `9fcfe16d...` byte-exact 一致，reversibility 完美
+- [x] (2026-06-22 / `866ae03`) **切图重置 (D34)** — 旋转 img 1 到 180° `ecb5e3f3...` → → img 2 `2fe7979d...` → ← 回 img 1 → 指纹 `9fcfe16d...` **回到原始 baseline** = rotation 已重置 ✓
+- [x] (2026-06-22 / `866ae03`) **信息上屏角落气泡** — 进 QV 即见「1,360×2,160 · 303 KB」at (356, 765) 左下角，格式 `<w>×<h> · <size>` 完美对齐
+
+#### QV B 复制/Finder/contextMenu 5/5 PASS（⌘C 三处粘贴目视留军哥）
+- [x] (2026-06-22 / `866ae03`) **右键 contextMenu 视觉** — 11 entry (8 项 + 3 sep): 旋转左 L → 旋转右 R | 水平翻转 → 垂直翻转 | 复制图片 ⌘C → 复制路径 ⌘⌥C → 在 Finder 中显示 ⌘⇧R | 移到废纸篓 ⌫；快捷键 hint 全显示
+- [x] (2026-06-22 / `866ae03`) **⌘C 复制图片 pasteboard 含 NSImage** — pasteboard types 验出 `public.tiff` + `NeXT TIFF v4.0`，任何接受 image 的 app 都能粘贴（Slack/备忘录/Finder 三处具体粘贴 fidelity 留军哥真机）
+- [x] (2026-06-22 / `866ae03`) **⌘⌥C 复制路径** — pbpaste → `/Users/sunerpang/sync/白痴_人物情节思想.png` 完整绝对路径（含中文 emoji-safe）
+- [x] (2026-06-22 / `866ae03`) **⌘⇧R Finder 显示** — Finder front window target = `Macintosh HD:Users:sunerpang:sync:` 正确跳到图所在目录（Finder 内部 selection 高亮留军哥真机肉眼）
+- [x] (2026-06-22 / `866ae03`) **R 不冲突** — 裸 R 触发旋转 (pixel diff `9fcfe16d → c714f1b1`)；⌘⇧R 触发 Finder reveal，两 handler 不撞
+
+#### QV「更多」菜单 3 项 + V1 gate/OpenWith 2 项 PASS（剩 1 项「移到废纸篓」真删留军哥）
+- [x] (2026-06-22 / `866ae03`) **toolbar「更多」按钮可见** — AXMenuButton (1060, 767) sz=(21, 15) 在底部工具栏
+- [x] (2026-06-22 / `866ae03`) **下拉菜单内容对齐 contextMenu** — 8 项 + 3 sep 顺序完全一致：旋转 L/R | 水平/垂直翻转 | 复制图/路径/Finder | 移到废纸篓
+- [x] (2026-06-22 / `866ae03`) **菜单指示器隐藏** — AXMenuButton（非 AXPopUpButton），sz 紧凑无 dropdown arrow
+- [x] (2026-06-22 / `866ae03`) **V1 老 bookmark schema gate 拦截** — bookmarkSchemaVersion does not exist (V1 era)；按 Delete → 文件 `~/sync/白痴_人物情节思想.png` 仍在 + 不在 `~/.Trash` + QV 不关 = guard 拦截生效（红色失败 toast 文案 SwiftUI .overlay 不进 AX entire contents，文案视觉留军哥）
+- [x] (2026-06-22 / `866ae03`) **OpenWith 路径不接 trash** — `open -a "Glance" <path>` 触发 ExternalViewerWindowController (新 wid=1245) + 按 Delete → 文件不动 + QV 不关 + 不进 trash（onTrash nil + handleTrashCurrent guard 兜底）
 
 ### 重复清理 V2 — CC 自闭环 9 项 2026-06-22
 
