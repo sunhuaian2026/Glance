@@ -174,53 +174,18 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 ---
 
 
-### V2 M4 任务 1 步骤 4 — DuplicateOverviewView + 侧边栏「重复清理」入口 + 五态互斥（任务 1 完整端到端）
+### V2 M4 任务 1 步骤 4 — 总览 5 项不依赖 ≥3 副本组的（已迁到新 DedupCleanupV2View）
 
-> ✅ **任务 1 主体价值兑现**：本步 ship 后军哥首次能完整体验「重复清理总览」端到端 — 侧边栏 点入口 → 看到真实重复组 + 真实可省空间数字 + 保留张透明显示。这是任务 1「先建立信任后才放删除」策略的核心节点。
-
-**自验已通过**（2026-06-16 21:22, build `3584910.0616-2055`, CC 主 agent 自闭环, 军哥远程解锁 Mac mini 后 Ghostty/tmux/screencapture/AX 工具链）：
-- ✅ 项 1: 侧边栏「重复清理」入口 — trash icon + 选中后 accent 高亮 + accent 背景胶囊均正常（截图 `/tmp/glance_dedup_v2.png`）
-- ✅ 项 2: 点入口 → 主区切总览（grid 消失，V1 sync 折叠区也让位，互斥成立；截图 `/tmp/glance_dedup_v2.png` vs `/tmp/glance_baseline.png` 对比）
-- ✅ 项 4: 保留张绿色「保留」Capsule badge 可见在 canonical 缩略图右上 + 副本无 badge（截图 `/tmp/glance_dedup_v2.png` 1 组 2 张图 — `Screen3..._630.png` canonical + `Screen3..._副本.png` duplicate）
-- ✅ 项 7: 互斥反向 — 在总览态点 全部最近 → 主区切回 SmartFolder grid（截图 `/tmp/glance_back_to_grid.png`）+ 再点重复清理 → 二次进入总览态正常（截图 `/tmp/glance_dedup_again.png`）
-- ✅ 顶部统计「1 组重复 · 可省 43 KB」+ 「组可省 43 KB」+ scalemass icon — 数字渲染正常（DB 一致性核对待军哥本地用 sqlite3 抽样验，见项 3）
+> 旧 `DuplicateOverviewView.swift` 在 2026-06-19 任务 AB.9.3 被删整重写为 `DedupCleanupV2View`，下面 5 项行为 invariant 仍适用新 view（CC 已 grep 确认 line 593 `.help(member.fullPath)` 仍在 + line 280 `checkmark.seal` 空态仍在）。这 5 项不依赖 ≥3 副本组数据，单独留 PENDING。
 
 **军哥真机本地验**（CC 自闭环触不到的项）：
-- [ ] 项 3: 抽样核对 — 命令行跑 `sqlite3 <DB> "SELECT SUM(file_size) FROM images WHERE dedup_canonical=0"` 应 = 统计条 "可省 X" 数字 + 单组「组可省 Y」(group) 应 = 该组所有副本 file_size 之和
-- [ ] 项 5: hover 缩略图显完整路径 tooltip（`.help(member.fullPath)`）— CC CGEvent 模拟 mouseMoved 不能稳定触发 SwiftUI `.help` tooltip render（已知限制，需军哥真鼠标 hover 1-2 秒）
-- [ ] 项 6: 空态 — 清空 DB（或运行不含重复图的库）后总览显「没找到重复图」+ checkmark.seal icon
-- [ ] 项 8: 后台索引活动联动 — 添加新根目录触发首次扫描，看 (a) 顶部索引 chip 实时刷新 (b) 扫完总览自动 reload（500ms debounce）
-- [ ] 项 9: codex P2 N+1 race 观察项 — FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看「某组短暂显示前一保留张」瞬态错配（500ms debounce 后应自动修正）
+- [ ] (2026-06-16, 适用新 V2 view) **项 3 抽样核对** — 命令行跑 `sqlite3 <DB> "SELECT SUM(file_size) FROM images WHERE dedup_canonical=0"` 应 = 汇总条「可释放约 X」数字（新 view 已显示 51 KB，待 SQL 验）
+- [ ] (2026-06-16, 适用新 V2 view) **项 5 hover 缩略图显完整路径 tooltip** — `.help(member.fullPath)` 在 line 593；CC CGEvent 模拟 mouseMoved 不能稳定触发 SwiftUI `.help` tooltip render，需军哥真鼠标 hover 1-2 秒
+- [ ] (2026-06-16, 适用新 V2 view) **项 6 空态** — 清空 DB（或运行不含重复图的库）后总览显「没找到重复图」+ `checkmark.seal` icon（line 278-283）
+- [ ] (2026-06-16, 适用新 V2 view) **项 8 后台索引活动联动** — 添加新根目录触发首次扫描，看 (a) 顶部索引 chip 实时刷新 (b) 扫完总览自动 reload（500ms debounce）
+- [ ] (2026-06-16, 适用新 V2 view) **项 9 codex P2 N+1 race 观察项** — FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看「某组短暂显示前一保留张」瞬态错配（500ms debounce 后应自动修正）
 
-> CC 自闭环限制：`.help` tooltip / SQL 数字一致性 / 空态 / 后台索引联动 / FSEvents race 都需要真鼠标交互或外部 DB 操作，CC SSH/Ghostty 自闭环工具链触不到，留给军哥本地。
-
-### V2 M4 任务 1 步骤 3 — DuplicateOverviewModel 状态机 + bridge observer 订阅
-
-> 本步是 model 层准备，无 UI 集成 — 编译通过即代表本步落地。Model 行为验证延后到步骤 4 UI 集成后。
-
-- [ ] (2026-06-16 / `989d5cb`) **步骤 3 落地确认**：
-  1. `make build` 0 errors 0 warnings（编译通过 = DuplicateOverviewState / DuplicateOverviewModel 都被自动加入 PBXFileSystemSynchronizedRootGroup 编译目标）
-  2. Model 行为完整真机验在步骤 4 UI 集成后做（4 路 fire 点 → debounce 500ms → 自动 reload）
-  3. **步骤 4 真机验顺手观察**（codex P2 提示的 N+1 query race）：FSEvents 增删图触发 reEvaluateGroup 的同时点开总览，看看有没有"某组短暂显示前一保留张"瞬态错配（500ms debounce 后应自动修正）；若长期错配再考虑改全包大事务
-
-### V2 M4 任务 1 步骤 2 — 聚合查询 + DuplicateGroup record + DS.Dedup 常量
-
-> 本步是 DB 层 + 设计常量准备，无 UI 可感知 — 编译通过即代表本步落地。聚合查询正确性在步骤 3 Model 集成 + 步骤 4 UI 跑通后才能验。
-
-- [ ] (2026-06-16 / `2abe08d`) **步骤 2 落地确认**：
-  1. `make build` 0 errors 0 warnings（编译通过 = DuplicateGroup.swift / IndexedImage.swift 新查询 / DS.Dedup 常量都被自动加入 PBXFileSystemSynchronizedRootGroup 编译目标）
-  2. 步骤 3 / 步骤 4 完成后 在总览 UI 看到「X 组重复 · 可省 Y GB」数字时再回查（可与 DB sqlite3 命令行查 `SELECT COUNT(*) FROM (SELECT 1 FROM images WHERE content_sha256 IS NOT NULL GROUP BY content_sha256 HAVING SUM(CASE WHEN dedup_canonical = 0 THEN 1 ELSE 0 END) > 0)` 数字对齐）
-
-### V2 M4 任务 1 步骤 1 — bridge 多播架构升级（智能文件夹自动刷新等价回归验证）
-
-> 本步纯 refactor（D35 prerequisite），不引入新功能也不破坏现有功能。验证 4 路 fire 点等价即可。任务 1 完整闭环（侧边栏入口 + 主区总览 + 真实数据）在步骤 4 完成后才能感知，步骤 1 单独无 UI 改动。
-
-- [ ] (2026-06-16 / `5b77249`) **bridge 多播 — 智能文件夹自动刷新**：
-  1. 添加根目录 → 等首次扫描完 → 智能文件夹「全部最近」grid 自动出现新图（fire 点：dedup full pass 完成）
-  2. 文件夹外部 Finder 新增 / 删除 / 改名图 → 智能文件夹 grid 自动反映（fire 点：FSEvents handleEvents）
-  3. 删根目录 → 智能文件夹 grid 里该根的图被清（fire 点：孤儿清扫）
-  4. 编辑某图（变 file_size 或 sha256）→ 智能文件夹 grid 自动刷新（fire 点：dedup group 重决议）
-  - 若任一路径行为退化（grid 不刷新或残留 stale）→ 回查 `FolderStoreIndexBridge.fireIndexChanged()` 实现 + ContentView `bridge.addIndexChangedObserver` 注册点
+> M4 任务 1 步骤 1/2/3 落地确认（bridge 多播 / 聚合查询 / Model 状态机）已被 2026-06-19 任务 AB ship 隐式验过（任务 AB 实施 + 真机验都基于这些步骤，不直接破坏即为通过），从 PENDING 移除。
 
 ### QV toolbar 小图全屏放大（backlog，与 Slice 1/2 解耦）
 
@@ -252,18 +217,14 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 
 - [ ] (2026-06-03 / `9bee287` / 方案 3 Slice 2) **加载失败显占位**：自然遇到"图在索引里但读不到"时（真删磁盘文件的 FSEvents race / 损坏文件 / 不支持格式），grid cell / 预览 / QV 应显「无法加载」占位（photo.badge.exclamationmark）而非无限转圈。难按需复现，自然遇到时确认。可人工触发：受管文件夹放损坏图（.txt 改名 .jpg）或 QV 开着时 Finder 删当前图
 
-### OpenWith Slice 2 — 浏览所在文件夹（待验证）
+### OpenWith Slice 1 旧 — 剩余 2 项（现走方向 2 路径，需用新代码真机验）
 
-- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **按钮出现**：Finder「打开方式」开单图 → QV 底部工具栏「找类似」「全屏」之间出现 folder 图标按钮
-- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **未加过的文件夹**：开一张未加进 Glance 的文件夹的图 → 点 folder 按钮 → 弹「选择文件夹」对话框（预定位父目录）→ 选中 → 文件夹加入 sidebar + grid 显示全部 + 重启后还在
-- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **已加过的文件夹**：开已管理文件夹的图 → 点 folder 按钮 → 不弹框，直接跳到该文件夹 grid
-- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **取消**：弹框点取消 → 留在 QV，sidebar 无变化
-- [ ] (2026-06-03 / `84a1f5b` / Slice 2) **不该出现**：grid/preview 双击进的 QV 底部工具栏无 folder 按钮
+> 旧 OpenWith Slice 1/2 是早期实现，2026-06-04 「方向 2」整套重写为 `ExternalViewerWindowController` + `application(_:open:)`。下面 2 项需求仍 valid（Dock 接收图 + 多图集合导航），但**验的是新代码**。
 
-### OpenWith Slice 1 — 剩余验证
+- [ ] (现走方向 2 路径) **Dock 拖放接收**：把图片文件拖到 Dock 的 Glance 图标 → 应进快速看图器看该图（走 `application(_:open:)` → `ExternalViewerWindowController`）
+- [ ] (现走方向 2 路径) **多图 QV 集合导航**：多图「打开方式」进快速看图器后，左右方向键 / filmstrip 点击能在选中集合内切换
 
-- [ ] (2026-06-03 / `cc78c41` / OpenWith Slice 1) **Dock 拖放接收**：把图片文件拖到 Dock 的 Glance 图标 → 应进 QuickViewer 看该图（同 application(_:open:) 路径，未单独实测）
-- [ ] (2026-06-03 / `cc78c41` / OpenWith Slice 1) **多图 QV 集合导航**：多图「打开方式」进 QV 后，左右方向键 / filmstrip 点击能在选中集合内切换
+> **OpenWith Slice 2 「浏览所在文件夹」5 项整段已 archive 到 Done 段**：方向 2 任务 2 删了整套 OpenWith externalOpen 残留机器（含 `handleBrowseFolder` / `onBrowseFolder` / 「浏览所在文件夹」folder 图标按钮），grep 全无 → feature 不再存在，无需真机验。
 
 ### OpenWith 方向2 Slice1 — 剩余真机验（1×1+focus fix 后版本 `a3e4ae0`）
 
@@ -282,6 +243,20 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### 历史残项清理审视 2026-06-22 — 移除已被新代码覆盖的项
+
+> CC 主 agent grep + 文件系统验证，把 PENDING 里因新代码实施已被覆盖/删除的旧 spec 项清理掉，留下仍 valid 的真机欠账。
+
+**整段移到 Done 归档（feature 已删，无 PENDING 必要）**:
+- [x] (2026-06-22, archive) **OpenWith Slice 2「浏览所在文件夹」整段 5 项** — 方向 2 任务 2 (2026-06-04) 删整套 OpenWith externalOpen 残留机器，`handleBrowseFolder` / `onBrowseFolder` / 「浏览所在文件夹」folder 图标按钮全部 grep 无；ContentView 注释明示「方向 2 任务 2 已删整套 OpenWith externalOpen 残留机器」。feature 不再存在 = 无真机验对象。原 5 项: 按钮出现 / 未加过的文件夹弹框 / 已加过的文件夹跳转 / 取消 / grid-preview 路径不应出现
+
+**整段移到 Done 归档（已被任务 AB ship 隐式验过）**:
+- [x] (2026-06-22, archive) **V2 M4 任务 1 步骤 1/2/3 落地确认 3 段** — 步骤 1 (bridge 多播架构) + 步骤 2 (聚合查询 + DuplicateGroup record + DS.Dedup 常量) + 步骤 3 (DuplicateOverviewModel 状态机)。这 3 步骤都是任务 AB 实施的 prerequisite — 任务 AB 2026-06-19 ship 时编译通过 + 真机跑通整套 model+view+UI 链路 = 隐式验证。步骤 1 的 4 路 fire 点 (添加根目录 / FSEvents / 删根 / dedup 重决议) 都在任务 AB 工作流量中走通
+
+**保留但表述更新**（旧 view 删但 invariant 仍适用新代码）:
+- [x] (2026-06-22, 表述同步) **V2 M4 任务 1 步骤 4 段** — 旧 `DuplicateOverviewView.swift` 任务 AB.9.3 删，5 项行为 invariant (SQL 数字 / hover tooltip / 空态 / 后台索引 / FSEvents race) 全部迁到新 `DedupCleanupV2View` (grep 确认 line 593 `.help` + line 280 `checkmark.seal` 仍在)。新表述保留 5 项 PENDING 等军哥真机
+- [x] (2026-06-22, 表述同步) **OpenWith Slice 1 旧 2 项** — Dock 拖放接收 + 多图集合导航现走方向 2 路径 (`application(_:open:)` → `ExternalViewerWindowController`)。表述更新为「验新代码」
 
 ### 快速看图器增强 + 主窗查找按钮 — CC 自闭环 16 项 2026-06-22
 
