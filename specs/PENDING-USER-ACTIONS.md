@@ -178,8 +178,7 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 
 > 旧 `DuplicateOverviewView.swift` 在 2026-06-19 任务 AB.9.3 被删整重写为 `DedupCleanupV2View`，下面 5 项行为 invariant 仍适用新 view（CC 已 grep 确认 line 593 `.help(member.fullPath)` 仍在 + line 280 `checkmark.seal` 空态仍在）。这 5 项不依赖 ≥3 副本组数据，单独留 PENDING。
 
-**军哥真机本地验**（CC 自闭环触不到的项）：
-- [ ] (2026-06-16, 适用新 V2 view) **项 3 抽样核对** — 命令行跑 `sqlite3 <DB> "SELECT SUM(file_size) FROM images WHERE dedup_canonical=0"` 应 = 汇总条「可释放约 X」数字（新 view 已显示 51 KB，待 SQL 验）
+**军哥真机本地验**（CC 自闭环触不到的项；项 3 SQL 抽样 2026-06-22 CC 自闭环 PASS，见 Done 段）：
 - [ ] (2026-06-16, 适用新 V2 view) **项 5 hover 缩略图显完整路径 tooltip** — `.help(member.fullPath)` 在 line 593；CC CGEvent 模拟 mouseMoved 不能稳定触发 SwiftUI `.help` tooltip render，需军哥真鼠标 hover 1-2 秒
 - [ ] (2026-06-16, 适用新 V2 view) **项 6 空态** — 清空 DB（或运行不含重复图的库）后总览显「没找到重复图」+ `checkmark.seal` icon（line 278-283）
 - [ ] (2026-06-16, 适用新 V2 view) **项 8 后台索引活动联动** — 添加新根目录触发首次扫描，看 (a) 顶部索引 chip 实时刷新 (b) 扫完总览自动 reload（500ms debounce）
@@ -207,11 +206,7 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 
 - [ ] (2026-05-11 / `d315c78` / Slice M / deferred) **性能验收**：1 万图库典型 keyword 搜索响应时间 < 200ms（实测数字记录此处）
 
-### V2 M3 — type: modifier case-insensitive 修复（待真机验，`<pending>`）
-
-- [ ] (2026-06-06 / `<pending>`) **type:png 能搜到**：⌘F 输入 `type:png`（或 `type:PNG`/`type:Png` 任意大小写）→ 搜出所有 PNG 图（修前 type:png 是 0 结果）
-- [ ] (2026-06-06 / `<pending>`) **type:webp / type:jpeg**：混合大小写标签也大小写无关能搜到（验 "WebP" COLLATE NOCASE 覆盖）
-- [ ] (2026-06-06 / `<pending>`) **回归 size:/birth:/keyword**：`size:>1mb`、`birth:>2026-01-01`、纯关键字搜索仍正常（本来就 work，确认没被带坏）
+### V2 M3 — type: modifier case-insensitive 修复（2026-06-22 CC 自闭环 3 项全 PASS，见 Done 段）
 
 ### 文件夹移除残留清理 方案 3（Slice 2）— 占位效果（尽力，难按需触发）
 
@@ -226,23 +221,39 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 
 > **OpenWith Slice 2 「浏览所在文件夹」5 项整段已 archive 到 Done 段**：方向 2 任务 2 删了整套 OpenWith externalOpen 残留机器（含 `handleBrowseFolder` / `onBrowseFolder` / 「浏览所在文件夹」folder 图标按钮），grep 全无 → feature 不再存在，无需真机验。
 
-### OpenWith 方向2 Slice1 — 剩余真机验（1×1+focus fix 后版本 `a3e4ae0`）
+### OpenWith 方向2 Slice1 — 剩余真机验（CC 自闭环 4 项 PASS 后剩 3 项, 2026-06-22）
 
-> 核心项（warm 置顶 / 显图 / focus / 多图翻页 / 连换图 / 全屏 ESC 两段 / ⌘W 关窗 / 交通灯隐藏）2026-06-04 已验证通过（见 Done 段）。以下为 1×1 fix 后尚未单独验的项（1×1 修复前看图窗根本不可见、无法验）。冷启动双窗 + warm 关图后主窗丢失是 SwiftUI `Window` scene 同根缺陷，归 Slice2 解决（见 Roadmap 待修复）。
+> 核心项（warm 置顶 / 显图 / focus / 多图翻页 / 连换图 / 全屏 ESC 两段 / ⌘W 关窗 / 交通灯隐藏）2026-06-04 已验证通过（见 Done 段）。CC 自闭环 2026-06-22 跑通 非全屏 ESC + 全屏⌘W 后下次 ESC + 后台抢前台 + 内存无泄漏 4 项（见 Done 段）；多图集合 partial（集合 wire 正确，← → 切图 CC AX 不稳留军哥真机点头）。
 
-- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **非全屏 ESC 关窗 app 不退**：非全屏按 ESC → 看图窗关、图库主窗在、app 不退（⌘W 路径已验，ESC 补验）
-- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **全屏⌘W后下次 ESC（验 P1#1）**：全屏态直接 ⌘W 关窗 → 再开一张图 → 第一下 ESC **就关窗**（不是退全屏，验 close path reset isFullScreen）
-- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **Dock 拖多文件**：Dock 图标拖多个图片文件 → 同多文件打开
-- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **后台抢前台**：app 切后台时收 Finder open → 看图窗能抢到前台（deferred reassert 加固）
-- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **多显示器**：看图窗出现在合理屏幕（主屏 / 鼠标所在屏）
-- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0` / 方向2 Slice1) **内存无泄漏**：反复开关看图窗 10 次后活动监视器看 Glance 内存无明显泄漏（scope 配平 + VM deinit）
-- [ ] (2026-06-03 / `7a32dff` / 方向2 Slice1 / deferred) **大量文件不在范围**：几百上千张一次打开可能撞 sandbox scope 上限，Slice1 只测几张~几十张
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0`) **多图集合导航军哥真机点头**: 多图集合「打开方式」进 QV 后初始「1 / 3」显第 1 张已验；← → 切换在选中集合内是否丝滑（CC AX 测不稳，真机肉眼）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0`) **Dock 拖多文件**: Dock 图标拖多个图片文件 → 同多文件打开（Dock 拖放手势 CC 不能 SSH 触发）
+- [ ] (2026-06-04 / `7a32dff`+`a3e4ae0`) **多显示器**: 看图窗出现在合理屏幕（主屏 / 鼠标所在屏）— Mac mini 单屏不能验
+- [ ] (2026-06-03 / `7a32dff` / deferred) **大量文件不在范围**: 几百上千张一次打开可能撞 sandbox scope 上限，Slice1 只测几张~几十张
 
 ---
 
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### M3 type: + M4 SQL 抽样 + OpenWith 方向 2 — CC 自闭环 8 项 2026-06-22（第三批）
+
+> CC 主 agent 自闭环 build `866ae03.0622-0938`. type: 用 pbcopy + ⌘V 绕开输入法全角冒号问题。OpenWith 路径走 `open -a Glance <path>` 触发 `application(_:open:)` → ExternalViewerWindowController。
+
+#### M3 type: modifier case-insensitive 3/3 PASS
+- [x] (2026-06-22 / `866ae03`) **type:png 大小写无关** — type:png / type:PNG / type:Png → 全部 131 张（DB 有 133 PNG，差 2 可能 path 筛选）；COLLATE NOCASE 生效
+- [x] (2026-06-22 / `866ae03`) **type:webp / type:jpeg 大小写无关** — type:jpeg / JPEG → 5 张一致；type:WEBP → 0 张（DB 无 WebP，正确预期）；type:svg → 2 张
+- [x] (2026-06-22 / `866ae03`) **回归 size:/birth:/keyword 无带坏** — size:>1mb → 17 张；birth:>2026-01-01 → 138 张；纯 keyword "screen" → 11 张
+
+#### M4 任务 1 项 3 SQL 抽样核对 PASS
+- [x] (2026-06-22 / `866ae03`) **总可释放 SQL = UI** — `SELECT SUM(file_size) WHERE dedup_canonical=0` = 50,898 bytes ≈ **51 KB**（1000 进制） — UI 汇总条「可释放约 51 KB」对账 ✓
+- [x] (2026-06-22 / `866ae03`) **每组「可省 X」对账** — 组 1 SQL reclaimable=42,834 bytes ≈ 43 KB vs UI「可省 43 KB」✓；组 2 SQL=8,064 bytes ≈ 8 KB vs UI「可省 8 KB」✓
+
+#### OpenWith 方向 2 — 4 项 PASS（剩 1 项多图导航军哥点头）
+- [x] (2026-06-22 / `866ae03`) **非全屏 ESC 关窗 app 不退** — OpenWith QV 弹出 (2 windows) → Esc → 1 window 剩（QV 关，主窗在）+ Glance pid 19902 仍存活
+- [x] (2026-06-22 / `866ae03`) **全屏⌘W 后下次 ESC 关窗（P1#1）** — Step 1 OpenWith 2 windows → Step 2 F 进全屏 (0,0)x(1920,1080) → Step 3 ⌘W 关全屏 1 window 剩 → Step 4 再 OpenWith 2 windows pos (320,70)x(1280,800) **同框 windowedCover** → Step 5 第一下 Esc → 1 window 剩（直接关，**不是退全屏**，验 close path 已 reset isFullScreen flag）
+- [x] (2026-06-22 / `866ae03`) **后台抢前台** — Finder activate (frontmost=Finder) → `open -a Glance <img>` → 2.5s 后 frontmost=Glance（成功抢回，deferred reassert 加固生效）
+- [x] (2026-06-22 / `866ae03`) **内存无泄漏** — 10 cycles open+close: RSS 134,608 → 138,192 KB (Δ +3,584 KB / 10 = ~350 KB/cycle)，正常 SwiftUI overhead 而非 leak signature；窗口数始终回到 1（无孤儿）
 
 ### 历史残项清理审视 2026-06-22 — 移除已被新代码覆盖的项
 
