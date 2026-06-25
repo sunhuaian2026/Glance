@@ -309,12 +309,16 @@ struct ContentView: View {
         // 经 onDismiss(reason, entry) 回调到 handleQVDismiss 仲裁，不再走 .overlay + onChange。
         // M3 Slice M：body 级 ⌘F → openSearch（QV 不在场景下生效；QV 在时焦点在 QV，
         // QV 自己的 .onKeyPress(F) 处理 ⌘F，分支调 onCommandF 走 ContentView.openSearch）
+        // 2026-06-25 修：不带修饰键的 F 加 fallback toggleFullScreen，覆盖子 view 没挂 F handler
+        // 的场景（DedupCleanupV2View / EphemeralResultView）。SwiftUI .onKeyPress 走冒泡，子 view
+        // 返回 .handled 时不冒泡到这里；子 view 没 handle 才走兜底，行为不冲突。
         .onKeyPress(.init("f"), phases: .down) { event in
             if event.modifiers.contains(.command) {
                 openSearch()
                 return .handled
             }
-            return .ignored
+            appState.toggleFullScreen()
+            return .handled
         }
         // 隐藏 window toolbar 的 background material 绘制层，让 toolbar items（文件名 / ⓘ /
         // 外观切换）直接坐在 NSWindow title bar 上，避免 NavigationSplitView 默认 separated
