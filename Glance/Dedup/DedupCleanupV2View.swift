@@ -264,7 +264,8 @@ struct DedupCleanupV2View: View {
                         isReviewed: model.isReviewed(groupId: group.id),
                         onToggleSkip: { model.toggleSkip(groupId: group.id) },
                         onToggleExpand: { model.toggleExpand(groupId: group.id) },
-                        onSetKeep: { memberId in model.setUserKeep(groupId: group.id, memberId: memberId) }
+                        onSetKeep: { memberId in model.setUserKeep(groupId: group.id, memberId: memberId) },
+                        onTrashGroup: { Task { await model.trashGroup(group.id) } }
                     )
                 }
             }
@@ -341,6 +342,7 @@ private struct DedupGroupRow: View {
     let onToggleSkip: () -> Void
     let onToggleExpand: () -> Void
     let onSetKeep: (Int64) -> Void
+    let onTrashGroup: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.zero) {
@@ -354,6 +356,16 @@ private struct DedupGroupRow: View {
         .clipShape(RoundedRectangle(cornerRadius: DS.Dedup.rowCornerRadius, style: .continuous))
         .opacity(isSkipped ? DS.Dedup.rowSkippedOpacity : 1.0)
         .animation(.easeInOut(duration: DS.Dedup.chevronAnimationDuration), value: isExpanded)
+        // C3 — 右键 contextMenu「立即删除此组」(destructive 红色, 老手快捷; 跳过组不显)
+        .contextMenu {
+            if !isSkipped {
+                Button(role: .destructive) {
+                    onTrashGroup()
+                } label: {
+                    Label("立即删除此组 (\(group.duplicateCount) 张)", systemImage: "trash")
+                }
+            }
+        }
     }
 
     private var rowHeader: some View {
@@ -455,18 +467,37 @@ private struct DedupGroupRow: View {
     }
 
     private var expandedArea: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: DS.Dedup.expandedAreaGap) {
-                ForEach(group.allMembers) { member in
-                    DedupMemberCell(
-                        member: member,
-                        isKeep: member.id == keepId,
-                        onTap: { onSetKeep(member.id) }
-                    )
+        VStack(alignment: .leading, spacing: DS.Spacing.zero) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: DS.Dedup.expandedAreaGap) {
+                    ForEach(group.allMembers) { member in
+                        DedupMemberCell(
+                            member: member,
+                            isKeep: member.id == keepId,
+                            onTap: { onSetKeep(member.id) }
+                        )
+                    }
                 }
+                .padding(.horizontal, DS.Dedup.expandedAreaPaddingH)
+                .padding(.vertical, DS.Dedup.expandedAreaPaddingV)
             }
-            .padding(.horizontal, DS.Dedup.expandedAreaPaddingH)
-            .padding(.vertical, DS.Dedup.expandedAreaPaddingV)
+            // C4 — 展开区底部「删除这组」红按钮 (主入口, 看完缩略图视觉确认才点 = 克制 + 误删低)
+            if !isSkipped {
+                HStack {
+                    Spacer()
+                    Button {
+                        onTrashGroup()
+                    } label: {
+                        Label("删除这组 (\(group.duplicateCount) 张)", systemImage: "trash")
+                            .font(DS.Dedup.badgeFont)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DS.Dedup.dangerBgColor)
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, DS.Dedup.expandedAreaPaddingH)
+                .padding(.bottom, DS.Dedup.expandedAreaPaddingV)
+            }
         }
         .overlay(alignment: .top) {
             Rectangle().fill(SwiftUI.Color.secondary.opacity(0.1)).frame(height: 1)

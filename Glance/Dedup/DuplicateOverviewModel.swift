@@ -446,6 +446,82 @@ final class DuplicateOverviewModel: ObservableObject {
         clearSkips()
     }
 
+    /// 单组立删入口 (C3 右键 / C4 展开区底部按钮). 跟 trashPending 共用 pipeline,
+    /// 区别仅 collect 阶段只收一个 groupId 对应的副本; 跳过态 / migration 门控同 trashPending.
+    func trashGroup(_ groupId: String) async {
+        guard let store = indexStore else { return }
+        guard let bridgeRef = bridge else { return }
+        guard trashEnabled else { return }
+
+        guard let bookmarkManager else { return }
+        guard let folderStore else { return }
+        guard let migrationCoordinator else { return }
+        guard bookmarkManager.currentSchemaVersion >= 2 else {
+            migrationCoordinator.start(
+                model: self,
+                bookmarkManager: bookmarkManager,
+                folderStore: folderStore,
+                bridge: bridgeRef
+            )
+            return
+        }
+
+        guard let target = groups.first(where: { $0.id == groupId }) else { return }
+
+        let snapshotKeepIds = self.userKeepIdByGroup
+        let snapshotGroups = [target]
+
+        // 单组无 skip 概念 (用户都点了立删了, 跳过态无意义)
+        let inputs = await collectTrashInputsFromPending(
+            store: store,
+            groups: snapshotGroups,
+            skippedGroupIds: [],
+            userKeepIds: snapshotKeepIds
+        )
+        guard !inputs.isEmpty else {
+            trashState = .completed
+            return
+        }
+
+        let token = TrashCancellationToken()
+        currentCancellationToken = token
+        trashState = .trashing(done: 0, total: inputs.count)
+
+        let outcome = await TrashService.trashItems(
+            inputs,
+            cancellation: token
+        ) { [weak self] done, total in
+            Task { @MainActor [weak self] in
+                self?.trashState = .trashing(done: done, total: total)
+            }
+        }
+
+        var affectedGroups: Set<GroupKey> = []
+        for success in outcome.successes {
+            do {
+                try store.deleteImage(folderId: success.snapshot.folderId, relativePath: success.snapshot.relativePath)
+                affectedGroups.insert(success.groupKey)
+            } catch {
+                NSLog("[M4-T2] deleteImage (single-group) failed for id=%lld/%@: %@",
+                      success.snapshot.folderId, success.snapshot.relativePath, String(describing: error))
+            }
+        }
+
+        await Task.detached(priority: .utility) {
+            for key in affectedGroups {
+                DedupPass.reEvaluateGroup(store: store, fileSize: key.fileSize, format: key.format)
+            }
+            try? store.promoteOrphanDuplicates()
+        }.value
+
+        bridgeRef.triggerIndexChanged()
+        await load()
+
+        lastTrashOutcome = TrashOutcomeEvent(id: UUID(), trash: outcome, undoResult: nil)
+        trashState = .completed
+        currentCancellationToken = nil
+    }
+
     /// V2 trash inputs 收集 — 过滤跳过组, 用 userKeepId 决定保留张, 其余为副本 (D1).
     private nonisolated func collectTrashInputsFromPending(
         store: IndexStore,
