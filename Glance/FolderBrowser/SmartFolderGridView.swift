@@ -128,9 +128,10 @@ struct SmartFolderGridView: View {
                         highlightedID = smartFolderStore.queryResult[idx].id
                     }
                 }
-                // queryResult 整体重新 query → 老 highlight 已无意义，reset
-                .onChange(of: smartFolderStore.queryResult) { _, _ in
-                    highlightedID = nil
+                // queryResult 整体重新 query → 老 highlight 已无意义, 默认高亮第一张
+                // (2026-06-25 军哥反: 选智能文件夹后没默认高亮)
+                .onChange(of: smartFolderStore.queryResult) { _, newResult in
+                    highlightedID = newResult.first?.id
                 }
                 // Space：进入全窗口查看器（用当前 highlight 或第一张）
                 .onKeyPress(.space) {

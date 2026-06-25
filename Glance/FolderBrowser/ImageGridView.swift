@@ -59,8 +59,10 @@ struct ImageGridView: View {
             }
             return folderStore.selectedFolder?.lastPathComponent ?? ""
         }())
-        .onChange(of: folderStore.images) { _, _ in
-            highlightedURL = nil
+        .onChange(of: folderStore.images) { _, newImages in
+            // 选文件夹 / images 重新装载 → 默认高亮第一张, 让键盘 ← → 导航起点就在第一张
+            // (2026-06-25 军哥反: 选文件夹后没默认高亮)
+            highlightedURL = newImages.first
         }
         .toolbar {
             if folderStore.selectedImageIndex == nil {
