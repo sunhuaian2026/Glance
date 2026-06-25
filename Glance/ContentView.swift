@@ -387,6 +387,9 @@ struct ContentView: View {
                 }
                 showDuplicateOverview = false  // M4
                 duplicateOverviewModel.closeFocusReview()  // V2 AB.4 五态互斥 closeFocusReview 兜底
+                // 2026-06-25 显式申请焦点回 grid (SwiftUI 视图复用时 onAppear 不二次触发,
+                // 不显式申请会卡在上一个 view 焦点态 → 方向键失效)
+                focusTarget = .grid
             }
         }
         .onChange(of: smartFolderStore.selected) { _, newSF in
@@ -398,6 +401,8 @@ struct ContentView: View {
                 }
                 showDuplicateOverview = false  // M4
                 duplicateOverviewModel.closeFocusReview()  // V2 AB.4 五态互斥 closeFocusReview 兜底
+                // 2026-06-25 显式申请焦点回 grid (同上, 智能文件夹与 V1 共用 .grid case)
+                focusTarget = .grid
             }
         }
         .onChange(of: showDuplicateOverview) { _, newValue in
