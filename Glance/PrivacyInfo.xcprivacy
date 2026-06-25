@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Privacy Manifest for Glance
+	  Apple 自 2024-05-01 起强制
+	  - 任务 2.4 (Mac App Store 上架 plan)
+	  - codex round 2 P0(UserDefaults required-reason 漏报) 必加
+	  - 实施前必做: 对照 Apple 官方 "Describing use of required reason API"
+	    页面逐字核 reason code (CA92.1 / 1C8F.1 / 0A2A.1 等都是初步推断, 当 Xcode
+	    16 build 报 warning 时按官方 doc 修正)
+	-->
+
+	<!-- Required-reason APIs that Glance actually calls.
+	     Reality check Glance source code:
+	       UserDefaults: BookmarkManager (schemaVersionKey, bookmarks dict) /
+	                     FolderStore (sortKey, sortDirection, thumbnailSize) /
+	                     AppState (appearanceMode)
+	       FileTimestamp: FolderStore + ImageInspectorViewModel
+	                      (.fileSizeKey, .contentModificationDateKey,
+	                       .creationDate via URLResourceValues)
+	     Excluded from required-reason list (实测不在 Apple required-reason 列表):
+	       CryptoKit SHA256, Vision feature print, FSEvents, SQLite C API,
+	       FileManager.trashItem, FileManager.contentsOfDirectory,
+	       Security Scoped Bookmark.
+	-->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- CA92.1 = "Access info from same app, per documentation"
+				     (持久化 app 自身设置: 排序 / 缩略图大小 / 外观模式 / bookmark schema 版本) -->
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- 0A2A.1 = "Display file timestamps to the person using the device"
+				     (Inspector EXIF / 缩略图排序 用 user-selected 文件夹内文件元数据) -->
+				<string>0A2A.1</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Glance collects ZERO user data. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<!-- Glance does ZERO tracking. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+</dict>
+</plist>

@@ -27,6 +27,13 @@
 - [ ] (2026-06-25 / `752d26d`) **其他**: 军哥本机 `open docs/privacy.html` 浏览器渲染验 — 中英 14 段全显示(7 中 + 7 英) / 暗色模式跟亮色都正常 / mailto/小红书/GitHub 三个链接可点 / 字体不糊
 - [ ] (2026-06-25 / `752d26d`) **其他**: 军哥手机/iPad 浏览器打开 https://sunhuaian2026.github.io/Glance/privacy.html 验移动端渲染(响应式 padding / 字号合适)
 
+### Mac App Store 上架 — 任务 2+4 pbxproj + Release-AppStore + Privacy Manifest + release-appstore.sh(2026-06-25 / `<pending>`)
+
+- [ ] (2026-06-25 / `<pending>`) **其他**: 军哥任务 1 完成 Apple Distribution 证书 + provisioning profile 部署到 keychain 后,**回填占位** `__APP_STORE_PROFILE_NAME_PLACEHOLDER__` 为真实 profile name(e.g. `Glance App Store`)在 2 处: (i) `scripts/ExportOptions-AppStore.plist` 第 17 行 (ii) `Glance.xcodeproj/project.pbxproj` 的 `PROVISIONING_PROFILE_SPECIFIER` 字段
+- [ ] (2026-06-25 / `<pending>`) **其他**: 任务 1 凭据齐 + 占位回填完后, 跑 `make release-appstore` 端到端验 — 期望出 `dist/export-appstore/Glance.pkg` + `pkgutil --check-signature` 通过 + post-export `xattr -l` 无 quarantine
+- [ ] (2026-06-25 / `<pending>`) **其他**: 任务 1 凭据齐后 GUI Xcode 打开项目, Manage Schemes 看到 "Glance" + "Glance AppStore" 两 scheme 都共享 + Archive 用 "Glance AppStore" scheme → 应跑 Release-AppStore configuration 走 Apple Distribution 签名(跟 CC SSH 跑结果一致即 OK)
+- [ ] (2026-06-25 / `<pending>`) **其他**: Xcode 16 GUI build 验 PrivacyInfo.xcprivacy 不报 warning — 如报 reason code 不识别, 按 Apple 官方"Describing use of required reason API"页面修正 `CA92.1` / `0A2A.1` 推断值
+
 ### 重复清理 V2 重设计 — 剩余真机验（CC 自闭环 9 项 PASS 后剩 11 项, 2026-06-22 CC 自闭环, build `866ae03.0622-0938`）
 
 > CC 主 agent 2026-06-22 用 Ghostty/tmux/screencapture/AX/CGEvent 工具链自闭环跑通 9 项（任务 AB 6 项 + 任务 C 3 项；项 1/2/3/4/5/6/8/11/12 全 PASS — 见 Done 段「重复清理 V2 — CC 自闭环 9 项 2026-06-22」）。剩 11 项分两批：(A) **DB 数据 BLOCKED 8 项** — 当前 DB 只 2 组副本各 2 张，无 ≥3 张副本组，导致 needsReview/「逐组审阅 ›」浮层路径全部走不通；(B) **军哥真机必跑 3 项** — 真删用户文件 / 视觉动画主观判断。

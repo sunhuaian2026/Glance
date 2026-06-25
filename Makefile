@@ -1,4 +1,4 @@
-.PHONY: build run clean hooks-install hooks-uninstall verify verify-codex release release-dry
+.PHONY: build run clean hooks-install hooks-uninstall verify verify-codex release release-dry release-appstore
 
 BUILD_DIR = ./build
 SYNC_DIR  = $(HOME)/sync
@@ -77,3 +77,10 @@ release:
 release-dry:
 	@chmod +x scripts/release.sh 2>/dev/null || true
 	@SKIP_NOTARIZE=1 ./scripts/release.sh
+
+# Mac App Store 上架打包: xcodebuild archive (Release-AppStore + Apple Distribution signed)
+#   → exportArchive (ExportOptions-AppStore.plist) → dist/export-appstore/Glance.pkg
+# 任务 4 (Mac App Store 上架 plan)
+release-appstore:
+	@chmod +x scripts/release-appstore.sh 2>/dev/null || true
+	@./scripts/release-appstore.sh
