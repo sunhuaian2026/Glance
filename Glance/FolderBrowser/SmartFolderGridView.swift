@@ -208,7 +208,10 @@ struct SmartFolderGridView: View {
         colCount: Int,
         proxy: ScrollViewProxy
     ) {
-        let total = smartFolderStore.queryResult.count
+        // race 防御 (2026-06-25): captured sections 跟 store.queryResult 可能不一致,
+        // 内部全程用 snapshot queryResult, 不混用. mirror ImageGridView 同类型 fix.
+        let queryResult = smartFolderStore.queryResult
+        let total = queryResult.count
         guard total > 0, !sections.isEmpty, colCount > 0 else { return }
 
         let nextID: Int64?
@@ -217,10 +220,11 @@ struct SmartFolderGridView: View {
         case .left, .right:
             // ←→ flat queryResult ±1，跨段自然连续
             let delta = direction == .left ? -1 : +1
-            let current = smartFolderStore.queryResult.firstIndex(where: { $0.id == highlightedID })
+            let current = queryResult.firstIndex(where: { $0.id == highlightedID })
                 ?? (delta > 0 ? -1 : 0)
             let next = max(0, min(total - 1, current + delta))
-            nextID = smartFolderStore.queryResult[next].id
+            guard queryResult.indices.contains(next) else { return }
+            nextID = queryResult[next].id
 
         case .up, .down:
             guard let location = locate(highlightedID, in: sections) else {

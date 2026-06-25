@@ -189,13 +189,18 @@ struct ImageGridView: View {
     // MARK: - Helpers
 
     private func moveHighlight(by delta: Int, colCount: Int, total: Int, proxy: ScrollViewProxy) {
-        guard total > 0 else { return }
-        let current = highlightedURL.flatMap({ folderStore.images.firstIndex(of: $0) })
+        // 调用点 captured total (closure 内的 local snapshot) 跟 folderStore.images 可能不一致
+        // (selectFolder 切换瞬间 images 被设 [], 或 FSEvents 在途删图), 直接 folderStore.images[next]
+        // 会越界崩 (2026-06-25 军哥真机崩报)。内部重 snapshot 一致性, 全程用同一份 images.
+        let images = folderStore.images
+        guard !images.isEmpty else { return }
+        let current = highlightedURL.flatMap({ images.firstIndex(of: $0) })
             ?? (delta > 0 ? -1 : 0)
-        let next = max(0, min(total - 1, current + delta))
-        highlightedURL = folderStore.images[next]
+        let next = max(0, min(images.count - 1, current + delta))
+        guard images.indices.contains(next) else { return }
+        highlightedURL = images[next]
         withAnimation(DS.Anim.fast) {
-            proxy.scrollTo(folderStore.images[next], anchor: .center)
+            proxy.scrollTo(images[next], anchor: .center)
         }
     }
 
