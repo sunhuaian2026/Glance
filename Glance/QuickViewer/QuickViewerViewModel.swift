@@ -264,13 +264,36 @@ class QuickViewerViewModel: ObservableObject {
     // 打开默认自适应策略（Preview + Quick Look 混合）：
     //   图 ≤ 窗口：保 nativeScale（1:1 原生像素，避免上采样模糊，小图不强拉伸）
     //   图 >  窗口：缩到窗口 fitPadding 占比，四周留呼吸边
+    //   全屏 + 图分辨率 ≥ viewport + 宽高比一致 (3% 容差) → 无 fitPadding 完美填满 (2026-06-25 军哥需求)
     func fitScale(for image: NSImage, in viewport: CGSize) -> CGFloat {
         let eff = effectiveImageSize(image)
         guard eff.width > 0, eff.height > 0 else { return DS.Viewer.nativeScale }
         let scaleW = viewport.width / eff.width
         let scaleH = viewport.height / eff.height
         let fit = min(scaleW, scaleH)
+        if shouldFillFullScreen(image: eff, viewport: viewport) {
+            return fit
+        }
         return fit >= DS.Viewer.nativeScale ? DS.Viewer.nativeScale : fit * DS.Viewer.fitPadding
+    }
+
+    /// 全屏完美填满判定 (2026-06-25 军哥需求):
+    /// (a) viewport 等于某个 NSScreen frame (1pt 容差兼容浮点); 任一全屏态 (qvNativeFullScreen /
+    ///     windowedCover / inheritedMainFullScreen) viewport 都满屏, 不区分;
+    /// (b) 图分辨率两维都 ≥ viewport (避免上采样模糊);
+    /// (c) 宽高比与 viewport 的差 < 3% (避免勉强填满裁掉太多内容).
+    /// 不满足任一 → 维持现状 fitPadding 留黑边.
+    private func shouldFillFullScreen(image eff: CGSize, viewport: CGSize) -> Bool {
+        let isFullScreen = NSScreen.screens.contains { screen in
+            abs(viewport.width - screen.frame.width) < 1 &&
+            abs(viewport.height - screen.frame.height) < 1
+        }
+        guard isFullScreen else { return false }
+        guard eff.width >= viewport.width, eff.height >= viewport.height else { return false }
+        let imgRatio = eff.width / eff.height
+        let viewportRatio = viewport.width / viewport.height
+        let ratioDiff = abs(imgRatio - viewportRatio) / viewportRatio
+        return ratioDiff < 0.03
     }
 
     private func clampOffset() {
