@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glance · 一眼 — 隐私政策 / Privacy Policy</title>
+  <style>
+    :root {
+      --fg: #1a1a1a;
+      --bg: #ffffff;
+      --muted: #6e6e73;
+      --accent: #5e5ce6;
+      --border: #d2d2d7;
+      --code-bg: #f5f5f7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #f5f5f7;
+        --bg: #000000;
+        --muted: #98989d;
+        --accent: #7d7aed;
+        --border: #38383a;
+        --code-bg: #1c1c1e;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { font-size: 17px; }
+    body {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                   "PingFang SC", "Hiragino Sans GB", sans-serif;
+      line-height: 1.65;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    h1 { font-size: 2.2rem; font-weight: 600; margin: 0 0 8px; }
+    h2 { font-size: 1.7rem; font-weight: 600; margin: 64px 0 12px;
+         padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.15rem; font-weight: 600; margin: 32px 0 8px; }
+    p { margin: 0 0 14px; }
+    ul { padding-left: 24px; }
+    li { margin: 4px 0; }
+    code, .path {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { color: var(--muted); font-size: 0.95rem; margin-bottom: 32px; }
+    .lang-divider {
+      margin: 96px 0 0;
+      padding: 24px 0 0;
+      border-top: 2px solid var(--border);
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.5px;
+    }
+    footer {
+      margin-top: 96px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .toc {
+      background: var(--code-bg);
+      border-radius: 8px;
+      padding: 16px 24px;
+      margin: 24px 0 32px;
+    }
+    .toc strong { display: block; margin-bottom: 6px; font-size: 0.95rem; color: var(--muted); }
+    .toc a { display: inline-block; margin-right: 16px; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Glance · 一眼</h1>
+  <p class="meta">隐私政策 / Privacy Policy &nbsp;·&nbsp; Last updated: 2026-06-25</p>
+
+  <div class="toc">
+    <strong>Quick navigation</strong>
+    <a href="#zh">中文版</a>
+    <a href="#en">English Version</a>
+    <a href="#contact">联系 / Contact</a>
+  </div>
+
+  <!-- ==================== 中文版 ==================== -->
+  <section lang="zh-Hans" id="zh">
+
+    <h2>中文版</h2>
+
+    <h3>1. 核心承诺</h3>
+    <p>Glance(一眼)是一款 macOS 本地图片浏览与重复清理工具。我们的核心承诺非常简单:</p>
+    <ul>
+      <li><strong>零网络请求</strong> — App 启动后不发起任何 HTTP / HTTPS / TCP / UDP 连接, 你可在 macOS Activity Monitor → Network 实时验证</li>
+      <li><strong>零数据上传</strong> — 任何元数据 / 索引 / 图像内容都不会上传到任何服务器, 包括我们自己也没有服务器</li>
+      <li><strong>零遥测</strong> — 不收集崩溃报告 / 使用统计 / 设备标识 / 任何形式的分析数据</li>
+      <li><strong>零账号体系</strong> — 不需要注册 / 登录 / 验证邮箱, App 装好即用</li>
+    </ul>
+
+    <h3>2. 本地索引数据明示</h3>
+    <p>为了实现"跨文件夹查找重复图 / 找相似图 / 全局搜索"功能, Glance 在你的设备本地建立索引。所有索引数据存放在 macOS 应用沙盒容器内, 仅本机可访问:</p>
+    <p><span class="path">~/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/</span></p>
+    <p>索引内容包括:</p>
+    <ul>
+      <li><strong>缩略图缓存</strong> — 加速图片网格滚动, 仅缓存你选择的文件夹内图片的小尺寸预览</li>
+      <li><strong>SHA256 内容指纹</strong> — 用于"重复清理"功能, 完全本地计算(macOS CryptoKit framework), 不外传</li>
+      <li><strong>Vision 图像指纹(Feature Print)</strong> — 用于"找相似图"功能, 通过 Apple Vision framework 在设备上推理生成, 不联网</li>
+      <li><strong>SQLite 索引数据库</strong> — 记录文件夹结构 / 文件路径 / 拍摄时间 / EXIF 元数据等, 仅供 App 自身查询使用</li>
+    </ul>
+    <p><strong>这些数据全部存储在你的设备本地, 不上传任何服务器</strong>。卸载 App 后所有索引数据会被 macOS 自动清除。</p>
+
+    <h3>3. 用户授权与文件访问</h3>
+    <p>Glance 运行在 macOS 应用沙盒内, 这意味着:</p>
+    <ul>
+      <li>App 无法访问任何文件, <strong>除非</strong>你主动通过文件选择器或拖拽授权</li>
+      <li>授权后, macOS 通过 Security Scoped Bookmark 机制持久化该权限, 仅本机有效</li>
+      <li>你可以随时在系统设置或卸载 App 来撤销所有授权</li>
+      <li>App 不会自动扫描整个磁盘 / Documents / Pictures 等系统目录, 只看你主动添加的文件夹</li>
+    </ul>
+
+    <h3>4. 删除安全</h3>
+    <p>Glance 的"重复清理"功能涉及移除文件, 我们采用最安全的方式:</p>
+    <ul>
+      <li>所有删除操作走 macOS 系统废纸篓(通过 <code>FileManager.trashItem</code> API)</li>
+      <li><strong>从不直接 unlink 文件</strong> — 你永远可以从废纸篓恢复</li>
+      <li>批量删除有撤销横幅, 单图删除有 toast 提示, 单图删除可在 5 秒内一键撤销</li>
+      <li>App 内不提供"永久删除"按钮, 删除决策权完全在 macOS 系统层</li>
+    </ul>
+
+    <h3>5. 联系方式</h3>
+    <p id="contact">如有任何隐私问题, 可通过以下方式联系开发者:</p>
+    <ul>
+      <li><strong>邮箱</strong>: <a href="mailto:16414766@qq.com">16414766@qq.com</a></li>
+      <li><strong>小红书</strong>: <a href="https://www.xiaohongshu.com/user/profile/382336617">@382336617</a></li>
+      <li><strong>GitHub Issues</strong>: <a href="https://github.com/sunhuaian2026/Glance/issues">github.com/sunhuaian2026/Glance/issues</a></li>
+    </ul>
+
+    <h3>6. 法律框架声明</h3>
+    <p>由于 Glance 不收集任何用户数据, 以下国际隐私法律框架对我们来说是"全部不适用 / 全部已合规"的状态:</p>
+    <ul>
+      <li><strong>GDPR</strong>(欧盟通用数据保护条例) — 不收集 = 无需声明法律依据 / 数据处理者 / 跨境传输等</li>
+      <li><strong>CCPA</strong>(加州消费者隐私法) — 不收集 = 无可"出售"或"分享"数据</li>
+      <li><strong>PIPL</strong>(中国个人信息保护法) — 不收集 = 不涉及个人信息处理</li>
+      <li><strong>COPPA</strong>(儿童在线隐私保护法) — 不收集 = 不区分用户年龄, 不涉及任何儿童数据</li>
+    </ul>
+    <p>如果你希望"删除"你的"数据", 操作非常简单: 卸载 App 即可, macOS 会自动清除沙盒容器内所有本地索引。</p>
+
+    <h3>7. 更新与变更</h3>
+    <p>本隐私政策版本日期: <strong>2026-06-25</strong></p>
+    <p>如未来 Glance 引入任何形式的网络功能 / 数据收集 / 第三方 SDK(我们目前没有这个计划), 本政策会同步更新, 并通过 App 内首启通知 + GitHub Release 公告告知用户。</p>
+
+  </section>
+
+  <div class="lang-divider">— English Version Below —</div>
+
+  <!-- ==================== English ==================== -->
+  <section lang="en" id="en">
+
+    <h2>English Version</h2>
+
+    <h3>1. Core Promise</h3>
+    <p>Glance is a macOS local image browsing and duplicate cleanup tool. Our core promise is simple:</p>
+    <ul>
+      <li><strong>Zero network requests</strong> — The app makes no HTTP / HTTPS / TCP / UDP connections. You can verify this in real time via macOS Activity Monitor → Network</li>
+      <li><strong>Zero data upload</strong> — No metadata, index, or image content is uploaded to any server. We don't even have a server</li>
+      <li><strong>Zero telemetry</strong> — No crash reports, usage statistics, device identifiers, or analytics of any kind</li>
+      <li><strong>Zero accounts</strong> — No registration, login, or email verification. Install and use</li>
+    </ul>
+
+    <h3>2. Local Indexing Data Disclosure</h3>
+    <p>To support cross-folder duplicate detection, similar image search, and global search, Glance builds an index locally on your device. All index data is stored inside the macOS application sandbox container, accessible only on the local machine:</p>
+    <p><span class="path">~/Library/Containers/com.sunhongjun.glance/Data/Library/Application Support/</span></p>
+    <p>The index contains:</p>
+    <ul>
+      <li><strong>Thumbnail cache</strong> — Accelerates image grid scrolling. Caches small previews of images in folders you have selected</li>
+      <li><strong>SHA256 content fingerprints</strong> — Used by the duplicate cleanup feature. Computed entirely on-device via macOS CryptoKit framework, never transmitted</li>
+      <li><strong>Vision feature prints</strong> — Used by the similar image search feature. Generated on-device via the Apple Vision framework, never transmitted</li>
+      <li><strong>SQLite index database</strong> — Stores folder structure, file paths, creation dates, EXIF metadata, etc., for app's internal queries</li>
+    </ul>
+    <p><strong>All this data stays on your device and is never uploaded to any server.</strong> Uninstalling the app removes all index data automatically (handled by macOS).</p>
+
+    <h3>3. User Authorization and File Access</h3>
+    <p>Glance runs inside the macOS app sandbox, which means:</p>
+    <ul>
+      <li>The app cannot access any file <strong>unless you actively authorize it</strong> via a file picker or drag-and-drop</li>
+      <li>Once authorized, macOS persists permissions via Security Scoped Bookmarks. These permissions are local-only</li>
+      <li>You can revoke all permissions at any time via System Settings or by uninstalling the app</li>
+      <li>The app never scans your entire disk, Documents, or Pictures folder automatically. It only sees folders you have explicitly added</li>
+    </ul>
+
+    <h3>4. Deletion Safety</h3>
+    <p>Glance's duplicate cleanup feature involves file removal, handled in the safest way possible:</p>
+    <ul>
+      <li>All deletions go through the macOS Trash (via the <code>FileManager.trashItem</code> API)</li>
+      <li><strong>We never directly unlink files</strong> — you can always recover from Trash</li>
+      <li>Batch deletions show an undo banner; single deletions show a toast with a one-click undo within 5 seconds</li>
+      <li>The app provides no "permanent delete" button. Final deletion authority rests entirely with the macOS system layer</li>
+    </ul>
+
+    <h3>5. Contact</h3>
+    <p>For any privacy-related questions, contact the developer:</p>
+    <ul>
+      <li><strong>Email</strong>: <a href="mailto:16414766@qq.com">16414766@qq.com</a></li>
+      <li><strong>Xiaohongshu (小红书)</strong>: <a href="https://www.xiaohongshu.com/user/profile/382336617">@382336617</a></li>
+      <li><strong>GitHub Issues</strong>: <a href="https://github.com/sunhuaian2026/Glance/issues">github.com/sunhuaian2026/Glance/issues</a></li>
+    </ul>
+
+    <h3>6. Legal Framework Statement</h3>
+    <p>Because Glance collects no user data, the following international privacy frameworks are all in a "not applicable / fully compliant" state:</p>
+    <ul>
+      <li><strong>GDPR</strong> (EU General Data Protection Regulation) — No collection = no need to declare legal basis, data processor, cross-border transfers, etc.</li>
+      <li><strong>CCPA</strong> (California Consumer Privacy Act) — No collection = no data to "sell" or "share"</li>
+      <li><strong>PIPL</strong> (China Personal Information Protection Law) — No collection = no personal information processing</li>
+      <li><strong>COPPA</strong> (Children's Online Privacy Protection Act) — No collection = no age distinction needed, no child data involved</li>
+    </ul>
+    <p>If you wish to "delete" your "data", the operation is trivial: uninstall the app, and macOS automatically clears the sandbox container with all local indexes.</p>
+
+    <h3>7. Updates and Changes</h3>
+    <p>This privacy policy was last updated: <strong>2026-06-25</strong></p>
+    <p>If Glance ever introduces network features, data collection, or third-party SDKs (no such plans currently), this policy will be updated, and users will be notified via in-app first-launch notification and a GitHub Release announcement.</p>
+
+  </section>
+
+  <footer>
+    <p>Glance · 一眼 — A macOS local image browser and duplicate cleanup tool.</p>
+    <p>Open source code: <a href="https://github.com/sunhuaian2026/Glance">github.com/sunhuaian2026/Glance</a></p>
+    <p>© 2026 孙红军 (Hongjun Sun) · <a href="mailto:16414766@qq.com">16414766@qq.com</a></p>
+  </footer>
+
+</body>
+</html>

@@ -22,6 +22,13 @@
 
 ## Pending
 
+### Mac App Store 上架 — 任务 5 GitHub Pages 隐私政策(2026-06-25 / `<pending>`)
+
+- [ ] (2026-06-25 / `<pending>`) **其他**: 军哥本机 `open docs/privacy.html` 浏览器渲染验 — 中英 14 段全显示(7 中 + 7 英) / 暗色模式跟亮色都正常 / mailto/小红书/GitHub 三个链接可点 / 字体不糊
+- [ ] (2026-06-25 / `<pending>`) **其他**: 军哥点 https://github.com/sunhuaian2026/Glance/settings/pages → "Build and deployment" 段 → Source `Deploy from a branch` → Branch `main` / Folder `/docs` → Save → 等 5min
+- [ ] (2026-06-25 / `<pending>`) **其他**: `curl -I https://sunhuaian2026.github.io/Glance/privacy.html` 返回 `HTTP/2 200`(不可 301/302/404) — Pages 生效自动锚点
+- [ ] (2026-06-25 / `<pending>`) **其他**: 军哥手机/iPad 浏览器打开 https://sunhuaian2026.github.io/Glance/privacy.html 验移动端渲染(响应式 padding / 字号合适)
+
 ### 重复清理 V2 重设计 — 剩余真机验（CC 自闭环 9 项 PASS 后剩 11 项, 2026-06-22 CC 自闭环, build `866ae03.0622-0938`）
 
 > CC 主 agent 2026-06-22 用 Ghostty/tmux/screencapture/AX/CGEvent 工具链自闭环跑通 9 项（任务 AB 6 项 + 任务 C 3 项；项 1/2/3/4/5/6/8/11/12 全 PASS — 见 Done 段「重复清理 V2 — CC 自闭环 9 项 2026-06-22」）。剩 11 项分两批：(A) **DB 数据 BLOCKED 8 项** — 当前 DB 只 2 组副本各 2 张，无 ≥3 张副本组，导致 needsReview/「逐组审阅 ›」浮层路径全部走不通；(B) **军哥真机必跑 3 项** — 真删用户文件 / 视觉动画主观判断。
