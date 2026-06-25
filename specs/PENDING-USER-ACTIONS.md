@@ -248,8 +248,8 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 
 ### Mac App Store 任务 2+4 — profile 回填 + make release-appstore 端到端 .pkg 出包 2 项 2026-06-25
 
-- [x] (2026-06-25 / `<待回填>`) **其他**: profile 占位 `__APP_STORE_PROFILE_NAME_PLACEHOLDER__` → `Glance App Store` 在 2 处全回填(`scripts/ExportOptions-AppStore.plist` 第 17 行 + `Glance.xcodeproj/project.pbxproj` `PROVISIONING_PROFILE_SPECIFIER` 字段) — 验证: `grep -c "__APP_STORE_PROFILE_NAME_PLACEHOLDER__" 两文件 = 0` 命中
-- [x] (2026-06-25 / `<待回填>`) **其他**: `make release-appstore` 端到端跑通(军哥 22:27 跑) — 出 `dist/export-appstore/Glance.pkg` (3.4M / Marketing 2.3.0 / Build b98f947-d.0625-2227) + pkgutil 签名链 3 段验证 (3rd Party Mac Developer Installer → WWDR CA → Apple Root CA) + post-export quarantine xattr 干净
+- [x] (2026-06-25 / `377e5d3`) **其他**: profile 占位 `__APP_STORE_PROFILE_NAME_PLACEHOLDER__` → `Glance App Store` 在 2 处全回填(`scripts/ExportOptions-AppStore.plist` 第 17 行 + `Glance.xcodeproj/project.pbxproj` `PROVISIONING_PROFILE_SPECIFIER` 字段) — 验证: `grep -c "__APP_STORE_PROFILE_NAME_PLACEHOLDER__" 两文件 = 0` 命中
+- [x] (2026-06-25 / `377e5d3`) **其他**: `make release-appstore` 端到端跑通(军哥 22:27 跑) — 出 `dist/export-appstore/Glance.pkg` (3.4M / Marketing 2.3.0 / Build b98f947-d.0625-2227) + pkgutil 签名链 3 段验证 (3rd Party Mac Developer Installer → WWDR CA → Apple Root CA) + post-export quarantine xattr 干净
 
 ### Mac App Store 任务 5 GitHub Pages 隐私政策 — 2 项 2026-06-25
 
