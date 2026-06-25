@@ -242,7 +242,7 @@ V1 走 **Developer ID 签名 + Notarization + DMG**（不上 Mac App Store），
 | 签名 identity | `Developer ID Application: Hongjun Sun (8KW8Z92GRA)` | 装在 Mac mini 登录 keychain；私钥 .p12 备份在家里 MacStudio + 冷备份 |
 | Bundle ID | `com.sunhongjun.glance` | 不变 |
 | 部署目标 | macOS 14.0（Sonoma）| 26.2 → 14.0 降级，覆盖 ~85% 用户 |
-| Marketing 版本 | `1.0.0` | 用户可见（关于面板 / DMG 文件名 / GitHub release tag） |
+| Marketing 版本 | `2.3.0` | 用户可见（关于面板 / DMG 文件名 / GitHub release tag）— v1.0.0 → v2.3.0 (2026-06-25 ship) |
 | Build 版本 | `<commit short>[-d].<MMDD-HHMM>` | 给开发者看，CFBundleVersion 字段，发布版仍带 -d 标记表示有未 commit 改动 |
 | Hardened Runtime | `ENABLE_HARDENED_RUNTIME=YES` | 仅 release 脚本注入，不写到 pbxproj（Debug build 不受影响） |
 | Entitlements | sandbox + user-selected read-only + bookmarks app-scope | 不需要 hardened runtime 额外 entitlements |
@@ -260,11 +260,11 @@ make release-dry    # 跳过公证（SKIP_NOTARIZE=1，本地干跑验证签名 
 xcodebuild archive (Release + Hardened Runtime + manual signing + Developer ID Application)
   → exportArchive (scripts/ExportOptions.plist, method=developer-id, manual signing)
   → codesign --verify --deep --strict 验证
-  → create-dmg (volname="Glance 1.0.0", drag-to-Applications layout)
+  → create-dmg (volname="Glance 2.3.0", drag-to-Applications layout)
   → xcrun notarytool submit --wait --keychain-profile glance-notary
-  → xcrun stapler staple
-  → spctl --assess Gatekeeper 验证
-  → dist/Glance-1.0.0.dmg + SHA256
+  → xcrun stapler staple (.app standalone + DMG, v2.3 起 .app 也 staple)
+  → spctl --assess Gatekeeper 验证 (.app + DMG 双验)
+  → dist/Glance-2.3.0.dmg + dist/Glance-2.3.0.dmg.sha256 (v2.3 起 sidecar 文件)
 ```
 
 **首次跑前一次性配置 notarytool**（用户做）：
@@ -281,26 +281,41 @@ xcrun notarytool store-credentials "glance-notary" \
 
 **分发渠道**：GitHub Releases（**仓库改 public 后**，DMG 上传 release，README 加下载按钮 + SHA256）
 
-**已完成**
+**v2.3 GA 新增（2026-06-25 ship plan）**
+
+- `<phase0>` pbxproj `MARKETING_VERSION 1.0.0 → 2.3.0`（Debug + Release 两处, working tree 中转 2.2.0 已废弃）
+- `<phase0>` `scripts/release.sh:30` `MARKETING_VERSION="2.3.0"`
+- `<phase0>` `scripts/release.sh` summary 段加 `.sha256` sidecar 写盘（gh release create asset 不再缺）
+- `<phase0>` `scripts/release.sh` Step 5/6 加 `.app` standalone staple + spctl execute 双验（解决 v1.0.0 留的".app 单独 staple 在 v1.0.1 加"分发债，.app 单独拖出 DMG 也能离线启动）
+- `<phase0>` `docs/release-notes/v2.3.md` 新建（mirror v1.0.0 模板, 7 子系统用户视角 + 稳定性修复段 + 数据安全段补强）
+
+**已完成（v1.0）**
 
 - `38adfd4` BuildVersionInfo（commit hash + sidecar）
 - `bd25fd0` 关于面板 Copyright 注入（孙红军 / 16414766@qq.com / 小红书 382336617）
 - `8f927d1 + 6f56072 + 09c418c` 自定义关于面板（点击复制 + toast）
-- pbxproj 部署目标 26.2 → 14.0 / MARKETING_VERSION 1.0 → 1.0.0 / 加 DEVELOPMENT_TEAM
+- pbxproj 部署目标 26.2 → 14.0 / MARKETING_VERSION 1.0 → 1.0.0(v1.0)→ 2.3.0(v2.3) / 加 DEVELOPMENT_TEAM
 - `Makefile` 加 `release` / `release-dry` target
 - `scripts/release.sh` + `scripts/ExportOptions.plist`
 - `.gitignore` 加 `dist/`
 - create-dmg via `brew install create-dmg`
 - **2026-05-07 session 收口**：notarytool keychain profile 已重存 (5/5 配过但 5/7 ACL 丢失) / 部署目标降级 7 路径 smoke test 全过 / `make release` 真跑成功 (`504c102` 回填 release notes 元数据；公证 Submission ID `cb7db74c-afbb-4e12-98a5-912ca15eefff` Accepted / staple worked / universal binary 三处验证 x86_64+arm64) / `dist/Glance-1.0.0.dmg` 含本 session 6 fix + 真公证 + staple，可发布
 
-**待办（Pending 用户操作 — 全是不可逆）**
+**v1.0.0 已 ship（2026-05-08 GitHub Release）** ✓
 
-- [ ] **DMG 干净 Mac Gatekeeper 实测**（推荐发出去前最后兜底）：把 `dist/Glance-1.0.0.dmg` 拷到一台**不是签名机**的 Mac → 双击挂载 → 拖 .app 到 Applications → 双击启动 → 期望直接打开不弹任何 Gatekeeper 警告
-- [ ] **GitHub 仓库 visibility 改 public**（不可逆）：`gh repo edit sunhuaian2026/ISeeImageViewer --visibility public --accept-visibility-change-consequences` 或 GitHub 网页 Settings → Danger Zone
-- [ ] **创建 v1.0.0 GitHub Release**（公开可见，不可逆）：`gh release create v1.0.0 dist/Glance-1.0.0.dmg --title "Glance 1.0.0 · 一眼" --notes-file docs/release-notes/v1.0.0.md`
-- [ ] 小红书引流到 Release 下载链接（市场推广，可任何时候做）
+- [x] DMG 干净 Mac Gatekeeper 实测通过（v1.0.0）
+- [x] GitHub 仓库 visibility PRIVATE → PUBLIC（2026-05-08，不可逆完成）
+- [x] 创建 v1.0.0 GitHub Release（2026-05-08，`gh release create v1.0.0 ... Glance-1.0.0.dmg`）
+- [ ] 小红书引流到 Release 下载链接（市场推广，可任何时候做；v2.3 同适用）
 - [ ] (可选 v1.0.1 cleanup) GitHub 仓库改名 ISeeImageViewer → Glance（GitHub 自动留旧路径 redirect）
 - [ ] (可选 v1.0.1 cleanup) `release.sh` L191 `du -h` 取的是 disk usage 而非文件大小，输出 misleading（本次 3.4M vs 实际 2.4 MB），改用 `stat -f %z` 或类似按 byte 格式化
+
+**v2.3 GA Pending（2026-06-25 ship plan, 全是不可逆）**
+
+- [ ] **PENDING 真删红线 8 项军哥真机消化**（阻塞 ship; 见 `specs/v2/2026-06-25-v2.3-ship-plan.md` Phase 1）
+- [ ] **`make release` 真公证打包**（CC 跑, 产出 `dist/Glance-2.3.0.dmg` + sha256 + `.app` standalone staple）
+- [ ] **DMG 干净 Mac Gatekeeper 实测**（军哥真机, ship 前最后兜底）
+- [ ] **`git tag v2.3` + `gh release create v2.3`**（不可逆, 军哥 final go 后 CC 跑 precheck → 创建 release → push tag 顺序）
 
 ---
 
