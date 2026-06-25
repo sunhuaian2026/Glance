@@ -1,7 +1,7 @@
 # Mac App Store 上架 — Design v2
 
-**Date**: 2026-06-25 (v1 初稿) + 2026-06-25 v2 (codex review 折入 4 P0 + 6 P1 + 3 P2)
-**Status**: codex review v1 已折入, 待军哥拍板进 writing-plans
+**Date**: 2026-06-25 (v1 初稿) + 2026-06-25 v2 (codex round 1 折入 4 P0 + 6 P1 + 3 P2) + 2026-06-25 v3 (codex round 2 折入 3 P0 + 4 P1 + 3 P2)
+**Status**: codex round 2 已折入, 进 writing-plans 阶段
 **Scope**: Glance v2.3 已 ship GitHub Release(Developer ID + Notarize + DMG), 此为另一条分发路径 — Mac App Store(Mac App Distribution + .pkg + App Review)
 
 ---
@@ -90,14 +90,15 @@
 - 1.2 创建 `Apple Distribution` 证书 (Apple 推荐统一证书, 同时支持 iOS / macOS App Store + Ad Hoc)
 - 1.3 不需要 `Mac Installer Distribution` 证书 — Apple 推荐 `xcodebuild -exportArchive` 走 App Store ExportOptions 自动签 .pkg, 内部用 Apple Distribution 证书的 installer counterpart
 - 1.4 创建 App Store Provisioning Profile 关联 App ID + Apple Distribution 证书
-- 1.5 创建 **App Store Connect API Key**(D5.7, P1-1):
+- 1.5 创建 **App Store Connect API Key**(D5.7, P1-1 round 1 + P2-1 round 2 凭据体系独立性):
   - 在 https://appstoreconnect.apple.com/access/api 创建 Team Key, 权限 "App Manager"
   - 下载 `AuthKey_<KEY_ID>.p8` 保存到 `~/.appstoreconnect/private_keys/` (本地 keychain 兼容)
   - 记下 Key ID + Issuer ID(后续 altool 用)
+  - **凭据体系独立性说明**(P2-1 round 2): `release.sh` 的 `NOTARY_PROFILE=glance-notary` 是 Developer ID notarize 用的 keychain profile(App-Specific Password); App Store 上传走 ASC API Key(`.p8` 文件 + JWT). 两套凭据体系完全独立不互扰, 同 keychain 可共存
 - 1.6 全套证书 + profile + API key 装到 Mac mini 登录 keychain, .p12 + .p8 备份到家里 MacStudio + 冷备份(同 v1.0 流程)
 
 ### 任务 2 — pbxproj + entitlements + Privacy Manifest 审计
-- 2.1 **新 build scheme**(P0-3): 新建 `Glance AppStore` scheme 用 Apple Distribution 签名 (不复用 Release scheme 避免签名互相干扰)
+- 2.1 **新 build configuration + scheme**(P0-3 round 1 + P0-6 round 2): 仅新 scheme 不够防签名互扰. **正确做法** — 新建 `Release-AppStore` build configuration(在 pbxproj 复制 Release config 并改 signing identity + PROVISIONING_PROFILE_SPECIFIER + CODE_SIGN_ENTITLEMENTS = `Glance/Glance-AppStore.entitlements`), 同时新 scheme `Glance AppStore` 关联此 configuration. 这样 release.sh 的 Release config 跟 release-appstore.sh 的 Release-AppStore config 完全独立, 不互相污染
 - 2.2 Entitlements 审计 (P1-2):
   - `Glance.entitlements` 当前 3 个键(`com.apple.security.app-sandbox=YES` / `com.apple.security.files.user-selected.read-write=YES` / `com.apple.security.files.bookmarks.app-scope=YES`) — App Store 接受 ✓
   - **审视**新增 `Glance-AppStore.entitlements`(可单独文件分轨, 或 if 共用 Release entitlements 不需要)
@@ -106,15 +107,14 @@
 - 2.4 macOS 部署目标 14.0 ✓(已设)
 - 2.5 **Hardened Runtime 审计**(P1-2): App Store 不强制 Hardened Runtime(跟 Developer ID 不同), 但建议保持开启跟 Developer ID 行为一致. App Store profile 要求跟 entitlements 严格匹配.
 - 2.6 年龄分级 / 内容评级在 App Store Connect 后台填(4+, 无成人内容)
-- **2.7 Privacy Manifest 审计 + 加 `PrivacyInfo.xcprivacy`** (P0-2 codex 重磅, **强制**, Apple 2024-05-01 起):
+- **2.7 Privacy Manifest 审计 + 加 `PrivacyInfo.xcprivacy`** (P0-2 round 1 + P0-5 round 2 + P1-2/P1-3 round 2 修正, **强制**, Apple 2024-05-01 起):
   - 创建 `Glance/PrivacyInfo.xcprivacy` 文件 (.xcprivacy = plist 结构)
-  - 声明 required-reason API + 选定 reason category, 我们用的 API + 推断 category:
-    - `FileManager.trashItem(at:resultingItemURL:)` + `FileManager.contentsOfDirectory(at:)` → `NSPrivacyAccessedAPICategoryDiskSpace` (用户文件操作) (具体 Apple 文档实施时核对)
-    - **FSEvents**(`FSEventStreamCreate`) → 实测不在 required-reason 列表(沙盒 user-selected 范围内监控), 但保险起见标注 "用户选择文件夹的变化监控"
-    - **SQLite** 直接 `sqlite3` C API → 不在 required-reason 列表
-    - Security Scoped Bookmark → `NSPrivacyAccessedAPICategoryUserDefaults` (`bookmarkData`) 实际不算, sandbox 自家文件不算
-    - `URLResourceValues`(`.fileCreationDate` / `.contentModificationDate` / `.fileSizeKey`) → `NSPrivacyAccessedAPICategoryFileTimestamp` ✓ (我们用了, 必须声明 reason: `0A2A.1` "用户选择文件夹内文件元数据展示")
-    - `CryptoKit` SHA256 → 不在 required-reason 列表
+  - **实施时必须对照 Apple 官方页面**"Describing use of required reason API"逐字核对所有 reason code, 下面是初步推断, 具体 code 以 Apple doc 为准
+  - 声明 required-reason API + 选定 reason category, 我们实际用的 API:
+    - **`UserDefaults`**(P0-5 round 2 漏报必补): BookmarkManager (`bookmarkSchemaVersion`) / FolderStore (`thumbnailSize`/`sortKey`/`sortDirection`) / AppState (`appearanceMode`) 等大量持久化 → `NSPrivacyAccessedAPICategoryUserDefaults`, 推断 reason code `CA92.1` 或 `1C8F.1` (实施时核 Apple doc)
+    - `URLResourceValues`(`.fileCreationDate` / `.contentModificationDate` / `.fileSizeKey` / `.birthTime`) → `NSPrivacyAccessedAPICategoryFileTimestamp` ✓, 推断 reason 用户选择文件夹内文件元数据展示 (具体 reason code 实施时核, **0A2A.1 可能非确认值**)
+    - `CryptoKit` SHA256 / Vision feature print / FSEvents / SQLite 直接 C API / `FileManager.trashItem` / `FileManager.contentsOfDirectory` → 实测**不在** Apple required-reason 列表(P1-2 round 2 修正: DiskSpace 不适用, 之前 v2 错映射, 已删)
+    - Security Scoped Bookmark → sandbox 自家文件不算, 无需声明
   - 声明 `NSPrivacyCollectedDataTypes` 数据收集类型 → **空数组**(我们零数据收集) ✓
   - 声明 `NSPrivacyTracking` = `false` (零跟踪) ✓
   - 声明 `NSPrivacyTrackingDomains` = `[]` (零跟踪域名) ✓
@@ -145,11 +145,15 @@
 ### 任务 4 — `scripts/release-appstore.sh` 包构建脚本(P0-1 改架构)
 - 4.1 新建 `scripts/release-appstore.sh`, **走 Apple 推荐路径**:
   ```bash
-  # 1. Archive (Apple Distribution 签 in-archive, 独立 archive 路径)
+  # 0. Pre-archive 清 quarantine xattr (P0-7 round 2 必加 — Apple 2025-02-18 起 TestFlight/App Store 提交不能带 com.apple.quarantine):
+  xattr -dr com.apple.quarantine . 2>/dev/null || true
+  xattr -dr com.apple.quarantine dist/ 2>/dev/null || true
+
+  # 1. Archive (Apple Distribution 签 in-archive, 独立 archive 路径, 用 Release-AppStore configuration)
   xcodebuild archive \
     -project Glance.xcodeproj \
     -scheme "Glance AppStore" \
-    -configuration Release \
+    -configuration Release-AppStore \
     -archivePath dist/Glance-AppStore.xcarchive \
     -destination "generic/platform=macOS" \
     CODE_SIGN_STYLE=Manual \
@@ -166,27 +170,37 @@
     -exportOptionsPlist scripts/ExportOptions-AppStore.plist \
     -quiet
   # → dist/export-appstore/Glance.pkg
+
+  # 3. Post-export 验证 quarantine xattr 干净 (P0-7 round 2)
+  if xattr -l dist/export-appstore/Glance.pkg | grep -q quarantine; then
+    echo "❌ Glance.pkg 仍含 com.apple.quarantine xattr, Apple 会拒"
+    exit 1
+  fi
   ```
-- 4.2 新建 `scripts/ExportOptions-AppStore.plist`:
+- 4.2 新建 `scripts/ExportOptions-AppStore.plist` (P1-1 round 2 补字段):
   ```xml
   <plist><dict>
     <key>method</key><string>app-store</string>
+    <key>teamID</key><string>8KW8Z92GRA</string>
     <key>signingStyle</key><string>manual</string>
     <key>signingCertificate</key><string>Apple Distribution</string>
+    <key>installerSigningCertificate</key><string>3rd Party Mac Developer Installer</string>
     <key>provisioningProfiles</key><dict>
       <key>com.sunhongjun.glance</key>
       <string><App Store Glance Profile></string>
     </dict>
     <key>uploadSymbols</key><false/>
     <key>compileBitcode</key><false/>
+    <key>stripSwiftSymbols</key><true/>
   </dict></plist>
   ```
+  **实施前必须** `xcodebuild -help` 看当前 Xcode 接受的 method 值是 `app-store` 还是新版 `app-store-connect`, 一致化(P1-1 round 2)
 - 4.3 验证 .pkg:
   ```bash
   pkgutil --check-signature dist/export-appstore/Glance.pkg
   ```
 - 4.4 Makefile 加 `make release-appstore` target
-- 4.5 跟现 `make release` 互不影响, 可并行跑或顺序跑(2 次独立 archive, 跟 GitHub Developer ID 路径不冲突)
+- 4.5 跟现 `make release` 互不影响, 可并行跑或顺序跑(2 次独立 archive, **独立 build configuration** 跟 GitHub Developer ID 路径不冲突, P0-6 round 2)
 - 4.6 build time 预估: 双轨 archive 约翻倍(每条 ~30s archive, 总 ~1min)
 
 ### 任务 5 — GitHub Pages 隐私政策页面(P1-5 强化)
@@ -222,15 +236,16 @@
   - **优势**: 拦截签名/manifest/沙盒错误(免去正式 review 拒因), 1-2 天内能拿到结果
   - **劣势**: 多 1 步, 不强制
 - 7.1 build .pkg(任务 4)
-- 7.2 上传(D5.7, P1-1 现代凭据):
+- 7.2 上传(D5.7, P1-1 round 1 + P2-2 round 2 现代首选标注):
   ```bash
+  # 推荐路径: ASC API Key + altool (脚本化)
   xcrun altool --upload-app \
     --type macos \
     --file dist/export-appstore/Glance.pkg \
     --apiKey <KEY_ID> \
     --apiIssuer <ISSUER_ID>
   ```
-  或用 Transporter.app GUI 上传(API Key/JWT 用法相同, 仅 UI 差异)
+  备选: Transporter.app GUI(同 API Key/JWT 路径, UI 差异). **现代首选优先级**(P2-2 round 2): Transporter CLI 或 ASC API JWT 自动化 > altool, 因为 altool 可能未来 flag 漂移; altool 目前仍稳, 但实施时若 Apple 升级建议 migrate
 - 7.3 等 App Store Connect 处理 build(几分钟到 30min)
 - 7.4 在 Web 后台关联 build 到 App Store version
 - **7.5 准备审核备注文案**(P1-3): 在 App Store Connect "App Review Notes" 段写明:
@@ -250,11 +265,13 @@
   ```
 - 8.2 小红书发首发推, 双轨入口(App Store 链接 + GitHub Release 链接) 都贴
 - 8.3 PENDING-USER-ACTIONS.md 加 App Store 相关人工跟踪项(评分 / 评论 / 拒因复盘)
-- **8.4 D5.6 双装兜底文档**(P0-4 codex):
+- **8.4 D5.6 双装兜底文档**(P0-4 round 1 + P1-4 round 2 补降级路径):
   - **同 Bundle ID 共享 sandbox container**: 老 GitHub 用户在装 App Store 版后, 直接打开 App Store 版即可继承所有 root + 索引数据(SQLite DB + bookmark 都在 `~/Library/Containers/com.sunhongjun.glance/`)
   - **双装一台机风险声明**: 用户**不应同时安装 GitHub Developer ID 版 + App Store 版**, 因为同 sandbox container 共享数据可能出现 schema 冲突 / 版本号比对异常 / FSEvents 重复触发. README + App Store 描述强烈建议二选一
-  - **App Store 版升级路径**: App Store 自动更新接管, 用户卸 GitHub 版后纯走 App Store 版即可
+  - **正向升级路径(GitHub → App Store)**: 老 GitHub 用户卸 GitHub 版 → 装 App Store 版, sandbox container 数据保留, App Store 版首启接管 + 升级 schema(如有), App Store 自动更新接管之后
+  - **降级路径(App Store → GitHub)**(P1-4 round 2 补): 用户从 App Store 版回退到 GitHub Developer ID 版**风险高** — SQLite `PRAGMA user_version` 可能已升级到 App Store 版的更新 schema, GitHub 版旧 binary 打开会触发 `IndexStoreSchema.migrate` 不可逆兼容路径. **明确处理**: 旧版 binary 检测 schema 版本 > 自身预期时, 弹明确 error dialog "数据库版本不兼容, 请重装 App Store 版或清空 `~/Library/Containers/com.sunhongjun.glance/Application Support/` 重建"(IndexStoreSchema.swift 实施时加, 任务 2 一并审计). 不允许 silent data corruption
   - **GitHub 版用户的迁移说明**: README 加 "已装 GitHub 版?" 子段 - 双装共存只在二选一前提下数据可继承, 建议卸 GitHub 版完成迁移
+  - **App Store 版的迁移友好**: App Store 版首启检测 `~/Library/Containers/com.sunhongjun.glance/Application Support/` 已有数据时, 直接接管 + 不弹任何"首启引导"对话框, 提供平滑老用户体验
 
 ### 任务 9 — Roadmap + CONTEXT 同步
 - 9.1 specs/Roadmap.md 加 V2.3 App Store 上架记录 (commit / 日期 / Submission ID)
@@ -289,7 +306,7 @@
 - **Privacy Manifest 缺失 / 不符** → 任务 2.7 ✓
 - **Privacy Nutrition Labels 跟 Manifest 不一致** → 任务 3.9 ✓
 
-**预估首次审核结果**(P1-6 修正): 通过概率 60-70%, 可能因为"SHA256 + FSEvents 用法非主流" / "Privacy Manifest 边界" / "审核员空态体验" 被问问题或拒. 第一次提交常被拒 1-2 次属正常, 改 metadata / 加说明 / fix manifest 再提即可. **日历时间预估 2-3 周**(含 1-2 次拒因+改+重提 cycle).
+**预估首次审核结果**(P1-6 round 1 + P1-5 round 2 措辞校正): 通过概率 60-70%, 可能因为"SHA256 + FSEvents 用法非主流" / "Privacy Manifest 边界" / "审核员空态体验" 被问问题或拒. 正常审核通常 1-2 天, 被拒后重提**重新计时**(不累计), 如有 2-3 个拒因+修改 cycle, 整体 **2-3 周日历时间合理**.
 
 ---
 
@@ -304,7 +321,7 @@
 | 5 GitHub Pages 隐私政策(中英双语) | 2h(零网络承诺 + 本地索引明示 + GDPR/PIPL 框架声明) | CC 写 |
 | 6 截图标语包装(用 App Store build 抓) | 2-3h(Figma) | 军哥本机做(主) |
 | 7.0 TestFlight 内测预 step(可选) | 上传 30min + 内测 1-2 天 | 等 Apple |
-| 7.1-7.9 正式上传 + 审核 | 上传 30min + **等 Apple 审核 1-3 天**(中位 ~24-48h, 首次 +可能 1-2 次拒因 reset) | 等 Apple |
+| 7.1-7.9 正式上传 + 审核 | 上传 30min + **等 Apple 审核 1-2 天**(正常通过, 被拒后重提**重新计时**不累计) | 等 Apple |
 | 8 双轨上架后 + 双装兜底文档 | 1h | CC + 军哥 |
 | 9 Roadmap + CONTEXT 同步 | 30min | CC |
 | **总** | **CC 工作 ~7-9h + 军哥工作 ~5-7h + Apple 等 2-3 周**(P1-6 修正, 含 1-2 次拒因) | 2-3 周日历 |
@@ -369,7 +386,9 @@
 
 ---
 
-## 11. codex review v1 P0/P1/P2 折入对照表
+## 11. codex review P0/P1/P2 折入对照表
+
+### 11.1 Round 1 (4 P0 + 6 P1 + 3 P2, v2 折入)
 
 | codex 等级 | 问题 | 本 v2 落地 |
 |---|---|---|
@@ -386,3 +405,19 @@
 | **P2-1** | TestFlight 预留 | Task 7.0 加 TestFlight 内测可选 step |
 | **P2-2** | IAP 远期警示 | Section 2 Scope 写明 + Section 10 follow-up 强化 |
 | **P2-3** | 截图真实性约束 | Task 3.3 + Task 6.2 必须用 App Store build 抓 |
+
+### 11.2 Round 2 (3 P0 + 4 P1 + 3 P2, v3 折入)
+
+| codex 等级 | 问题 | 本 v3 落地 |
+|---|---|---|
+| **P0-5** | UserDefaults required-reason 漏报 | Task 2.7 必加 `NSPrivacyAccessedAPICategoryUserDefaults`(BookmarkManager/FolderStore/AppState 大量用) |
+| **P0-6** | 新 scheme 不足以隔离签名 — 共用 Release config 反向污染 release.sh | Task 2.1 改"新建 `Release-AppStore` build configuration" 不仅 scheme |
+| **P0-7** | quarantine xattr 上传门禁缺失(Apple 2025-02-18 起) | Task 4.1 加 pre-archive `xattr -dr com.apple.quarantine` + post-export 验证 |
+| **P1-1** | ExportOptions plist 字段不全 | Task 4.2 补 `teamID` + `installerSigningCertificate` + `stripSwiftSymbols` + 实施时核 `xcodebuild -help` method 值 |
+| **P1-2** | DiskSpace 映射错(`contentsOfDirectory`/`trashItem` 不是 disk-space API) | Task 2.7 删 DiskSpace 错误推断, 改"不在 required-reason 列表" |
+| **P1-3** | FileTimestamp reason code 需实测确认 | Task 2.7 加"实施时对照 Apple 官方页面逐字核, 0A2A.1 可能非确认值" |
+| **P1-4** | 降级路径(App Store → GitHub)未明确 | Task 8.4 补降级路径 + SQLite `PRAGMA user_version` 冲突明确处理("弹 error dialog 不允许 silent data corruption") |
+| **P1-5** | 审核时间措辞校正 | Section 5 + 6 改"正常 1-2 天, 被拒后重提**重新计时**不累计, 2-3 周日历" |
+| **P2-1** | API Key 跟 keychain-profile 不冲突 | Task 1.5 加凭据体系独立性说明 |
+| **P2-2** | altool 仍稳但建议 Transporter/JWT 现代首选标注 | Task 7.2 加现代首选优先级说明 |
+| **P2-3** | FSEvents/SQLite/Bookmark 描述基本对 — 真正漏的是 UserDefaults 和 FileTimestamp reason code 核对 | (v2 段已说明实际 API, v3 P0-5 / P1-3 已修, 此条无需独立 fix) |
