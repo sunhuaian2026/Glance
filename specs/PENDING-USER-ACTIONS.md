@@ -25,8 +25,6 @@
 ### Mac App Store 上架 — 任务 5 GitHub Pages 隐私政策(2026-06-25 / `752d26d`)
 
 - [ ] (2026-06-25 / `752d26d`) **其他**: 军哥本机 `open docs/privacy.html` 浏览器渲染验 — 中英 14 段全显示(7 中 + 7 英) / 暗色模式跟亮色都正常 / mailto/小红书/GitHub 三个链接可点 / 字体不糊
-- [ ] (2026-06-25 / `752d26d`) **其他**: 军哥点 https://github.com/sunhuaian2026/Glance/settings/pages → "Build and deployment" 段 → Source `Deploy from a branch` → Branch `main` / Folder `/docs` → Save → 等 5min
-- [ ] (2026-06-25 / `752d26d`) **其他**: `curl -I https://sunhuaian2026.github.io/Glance/privacy.html` 返回 `HTTP/2 200`(不可 301/302/404) — Pages 生效自动锚点
 - [ ] (2026-06-25 / `752d26d`) **其他**: 军哥手机/iPad 浏览器打开 https://sunhuaian2026.github.io/Glance/privacy.html 验移动端渲染(响应式 padding / 字号合适)
 
 ### 重复清理 V2 重设计 — 剩余真机验（CC 自闭环 9 项 PASS 后剩 11 项, 2026-06-22 CC 自闭环, build `866ae03.0622-0938`）
@@ -242,6 +240,11 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### Mac App Store 任务 5 GitHub Pages 隐私政策 — 2 项 2026-06-25
+
+- [x] (2026-06-25 / `1c4e037`) **其他**: 军哥点 https://github.com/sunhuaian2026/Glance/settings/pages 启 Pages(account-level 误入修正 → repo-level → Source `Deploy from a branch` → Branch `main` / Folder `/docs` → Save) → 等 5min
+- [x] (2026-06-25 / `c3945a7`) **其他**: `curl -I https://sunhuaian2026.github.io/Glance/privacy.html` 返回 `HTTP 200`(CC 2026-06-25 20:03:39 poll 1/10 立刻 200, 内容 14 个 `<h3>` 段齐 = 7 中 + 7 英) — Pages live 锚定任务 5 完成
 
 ### M3 type: + M4 SQL 抽样 + OpenWith 方向 2 — CC 自闭环 8 项 2026-06-22（第三批）
 
