@@ -232,11 +232,34 @@ class FolderStore: ObservableObject {
         startCurrentFolderWatcher(for: url)
     }
 
-    /// V1 grid 手动刷新当前 folder（sidebar 右键"刷新"调）。
-    /// 兜底 FSEvents 偶发漏 + 用户想强制刷新时的入口。
-    func refreshCurrentFolder() {
-        guard let url = selectedFolder else { return }
-        Task { await scanImages(in: url) }
+    /// V1 sidebar 右键"刷新"调。重建该 node 所属 root 的整子文件夹树（捕获 Finder 里新增/删除的子文件夹，
+    /// FSEvents 偶发漏的兜底），同时刷该 root 树内所有节点的图片计数 + 若选中节点也在该树内则 reload grid 图片。
+    /// 嵌套 root 场景按最长前缀匹配定位真实 root（避免错路由到 parent root）。
+    func refreshNode(_ url: URL) {
+        let nodePath = url.standardizedFileURL.path
+        let candidates = rootFolders.map(\.url).filter { root in
+            let rootPath = root.standardizedFileURL.path
+            return rootPath == nodePath || nodePath.hasPrefix(rootPath + "/")
+        }
+        guard let rootURL = candidates.max(by: {
+            $0.standardizedFileURL.path.count < $1.standardizedFileURL.path.count
+        }) else { return }
+
+        Task {
+            let newNode = await discoverTree(at: rootURL)
+            if let idx = rootFolders.firstIndex(where: { $0.url == rootURL }) {
+                rootFolders[idx] = newNode
+            }
+            await countImagesInTree(newNode)
+            // 若 selectedFolder 落在该 root 树内（含 root 本身），重扫 grid 图片
+            if let selected = selectedFolder {
+                let selPath = selected.standardizedFileURL.path
+                let rootPath = rootURL.standardizedFileURL.path
+                if selPath == rootPath || selPath.hasPrefix(rootPath + "/") {
+                    await scanImages(in: selected)
+                }
+            }
+        }
     }
 
     private func startCurrentFolderWatcher(for url: URL) {
