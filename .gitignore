@@ -9,3 +9,9 @@ CLAUDE.md
 specs/
 docs/archive/
 .githooks/
+
+# V2 新引入的 dev internals (2026-06-25 v2.3 merge 时加, 跟 5-8 公开 repo 清理决定一致)
+AGENTS.md
+CONTEXT.md
+dist-release.log
+.agents/

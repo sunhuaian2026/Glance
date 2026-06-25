@@ -27,7 +27,7 @@ SIGN_IDENTITY="Developer ID Application"
 NOTARY_PROFILE="${NOTARY_PROFILE:-glance-notary}"
 
 # 用户可见版本（marketing），跟 pbxproj MARKETING_VERSION 保持一致
-MARKETING_VERSION="1.0.0"
+MARKETING_VERSION="2.3.0"
 
 # 内部 build version（给开发者看，跟 commit 关联），注入到 CFBundleVersion
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -174,12 +174,16 @@ if [[ "${SKIP_NOTARIZE:-0}" != "1" ]]; then
         --timeout 30m
 
     echo ""
-    echo "==> Step 5/6: stapler staple"
+    echo "==> Step 5/6: stapler staple (.app standalone + DMG)"
+    # .app 单独 staple — 解决 v1.0.0 ".app 单独 staple 在 v1.0.1 加" 分发债，.app 单独拖出 DMG 也能离线启动
+    xcrun stapler staple "${APP_PATH}"
+    xcrun stapler validate "${APP_PATH}"
     xcrun stapler staple "${DMG_PATH}"
     xcrun stapler validate "${DMG_PATH}"
 
     echo ""
-    echo "==> Step 6/6: spctl Gatekeeper assessment"
+    echo "==> Step 6/6: spctl Gatekeeper assessment (.app + DMG)"
+    spctl --assess --type execute --verbose "${APP_PATH}" 2>&1 || true
     spctl --assess --type open --context context:primary-signature --verbose "${DMG_PATH}" 2>&1 || true
 else
     echo ""
@@ -187,7 +191,9 @@ else
 fi
 
 # ============== Summary ==============
-SHA256=$(shasum -a 256 "${DMG_PATH}" | awk '{print $1}')
+# 写 .sha256 sidecar 文件供 GitHub Release upload（gh release create 会单独上传该文件）
+shasum -a 256 "${DMG_PATH}" > "${DMG_PATH}.sha256"
+SHA256=$(awk '{print $1}' "${DMG_PATH}.sha256")
 DMG_SIZE=$(du -h "${DMG_PATH}" | awk '{print $1}')
 
 echo ""

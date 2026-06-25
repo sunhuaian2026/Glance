@@ -9,6 +9,15 @@ struct FolderSidebarView: View {
     @EnvironmentObject var folderStore: FolderStore
     @State private var isDropTargeted: Bool = false
 
+    /// Slice D — hide toggle 回调：(rootURL, nodeURL)；root 节点 nodeURL == rootURL。
+    /// 由 ContentView 实现，调 IndexStore + 触发 SmartFolderStore re-query。
+    var onToggleHide: ((URL, URL) -> Void)? = nil
+    /// Slice D — query effective hidden 给 menu label 动态文案；同 (rootURL, nodeURL) 语义。
+    var isEffectivelyHidden: ((URL, URL) -> Bool)? = nil
+    /// Slice D follow-up — 是否 row 自己显式 hide=1（不走继承）。给行视觉决定是否显 eye.slash。
+    /// 区分于 isEffectivelyHidden：root hide 整树场景 subfolder effective hidden 但非 explicit，不显图标避噪音。
+    var isExplicitlyHidden: ((URL, URL) -> Bool)? = nil
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             // 紫色环境光光晕
@@ -72,6 +81,21 @@ struct FolderSidebarView: View {
         }
     }
 
+    /// 找 node 所属的 root URL：root 节点本身 / 或某 root 是 node.url 路径前缀。
+    /// 用于把 hide toggle 落到 IndexStore 的 (rootId, relativePath) 坐标。
+    /// 嵌套 root 场景（同时管理 /parent 和 /parent/child）必须取**最长前缀**，
+    /// 否则 /parent/child/foo.png 会被错路由到 /parent root（codex P2）。
+    private func rootURL(for nodeURL: URL) -> URL? {
+        let nodePath = nodeURL.standardizedFileURL.path
+        let candidates = folderStore.rootFolders.filter { root in
+            let rootPath = root.url.standardizedFileURL.path
+            return rootPath == nodePath || nodePath.hasPrefix(rootPath + "/")
+        }
+        return candidates.max(by: { lhs, rhs in
+            lhs.url.standardizedFileURL.path.count < rhs.url.standardizedFileURL.path.count
+        })?.url
+    }
+
     // MARK: - 行视图
 
     @ViewBuilder
@@ -81,6 +105,16 @@ struct FolderSidebarView: View {
 
         HStack {
             Label(node.url.lastPathComponent, systemImage: "folder")
+            // Slice D follow-up — row 自己 explicit hide=1 时显 eye.slash 图标。
+            // 用 explicit 而非 effective：root hide 整树时 subfolder 继承 hidden 但非显式 set，
+            // 不显图标避免视觉噪音（root 行图标已表达整树状态）
+            if let rootURL = rootURL(for: node.url),
+               isExplicitlyHidden?(rootURL, node.url) == true {
+                Image(systemName: "eye.slash")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .help("在智能文件夹中隐藏")
+            }
             Spacer()
             if let count, count > 0 {
                 Text("\(count)")
@@ -99,6 +133,15 @@ struct FolderSidebarView: View {
         .contextMenu {
             Button("在 Finder 中显示") {
                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: node.url.path)
+            }
+            // 刷新 = 重建该 node 所属 root 整子文件夹树 + 若选中节点在该树内则 reload grid 图片
+            // (右键直接点的 node 即用户意图目标, Finder 行为, 不再依赖 selection)
+            Button("刷新") { folderStore.refreshNode(node.url) }
+            if let toggle = onToggleHide, let rootURL = rootURL(for: node.url) {
+                let hidden = isEffectivelyHidden?(rootURL, node.url) ?? false
+                Button(hidden ? "在智能文件夹中显示" : "在智能文件夹中隐藏") {
+                    toggle(rootURL, node.url)
+                }
             }
             if isRoot {
                 Divider()

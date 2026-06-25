@@ -9,10 +9,11 @@ import ImageIO
 struct ImageGridView: View {
     @EnvironmentObject var folderStore: FolderStore
     @EnvironmentObject var appState: AppState
-    let gridFocusTrigger: UUID
+    /// D15 终态：父持有的 @FocusState binding。本 view 通过
+    /// `.focused($focusTarget, equals: .grid)` 申请焦点；onAppear / dismiss 路径由父 view 写值。
+    @FocusState.Binding var focusTarget: AppFocus?
     var onDoubleClick: (Int) -> Void = { _ in }
 
-    @FocusState private var isFocused: Bool
     @State private var highlightedURL: URL? = nil
 
     private var gridColumns: [GridItem] {
@@ -58,8 +59,10 @@ struct ImageGridView: View {
             }
             return folderStore.selectedFolder?.lastPathComponent ?? ""
         }())
-        .onChange(of: folderStore.images) { _, _ in
-            highlightedURL = nil
+        .onChange(of: folderStore.images) { _, newImages in
+            // 选文件夹 / images 重新装载 → 默认高亮第一张, 让键盘 ← → 导航起点就在第一张
+            // (2026-06-25 军哥反: 选文件夹后没默认高亮)
+            highlightedURL = newImages.first
         }
         .toolbar {
             if folderStore.selectedImageIndex == nil {
@@ -151,24 +154,17 @@ struct ImageGridView: View {
                 // dark 跟 Finder 一致（~#1E1E1E 中性灰，不再偏冷蓝紫）。light 模式视觉无变化
                 .focusable()
                 .focusEffectDisabled()
-                .focused($isFocused)
-                .onAppear { isFocused = true }
-                // ImagePreviewView 关闭时（selectedImageIndex 变 nil）grid 一直在 ZStack 底层
-                // 没有重新出现，onAppear 不会再触发；主动拉回焦点防止方向键 / Space 静默或被
-                // 退场中的 ImagePreviewView 残留响应（Y-1 / Y-2 race）
+                .focused($focusTarget, equals: .grid)
+                .onAppear { focusTarget = .grid }
+                // preview 方向键 navigate 已写回 selectedImageIndex（ImagePreviewView.swift navigate(by:)），
+                // grid 这边监听 non-nil 分支同步 highlightedURL → ESC 退回 grid 时 highlight 跟到 preview
+                // 浏览到的图，对齐 Finder Cover Flow / Photos.app 行为（Bug 4 真解）。
+                // focus 仲裁由父 view 单点持有，本 view 不再需要 selectedImageIndex == nil 时主动 refocus。
                 .onChange(of: folderStore.selectedImageIndex) { _, newValue in
-                    if newValue == nil {
-                        isFocused = true
-                    } else if let idx = newValue, folderStore.images.indices.contains(idx) {
-                        // preview 方向键 navigate 已写回 selectedImageIndex（ImagePreviewView.swift:147-152），
-                        // grid 这边监听同步 highlightedURL → ESC 退回 grid 时 highlight 跟到 preview 浏览到的图，
-                        // 对齐 Finder Cover Flow / Photos.app 行为。Bug 4 真解
+                    if let idx = newValue, folderStore.images.indices.contains(idx) {
                         highlightedURL = folderStore.images[idx]
                     }
                 }
-                // ContentView 在 QuickViewer / preview 关闭后通过 gridFocusTrigger 拉回焦点；
-                // 上面 selectedImageIndex onChange 是冗余兜底（仅覆盖 preview dismiss 路径）
-                .onChange(of: gridFocusTrigger) { _, _ in isFocused = true }
                 // Space：进入全窗口查看器
                 .onKeyPress(.space) {
                     guard !images.isEmpty else { return .ignored }
@@ -193,13 +189,18 @@ struct ImageGridView: View {
     // MARK: - Helpers
 
     private func moveHighlight(by delta: Int, colCount: Int, total: Int, proxy: ScrollViewProxy) {
-        guard total > 0 else { return }
-        let current = highlightedURL.flatMap({ folderStore.images.firstIndex(of: $0) })
+        // 调用点 captured total (closure 内的 local snapshot) 跟 folderStore.images 可能不一致
+        // (selectFolder 切换瞬间 images 被设 [], 或 FSEvents 在途删图), 直接 folderStore.images[next]
+        // 会越界崩 (2026-06-25 军哥真机崩报)。内部重 snapshot 一致性, 全程用同一份 images.
+        let images = folderStore.images
+        guard !images.isEmpty else { return }
+        let current = highlightedURL.flatMap({ images.firstIndex(of: $0) })
             ?? (delta > 0 ? -1 : 0)
-        let next = max(0, min(total - 1, current + delta))
-        highlightedURL = folderStore.images[next]
+        let next = max(0, min(images.count - 1, current + delta))
+        guard images.indices.contains(next) else { return }
+        highlightedURL = images[next]
         withAnimation(DS.Anim.fast) {
-            proxy.scrollTo(folderStore.images[next], anchor: .center)
+            proxy.scrollTo(images[next], anchor: .center)
         }
     }
 
@@ -273,8 +274,34 @@ struct ThumbnailCell: View {
 
 // MARK: - Thumbnail Loading（internal，供 FilmstripCell 复用）
 
-func loadThumbnail(url: URL, maxPixelSize: Int = 200) async -> NSImage? {
+/// 加载完整 NSImage（preview / QuickViewer 大图用）。SVG 走 NSImage(contentsOf:)
+/// 让 macOS CoreSVG rasterize；raster 格式走 CGImageSource → CGImage → NSImage。
+/// 必须在 detached task 内调用（IO + 解码）。
+/// nonisolated：项目 default main-actor isolation 下，全局函数默认 @MainActor，会令本应离主线程的
+/// 解码在 Task.detached 里 hop 回主线程跑（UI 卡）。标 nonisolated 恢复真·后台解码 + 消隔离 warning。
+nonisolated func loadFullNSImage(url: URL) -> NSImage? {
+    if url.pathExtension.lowercased() == "svg" {
+        return NSImage(contentsOf: url)
+    }
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+    return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+}
+
+nonisolated func loadThumbnail(url: URL, maxPixelSize: Int) async -> NSImage? {
     await Task.detached(priority: .userInitiated) {
+        // SVG: vector 无内嵌 raster thumbnail，CGImageSourceCreateThumbnailAtIndex 常 return
+        // nil → spinner 永卡。走 NSImage 让 macOS CoreSVG rasterize；通过 size 控制目标尺寸，
+        // SwiftUI 渲染时按 vector 数据重新栅格化无糊。
+        if url.pathExtension.lowercased() == "svg" {
+            guard let img = NSImage(contentsOf: url),
+                  img.size.width > 0, img.size.height > 0 else { return nil }
+            let scale = min(CGFloat(maxPixelSize) / img.size.width,
+                            CGFloat(maxPixelSize) / img.size.height,
+                            1.0)
+            img.size = NSSize(width: img.size.width * scale, height: img.size.height * scale)
+            return img
+        }
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,

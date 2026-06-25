@@ -10,9 +10,22 @@
 		A1E8BFEA2F680D1F002670BC /* Glance.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Glance.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A1E8C0102F680D1F002670BC /* Exceptions for "Glance" folder in "Glance" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A1E8BFE92F680D1F002670BC /* Glance */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A1E8BFEC2F680D1F002670BC /* Glance */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1E8C0102F680D1F002670BC /* Exceptions for "Glance" folder in "Glance" target */,
+			);
 			path = Glance;
 			sourceTree = "<group>";
 		};
@@ -255,15 +268,16 @@
 				DEVELOPMENT_TEAM = 8KW8Z92GRA;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Glance/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Glance;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 2.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunhongjun.glance;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -287,15 +301,16 @@
 				DEVELOPMENT_TEAM = 8KW8Z92GRA;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Glance/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Glance;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 2.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunhongjun.glance;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

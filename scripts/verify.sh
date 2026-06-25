@@ -72,7 +72,7 @@ else
   fail "TODO format violations"; printf '%s\n' "$BT" | sed 's/^/      /'
 fi
 
-APPLE='^(SwiftUI|Foundation|AppKit|Combine|ImageIO|UniformTypeIdentifiers|CoreGraphics|CoreImage|CoreText|CoreFoundation|CoreServices|OSLog|Security|IOKit|QuartzCore|Metal|AVFoundation|AVKit|MapKit|PhotosUI|Photos|PDFKit|WebKit|StoreKit|LocalAuthentication|AuthenticationServices|Network|NetworkExtension|SystemConfiguration|UserNotifications|EventKit|Contacts|Intents|CoreLocation|CoreBluetooth|CoreMotion|CoreML|Vision|NaturalLanguage|Speech|Accelerate|simd|os|Darwin|Dispatch|XCTest)$'
+APPLE='^(SwiftUI|Foundation|AppKit|Combine|ImageIO|UniformTypeIdentifiers|CoreGraphics|CoreImage|CoreText|CoreFoundation|CoreServices|OSLog|Security|IOKit|QuartzCore|Metal|AVFoundation|AVKit|MapKit|PhotosUI|Photos|PDFKit|WebKit|StoreKit|LocalAuthentication|AuthenticationServices|Network|NetworkExtension|SystemConfiguration|UserNotifications|EventKit|Contacts|Intents|CoreLocation|CoreBluetooth|CoreMotion|CoreML|Vision|NaturalLanguage|Speech|Accelerate|simd|os|Darwin|Dispatch|XCTest|SQLite3|CryptoKit)$'
 IMPS=$(grep -hE '^import ' $SRC 2>/dev/null | awk '{print $2}' | sort -u)
 BAD_IMPS=$(printf '%s\n' "$IMPS" | grep -vE "$APPLE" | grep -v '^$' || true)
 if [ -z "$BAD_IMPS" ]; then
@@ -136,8 +136,46 @@ fi
 HP=$(git config --get core.hooksPath 2>/dev/null || echo "")
 [ "$HP" = ".githooks" ] && pass "core.hooksPath=.githooks" \
                         || fail "core.hooksPath unset — run: make hooks-install"
+[ -x .githooks/commit-msg ] && pass ".githooks/commit-msg executable" \
+                            || fail ".githooks/commit-msg not executable — run: make hooks-install"
 [ -x .githooks/pre-push ] && pass ".githooks/pre-push executable" \
                           || fail ".githooks/pre-push not executable — run: make hooks-install"
+
+# 1d. 术语字典遵守（CONTEXT.md「术语字典表」强制规范）─────────────────
+# 规则源：.githooks/_glossary_rules.sh（单一来源，commit-msg hook 共用）
+# 范围：所有 staged .md 改动（含新增/修改/重命名）的 + 行；CONTEXT.md 自身豁免
+# 豁免：fenced code block (``` ... ```) 内容 + inline backtick `...` 内容
+# diff -U999 拿足够大上下文以重建 fenced 边界状态
+GLOSSARY_RULES_FILE=".githooks/_glossary_rules.sh"
+if [ ! -f "$GLOSSARY_RULES_FILE" ]; then
+  fail "术语字典规则文件缺失：$GLOSSARY_RULES_FILE"
+else
+  # shellcheck source=/dev/null
+  . "$GLOSSARY_RULES_FILE"
+
+  TERM_TMP=$(mktemp)
+  # 豁免:CONTEXT.md（字典本身）+ AGENTS.md（会话历史日志）+ CLAUDE.md（术语规则元文档,自身要列禁用词）
+  git diff --cached --no-color -U999 -- '*.md' ':(exclude)CONTEXT.md' ':(exclude)AGENTS.md' ':(exclude)CLAUDE.md' > "$TERM_TMP" 2>/dev/null
+
+  if [ ! -s "$TERM_TMP" ]; then
+    pass "术语字典：no staged .md changes — skip"
+    rm -f "$TERM_TMP"
+  else
+    CLEAN_TMP=$(mktemp)
+    glossary_filter_diff < "$TERM_TMP" > "$CLEAN_TMP"
+    rm -f "$TERM_TMP"
+
+    glossary_check "$CLEAN_TMP"
+    rm -f "$CLEAN_TMP"
+
+    if [ "$GLOSSARY_VIOLATIONS" -eq 0 ]; then
+      pass "术语字典：本次 .md 改动无弃用词"
+    else
+      fail "术语字典：本次 .md 改动 ${GLOSSARY_VIOLATIONS} 处违规（见 CONTEXT.md「术语字典表」）"
+      printf '%b\n' "$GLOSSARY_REPORT"
+    fi
+  fi
+fi
 
 die_if_red 1
 

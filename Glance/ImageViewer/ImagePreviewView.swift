@@ -13,24 +13,25 @@ struct ImagePreviewView: View {
 
     let images: [URL]
     let startIndex: Int
-    let focusTrigger: UUID
     let onDismiss: () -> Void
     let onQuickView: (Int) -> Void
 
-    @FocusState private var isFocused: Bool
+    /// D15 终态：父持有的 @FocusState binding（参考 ContentView.AppFocus）。
+    @FocusState.Binding var focusTarget: AppFocus?
     @State private var currentIndex: Int
     // vm 由 ContentView 通过 @StateObject 持有并注入：ContentView.body 上有 .id(idx)
     // 会让 ImagePreviewView 在每次方向键切换时整个重建，若 vm 用 @StateObject 跟视图
     // 生命周期绑定，cache 会被一并销毁。提到 ContentView 后 cache 跨重建持续。
     @ObservedObject var vm: ImagePreviewViewModel
 
-    init(vm: ImagePreviewViewModel, images: [URL], startIndex: Int, focusTrigger: UUID = UUID(),
+    init(vm: ImagePreviewViewModel, images: [URL], startIndex: Int,
+         focusTarget: FocusState<AppFocus?>.Binding,
          onDismiss: @escaping () -> Void,
          onQuickView: @escaping (Int) -> Void) {
         self._vm = ObservedObject(wrappedValue: vm)
         self.images = images
         self.startIndex = startIndex
-        self.focusTrigger = focusTrigger
+        self._focusTarget = focusTarget
         _currentIndex = State(initialValue: max(0, min(startIndex, images.count - 1)))
         self.onDismiss = onDismiss
         self.onQuickView = onQuickView
@@ -38,7 +39,10 @@ struct ImagePreviewView: View {
 
     var body: some View {
         ZStack {
-            DS.Color.appBackground.ignoresSafeArea()
+            // appBackground 不带 .ignoresSafeArea(): 背景只填 safe area 内遮住底层 grid
+            // (预览是 overlay 在 grid 之上不替代), toolbar 区透明让 NavigationSplitView
+            // 默认 material 接管, 跟 sidebar vibrancy 融合, 消除标题栏左上角方形.
+            DS.Color.appBackground
 
             // 青绿光晕（右下角）
             RadialGradient(
@@ -59,6 +63,8 @@ struct ImagePreviewView: View {
                     .onTapGesture(count: 2) {
                         onQuickView(currentIndex)
                     }
+            } else if vm.loadFailed {
+                ImageLoadFailedView()
             } else {
                 ProgressView()
                     .controlSize(.large)
@@ -111,9 +117,8 @@ struct ImagePreviewView: View {
         }
         .focusable()
         .focusEffectDisabled()
-        .focused($isFocused)
-        .onAppear { loadImage(); isFocused = true }
-        .onChange(of: focusTrigger) { isFocused = true }
+        .focused($focusTarget, equals: .preview)
+        .onAppear { loadImage(); focusTarget = .preview }
         .onKeyPress(.escape) { dismissPreview(); return .handled }
         .onKeyPress(.leftArrow)  { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: +1); return .handled }
@@ -142,9 +147,11 @@ struct ImagePreviewView: View {
     // MARK: - Dismiss
 
     // 统一 dismiss 入口（ESC + 关闭按钮）：先撤焦点再 onDismiss，避免 transition 退场期
-    // 残留 onKeyPress 把方向键接走（Y-2 race），见 commit 5b29600 + 后续 followup
+    // 残留 onKeyPress 把方向键接走（Y-2 race，见 commit 5b29600）。
+    // D15 终态：focusTarget = nil 让单仲裁者撤销 preview 焦点；父 view onChange(of: selectedImageIndex)
+    // 会随后写回 .grid / .ephemeral。
     private func dismissPreview() {
-        isFocused = false
+        focusTarget = nil
         onDismiss()
     }
 
