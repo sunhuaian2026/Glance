@@ -29,8 +29,6 @@
 
 ### Mac App Store 上架 — 任务 2+4 pbxproj + Release-AppStore + Privacy Manifest + release-appstore.sh(2026-06-25 / `07cd0fd`)
 
-- [ ] (2026-06-25 / `07cd0fd`) **其他**: 军哥任务 1 完成 Apple Distribution 证书 + provisioning profile 部署到 keychain 后,**回填占位** `__APP_STORE_PROFILE_NAME_PLACEHOLDER__` 为真实 profile name(e.g. `Glance App Store`)在 2 处: (i) `scripts/ExportOptions-AppStore.plist` 第 17 行 (ii) `Glance.xcodeproj/project.pbxproj` 的 `PROVISIONING_PROFILE_SPECIFIER` 字段
-- [ ] (2026-06-25 / `07cd0fd`) **其他**: 任务 1 凭据齐 + 占位回填完后, 跑 `make release-appstore` 端到端验 — 期望出 `dist/export-appstore/Glance.pkg` + `pkgutil --check-signature` 通过 + post-export `xattr -l` 无 quarantine
 - [ ] (2026-06-25 / `07cd0fd`) **其他**: 任务 1 凭据齐后 GUI Xcode 打开项目, Manage Schemes 看到 "Glance" + "Glance AppStore" 两 scheme 都共享 + Archive 用 "Glance AppStore" scheme → 应跑 Release-AppStore configuration 走 Apple Distribution 签名(跟 CC SSH 跑结果一致即 OK)
 - [ ] (2026-06-25 / `07cd0fd`) **其他**: Xcode 16 GUI build 验 PrivacyInfo.xcprivacy 不报 warning — 如报 reason code 不识别, 按 Apple 官方"Describing use of required reason API"页面修正 `CA92.1` / `0A2A.1` 推断值
 
@@ -247,6 +245,11 @@ CC 2026-06-22 已自闭环全部 4 项 PASS（按钮可见 + 点击 = ⌘F + ⌘
 ## Done
 
 （本段追加完成条目，附完成日期。）
+
+### Mac App Store 任务 2+4 — profile 回填 + make release-appstore 端到端 .pkg 出包 2 项 2026-06-25
+
+- [x] (2026-06-25 / `<待回填>`) **其他**: profile 占位 `__APP_STORE_PROFILE_NAME_PLACEHOLDER__` → `Glance App Store` 在 2 处全回填(`scripts/ExportOptions-AppStore.plist` 第 17 行 + `Glance.xcodeproj/project.pbxproj` `PROVISIONING_PROFILE_SPECIFIER` 字段) — 验证: `grep -c "__APP_STORE_PROFILE_NAME_PLACEHOLDER__" 两文件 = 0` 命中
+- [x] (2026-06-25 / `<待回填>`) **其他**: `make release-appstore` 端到端跑通(军哥 22:27 跑) — 出 `dist/export-appstore/Glance.pkg` (3.4M / Marketing 2.3.0 / Build b98f947-d.0625-2227) + pkgutil 签名链 3 段验证 (3rd Party Mac Developer Installer → WWDR CA → Apple Root CA) + post-export quarantine xattr 干净
 
 ### Mac App Store 任务 5 GitHub Pages 隐私政策 — 2 项 2026-06-25
 

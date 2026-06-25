@@ -15,7 +15,7 @@
 	<key>provisioningProfiles</key>
 	<dict>
 		<key>com.sunhongjun.glance</key>
-		<string>__APP_STORE_PROFILE_NAME_PLACEHOLDER__</string>
+		<string>Glance App Store</string>
 	</dict>
 	<key>uploadSymbols</key>
 	<false/>
