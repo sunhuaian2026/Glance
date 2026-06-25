@@ -221,11 +221,14 @@ final class DuplicateOverviewModel: ObservableObject {
 
     // MARK: - V2 浮层 (design v2 §6; 任务 D 实装真实 UI)
 
-    /// 打开逐组审阅浮层 — 收集 needsReview && !reviewed && !skipped 的组, init queue + index = 0.
-    /// 任务 C 实装 needsReview 算法后 queue 才有真实数据; 目前 needsReview 暂返回 false.
+    /// 打开逐组审阅浮层 — 收集所有 !skipped 的组作为 queue, init index = 0.
+    /// D1 (2026-06-25 军哥拍板): "逐组审阅"作统一入口, 不再 filter needsReview.
+    /// SHA256 invariant 下 2 张组也允许审阅, 给用户"一个一个看"的能力;
+    /// "建议你确认 N 组" badge 仍保留作 priority 指示(汇总条).
+    /// reviewed 组也允许审阅 (用户可能想回看已审过的组).
     func openFocusReview() {
         let queue = groups
-            .filter { needsReview(group: $0) && !isReviewed(groupId: $0.id) && !isSkipped(groupId: $0.id) }
+            .filter { !isSkipped(groupId: $0.id) }
             .map { $0.id }
         focusReviewQueue = queue
         focusReviewIndex = 0
@@ -350,6 +353,12 @@ final class DuplicateOverviewModel: ObservableObject {
 
     /// 废纸篓按钮是否可用 (design v2 §2.1).
     var trashEnabled: Bool { pendingTrashCount > 0 }
+
+    /// 逐组审阅可用组数 — 跟 openFocusReview() queue 同步, 不含跳过组.
+    /// D1 (2026-06-25): 不再 filter needsReview, 所有未跳过组都允许审阅.
+    var pendingGroupCount: Int {
+        groups.filter { !isSkipped(groupId: $0.id) }.count
+    }
 
     // MARK: - V2 SHA256 invariant 计算 (design v2 §2.1, D-dedup-14)
 

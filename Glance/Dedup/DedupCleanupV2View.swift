@@ -175,8 +175,10 @@ struct DedupCleanupV2View: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(DS.Dedup.warnColor)
-        .disabled(model.reviewCount == 0 || isTrashingNow)
-        .opacity((model.reviewCount == 0 || isTrashingNow) ? 0.5 : 1.0)
+        // D1 (2026-06-25): 不再依赖 reviewCount, 只在 trashing 期间 disable.
+        // queue = 所有未跳过组, 让用户能逐组眼审任何场景 (含 2 张组).
+        .disabled(model.pendingGroupCount == 0 || isTrashingNow)
+        .opacity((model.pendingGroupCount == 0 || isTrashingNow) ? 0.5 : 1.0)
     }
 
     private var isTrashingNow: Bool {
