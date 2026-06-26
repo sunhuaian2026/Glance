@@ -22,6 +22,18 @@
 
 ## Pending
 
+### Mac App Store 上架 — ICP + App 备案(2026-06-26 暂停档,等齐 35-45 日历日)
+
+> 详见 `specs/v2/2026-06-25-mac-app-store-implementation-plan.md` Section 11 暂停档。备案齐 → 恢复 ASC 后台填表流程。
+
+- [ ] (2026-06-26 / `<pending>`) **其他**: 阿里云搜可备案 `.cn` 域名(候选 `glance.cn` / `glance-app.cn` / `yiyan-app.cn` / `hongjun.cn` 等) → 购买(~30-50 元/年)
+- [ ] (2026-06-26 / `<pending>`) **其他**: 域名实名认证(身份证 + 阿里云后台,1-2 天)
+- [ ] (2026-06-26 / `<pending>`) **其他**: 阿里云轻量服务器购买(最便宜版,~60-80 元/年,只为备案占资源)
+- [ ] (2026-06-26 / `<pending>`) **其他**: 域名 DNS 解析到轻量服务器(挂个最小站点即可,内容可同 GitHub Pages 隐私政策)
+- [ ] (2026-06-26 / `<pending>`) **其他**: 阿里云后台申请**网站 ICP 备案**(个人备案 → 填资料 → 工信部审,15-25 天) → 拿网站 ICP 备案号(沪 ICP 备 XXXXX 号)
+- [ ] (2026-06-26 / `<pending>`) **其他**: 用 ICP 号申请 **App 备案**(基于上面 ICP 号 → 提交 App 资料: 名称「一眼 Glance」/ Bundle ID `com.sunhongjun.glance` / 包签名 MD5(找 CC 算)/ App 类别「实用工具」/ 用途说明 / 主体身份)→ 7-15 天 → 拿 App 备案号(沪 ICP 备 XXXXX 号-1A)
+- [ ] (2026-06-26 / `<pending>`) **其他**: 备案到手 → ping CC → 一并恢复 ASC 后台填表(Info.plist 加密 key + ICP 号 + 隐私 URL + 联系信息 + 价格销售范围 + 任务 6 截图 + 任务 7 上传 build),详见 plan Section 11.4
+
 ### Mac App Store 上架 — 任务 5 GitHub Pages 隐私政策(2026-06-25 / `752d26d`)
 
 - [ ] (2026-06-25 / `752d26d`) **其他**: 军哥本机 `open docs/privacy.html` 浏览器渲染验 — 中英 14 段全显示(7 中 + 7 英) / 暗色模式跟亮色都正常 / mailto/小红书/GitHub 三个链接可点 / 字体不糊
