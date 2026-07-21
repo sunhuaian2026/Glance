@@ -1021,17 +1021,18 @@ D5.4: 手动 release, 等任务 8 双轨上架 + 小红书发推时机协调好�
 - 发布方式确认为「手动发布此版本」。
 - 初始价格设为免费（全球价格均为 0）。
 - 供应范围设为全部 175 个国家或地区，包含中国大陆；该步骤未触发 ICP 校验。
+- Build `20260721151220` 已通过 Transporter 交付和 Apple 处理，并关联到 macOS `2.3.0` 版本记录。
 
 ### 12.2 CC 技术步骤
 
 - [x] `Glance/Info.plist` 增加 `ITSAppUsesNonExemptEncryption = NO`，声明 App 不使用非豁免加密，避免 Build 每次重复回答出口合规问题。
 - [x] 不签名 `xcodebuild` 编译通过，确认本次 Info.plist 变更及当前源码可编译（2026-07-21）。
 - [x] `./scripts/verify.sh` 三段验证通过；因 Codex 后台进程受 macOS 安全会话隔离，最终由军哥在本机终端执行验证（2026-07-21）。
-- [x] `make release-appstore` 重新出包。首包 Build `3550659-d.0721-1501` 被 Transporter 以 `-19239` 拒绝；修复后新包 Build `20260721151220`，已验证纯数字格式、Installer 签名、`ITSAppUsesNonExemptEncryption = false`、App Sandbox 权利和 `PrivacyInfo.xcprivacy` 均正确，待 Transporter 重新交付（2026-07-21）。
+- [x] `make release-appstore` 重新出包。首包 Build `3550659-d.0721-1501` 被 Transporter 以 `-19239` 拒绝；修复后新包 Build `20260721151220`，已验证纯数字格式、Installer 签名、`ITSAppUsesNonExemptEncryption = false`、App Sandbox 权利和 `PrivacyInfo.xcprivacy`，并已成功交付、处理、关联版本（2026-07-21）。
+- [x] 从现有实机截图生成 3 张 `2880×1800` App Store 上传版，保存在 `assets/appstore-screenshots/`；内容覆盖重复清理、逐组审阅和全库搜索（2026-07-21）。
 
 ### 12.3 后续顺序
 
-1. 用最终 App Store 构建准备并上传 7 张合规尺寸截图。
-2. 上传最终 `.pkg`，等待 Apple 处理后关联到 macOS `2.3.0`。
-3. 清零 ASC 必填项，点击 Add for Review → Submit for Review。
-4. 若提交阶段要求 ICP，保留当前全球供应设置并等待阿里云备案完成；否则直接进入审核。
+1. 上传 `assets/appstore-screenshots/` 的 3 张合规截图，并填写推广文本。
+2. 保存后点击 Add for Review → Submit for Review。
+3. 若提交阶段要求 ICP，保留当前全球供应设置并等待阿里云备案完成；否则直接进入审核。
