@@ -1027,7 +1027,7 @@ D5.4: 手动 release, 等任务 8 双轨上架 + 小红书发推时机协调好�
 - [x] `Glance/Info.plist` 增加 `ITSAppUsesNonExemptEncryption = NO`，声明 App 不使用非豁免加密，避免 Build 每次重复回答出口合规问题。
 - [x] 不签名 `xcodebuild` 编译通过，确认本次 Info.plist 变更及当前源码可编译（2026-07-21）。
 - [x] `./scripts/verify.sh` 三段验证通过；因 Codex 后台进程受 macOS 安全会话隔离，最终由军哥在本机终端执行验证（2026-07-21）。
-- [x] `make release-appstore` 重新出包；`Glance.pkg` 为 3.4 MB，版本 `2.3.0`，Build `3550659-d.0721-1501`。已验证 Installer 签名、`ITSAppUsesNonExemptEncryption = false`、App Sandbox 权利和 `PrivacyInfo.xcprivacy` 均正确（2026-07-21）。
+- [x] `make release-appstore` 重新出包。首包 Build `3550659-d.0721-1501` 被 Transporter 以 `-19239` 拒绝；修复后新包 Build `20260721151220`，已验证纯数字格式、Installer 签名、`ITSAppUsesNonExemptEncryption = false`、App Sandbox 权利和 `PrivacyInfo.xcprivacy` 均正确，待 Transporter 重新交付（2026-07-21）。
 
 ### 12.3 后续顺序
 

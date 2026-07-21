@@ -29,15 +29,16 @@ TEAM_ID="8KW8Z92GRA"
 BUNDLE_ID="com.sunhongjun.glance"
 SIGN_IDENTITY="Apple Distribution"
 
-# 跟 release.sh 同 marketing version + build version 注入逻辑
+# 跟 release.sh 同 marketing version；App Store build 必须是 1–3 段纯数字，
+# 不能复用站外包的 Git hash / dirty 标记。时间戳保证每次上传递增。
 MARKETING_VERSION="2.3.0"
-COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
-DIRTY=""
-if ! git diff --quiet HEAD -- Glance/ Makefile scripts/ 2>/dev/null; then
-    DIRTY="-d"
+BUILD_VERSION=$(date +%Y%m%d%H%M%S)
+
+if ! [[ "${BUILD_VERSION}" =~ ^[0-9]+([.][0-9]+){0,2}$ ]]; then
+    echo "❌ App Store build number 非法: ${BUILD_VERSION}"
+    echo "   CFBundleVersion 必须由 1–3 段纯整数组成"
+    exit 1
 fi
-STAMP=$(date +%m%d-%H%M)
-BUILD_VERSION="${COMMIT}${DIRTY}.${STAMP}"
 
 COPYRIGHT="© 2026 孙红军 · 16414766@qq.com · 小红书 382336617"
 
@@ -118,6 +119,22 @@ if [[ ! -d "${ARCHIVE_PATH}" ]]; then
     exit 1
 fi
 echo "  ✓ Archive: ${ARCHIVE_PATH}"
+
+# Transporter 对最终归档的 CFBundleVersion 做同一规则校验；在导出 .pkg 前拦截，
+# 防止构建参数被 Xcode 配置覆盖后直到上传才暴露。
+ARCHIVE_INFO_PLIST="${ARCHIVE_PATH}/Products/Applications/Glance.app/Contents/Info.plist"
+ARCHIVED_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "${ARCHIVE_INFO_PLIST}")
+if ! [[ "${ARCHIVED_BUILD_VERSION}" =~ ^[0-9]+([.][0-9]+){0,2}$ ]]; then
+    echo "❌ Archive 内 CFBundleVersion 非法: ${ARCHIVED_BUILD_VERSION}"
+    exit 1
+fi
+if [[ "${ARCHIVED_BUILD_VERSION}" != "${BUILD_VERSION}" ]]; then
+    echo "❌ Archive build number 与本次生成值不一致"
+    echo "   期望: ${BUILD_VERSION}"
+    echo "   实际: ${ARCHIVED_BUILD_VERSION}"
+    exit 1
+fi
+echo "  ✓ CFBundleVersion: ${ARCHIVED_BUILD_VERSION}"
 
 # ============== Step 2: Export Archive → .pkg ==============
 echo ""
