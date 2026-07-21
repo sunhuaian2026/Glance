@@ -1006,3 +1006,32 @@ D5.4: 手动 release, 等任务 8 双轨上架 + 小红书发推时机协调好�
 ### 11.5 ICP + App 备案 sub-task
 
 详细步骤已加入 `specs/PENDING-USER-ACTIONS.md` 的「Mac App Store 上架 — ICP + App 备案(2026-06-26)」段,军哥按那边清单走。CC 备战:备案到手后帮算 `.pkg` 签名 MD5(随时 ping)。
+
+---
+
+## 12. 2026-07-21 恢复推进状态
+
+军哥决定改为两条路径并行：**App Store Connect 先将 ICP 备案号留空尝试提交，阿里云 App 备案继续作为兜底**。Apple 当前文档使用「部分 App」口径，未明确要求所有 macOS App 提供 ICP；Glance 为零网络、无后台服务的离线工具，因此先以 ASC 实际提交校验为准。若提交阶段明确阻塞，再等待备案结果，不虚构后台域名。
+
+### 12.1 ASC 已完成
+
+- macOS 版本记录 `1.0` 已修正为 `2.3.0`，与待上传 Build 的 `CFBundleShortVersionString` 对齐。
+- 隐私政策 URL 已发布；Privacy Nutrition Labels 保持「未收集数据」。
+- 审核联系人、审核备注已填写；不需要登录；附件和 App 沙盒信息留空。
+- 发布方式确认为「手动发布此版本」。
+- 初始价格设为免费（全球价格均为 0）。
+- 供应范围设为全部 175 个国家或地区，包含中国大陆；该步骤未触发 ICP 校验。
+
+### 12.2 CC 技术步骤
+
+- [x] `Glance/Info.plist` 增加 `ITSAppUsesNonExemptEncryption = NO`，声明 App 不使用非豁免加密，避免 Build 每次重复回答出口合规问题。
+- [x] 不签名 `xcodebuild` 编译通过，确认本次 Info.plist 变更及当前源码可编译（2026-07-21）。
+- [x] `./scripts/verify.sh` 三段验证通过；因 Codex 后台进程受 macOS 安全会话隔离，最终由军哥在本机终端执行验证（2026-07-21）。
+- [x] `make release-appstore` 重新出包；`Glance.pkg` 为 3.4 MB，版本 `2.3.0`，Build `3550659-d.0721-1501`。已验证 Installer 签名、`ITSAppUsesNonExemptEncryption = false`、App Sandbox 权利和 `PrivacyInfo.xcprivacy` 均正确（2026-07-21）。
+
+### 12.3 后续顺序
+
+1. 用最终 App Store 构建准备并上传 7 张合规尺寸截图。
+2. 上传最终 `.pkg`，等待 Apple 处理后关联到 macOS `2.3.0`。
+3. 清零 ASC 必填项，点击 Add for Review → Submit for Review。
+4. 若提交阶段要求 ICP，保留当前全球供应设置并等待阿里云备案完成；否则直接进入审核。
