@@ -22,10 +22,10 @@
 
 ## Pending
 
-### Mac App Store 上架 — 最终提交（2026-07-21 / `<pending>`）
+### Mac App Store 上架 — 最终提交（2026-07-21 / `f7d2053`）
 
-- [ ] (2026-07-21 / `<pending>`) **其他**: 在 macOS `2.3.0` 页面依次上传 `assets/appstore-screenshots/01-dedup.png`、`02-focus-review.png`、`03-search.png`，确认三张均被 ASC 接受并显示预览。
-- [ ] (2026-07-21 / `<pending>`) **其他**: 保存版本页面后点击「添加以供审核」，检查所有提交项无红色缺失；若出现 ICP 或其他合规拦截，截图保留原始错误信息。
+- [ ] (2026-07-21 / `f7d2053`) **其他**: 在 macOS `2.3.0` 页面依次上传 `assets/appstore-screenshots/01-dedup.png`、`02-focus-review.png`、`03-search.png`，确认三张均被 ASC 接受并显示预览。
+- [ ] (2026-07-21 / `f7d2053`) **其他**: 保存版本页面后点击「添加以供审核」，检查所有提交项无红色缺失；若出现 ICP 或其他合规拦截，截图保留原始错误信息。
 
 ### Mac App Store 上架 — ICP + App 备案(2026-06-26 暂停档,等齐 35-45 日历日)
 
